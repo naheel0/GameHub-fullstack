@@ -14,12 +14,11 @@ export default function AdminOrders() {
   const [filteredOrders, setFilteredOrders] = useState([]);
 
 useEffect(() => {
-  // Initialize filteredOrders when orders load
   setFilteredOrders(orders);
 }, [orders]);
 const handleSearch = (query) => {
   if (!query) {
-    setFilteredOrders(orders); // reset to all orders
+    setFilteredOrders(orders); 
   } else {
     const lowerQuery = query.toLowerCase();
     const filtered = orders.filter(
@@ -28,7 +27,7 @@ const handleSearch = (query) => {
         order.email.toLowerCase().includes(lowerQuery)
     );
     setFilteredOrders(filtered);
-    setCurrentPage(1); // reset to first page
+    setCurrentPage(1); 
   }
 };
 

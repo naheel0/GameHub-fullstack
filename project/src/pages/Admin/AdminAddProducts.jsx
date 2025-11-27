@@ -299,7 +299,6 @@ export default function AdminAddProducts({ onClose, editingProduct }) {
                 <button
                   type="button"
                   onClick={() => {
-                    // Focus on this input for editing
                     const input = document.querySelector(`input[value="${image}"]`);
                     input?.focus();
                   }}

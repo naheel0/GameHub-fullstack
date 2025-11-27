@@ -10,7 +10,7 @@ export default function SearchBar({ placeholder = "Search...", onSearch = () => 
     if (!onSearch) return;
 
     if (value.trim() === "") {
-      onSearch(""); // reset filter
+      onSearch(""); 
       return;
     }
 

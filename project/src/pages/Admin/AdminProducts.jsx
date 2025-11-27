@@ -1,8 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
 import { useAdmin } from "./contexts/AdminContext";
-import { Edit3, Plus, Trash2, X, Filter } from "lucide-react";
-// eslint-disable-next-line no-unused-vars
-import { motion } from "framer-motion";
+import { Edit3, Plus, Trash2, X } from "lucide-react";
 import AdminAddProducts from "./AdminAddProducts";
 import { ChevronLeftIcon, ChevronRightIcon } from "@heroicons/react/24/outline";
 import SearchBar from "./components/SearchBar";
@@ -30,7 +28,6 @@ export default function AdminProducts() {
 
     const term = searchTerm.toLowerCase();
 
-    // Search filter
     if (searchTerm) {
       filtered = filtered.filter(
         (product) =>
@@ -39,7 +36,6 @@ export default function AdminProducts() {
           product.price?.toString().includes(term)
       );
 
-      // Sort: matches that start with term come first
       filtered.sort((a, b) => {
         const aStarts =
           a.name?.toLowerCase().startsWith(term) ||
@@ -57,12 +53,10 @@ export default function AdminProducts() {
       });
     }
 
-    // Category filter
     if (categoryFilter) {
       filtered = filtered.filter((product) => product.genre === categoryFilter);
     }
 
-    // Stock filter
     if (stockFilter) {
       filtered = filtered.filter((product) =>
         stockFilter === "in-stock" ? product.inStock : !product.inStock

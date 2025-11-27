@@ -568,19 +568,8 @@
       "phone": "",
       "password": "123456",
       "role": "admin",
-      "wishlist": [
-        "14",
-        "11"
-      ],
-      "cart": [
-        {
-          "id": "cart_1763218480083_3i1b7sgu7",
-          "gameId": "11",
-          "quantity": 1,
-          "addedAt": "2025-11-15T14:54:40.083Z",
-          "updatedAt": "2025-11-15T14:54:40.083Z"
-        }
-      ],
+      "wishlist": [],
+      "cart": [],
       "purchaseHistory": [],
       "addresses": [],
       "createdAt": "2025-11-14T05:31:13.818Z",

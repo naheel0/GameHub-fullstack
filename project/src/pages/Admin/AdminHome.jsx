@@ -18,7 +18,6 @@ import { Package, Users, ShoppingCart, TrendingUp } from "lucide-react";
 
 export default function AdminHome() {
   const { products, users, orders } = useAdmin();
-  // Stats Cards Data
   const stats = [
     {
       title: "Total Products",
@@ -60,7 +59,6 @@ export default function AdminHome() {
     },
   ];
 
-  // Order Status Data for Pie Chart
   const orderStatusData = orders.reduce((acc, order) => {
     const status = order.status || "Pending";
     acc[status] = (acc[status] || 0) + 1;
