@@ -13,5 +13,7 @@ namespace GameHub.Domain.Entities
         public Role Role { get; set; } = Role.User;
         public AccountStatus AccountStatus { get; set; } = AccountStatus.Active;
         public List<RefreshToken> RefreshTokens { get; set; }
+        public List<CartItem> CartItems { get; set; } = new();
+        public List<WishlistItem> WishlistItems { get; set; } = new();
     }
 }
