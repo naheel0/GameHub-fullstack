@@ -19,6 +19,7 @@ namespace GameHub.Infrastructure
             services.AddScoped<ICurrentUserService, CurrentUserService>();
             // IHttpContextAccessor is registered in the Web project (Program.cs)
             services.AddScoped<IAuthService, AuthService>();
+            services.AddScoped<IGameService, GameService>();
             return services;
         }
     }
