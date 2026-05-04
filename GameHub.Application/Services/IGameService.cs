@@ -10,10 +10,9 @@ namespace GameHub.Application.Services
             string? platform = null,
             string? sortBy = null,
             bool ascending = true,
-            string? searth = null,
+            string? search = null,
             int page = 1,
             int pageSize = 10);
-        Task<GameDto> GetGameAsync(int id);
         Task<GameDto> GetByIdAsync(int id);
     }
 }

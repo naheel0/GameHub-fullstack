@@ -1,4 +1,5 @@
-﻿using GameHub.Application.Services;
+﻿using System;
+using GameHub.Application.Services;
 using Microsoft.AspNetCore.Mvc;
 
 namespace GameHubApi.Controllers
@@ -22,10 +23,16 @@ namespace GameHubApi.Controllers
            [FromQuery] int _page = 1,
            [FromQuery] int _limit = 10)
         {
+            int page = Math.Max(1, _page);
+            int limit = Math.Clamp(_limit, 1, 100);
             bool ascending = _order?.ToLower() != "desc";
-            var result = await _gameService.GetGameAsync(genre, platform, _sort, ascending, q, _page, _limit);
-            Response.Headers["X_Total_Count"] = result.TotalCount.ToString();
-            return Ok(result.Items);
+
+            var result = await _gameService.GetGameAsync(genre, platform, _sort, ascending, q, page, limit);
+
+            Response.Headers["X-Total-Count"] = result.TotalCount.ToString();
+
+            // Return full paged wrapper (Items + metadata) to make clients independent of headers
+            return Ok(result);
         }
         [HttpGet("{id}")]
         public async Task<IActionResult> GetById(int id)

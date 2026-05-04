@@ -26,13 +26,14 @@ builder.Services.AddControllers().AddJsonOptions(opts =>
 // 4. CORS
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("DefaultCors", policy =>
-    {
-        policy.WithOrigins("http://localhost:3000", "https://yourdomain.com")
-              .AllowAnyHeader()
-              .AllowAnyMethod()
-              .AllowCredentials();
-    });
+        options.AddPolicy("DefaultCors", policy =>
+        {
+            policy.WithOrigins("http://localhost:3000", "https://yourdomain.com")
+                  .AllowAnyHeader()
+                  .AllowAnyMethod()
+                  .WithExposedHeaders("X-Total-Count")
+                  .AllowCredentials();
+        });
 });
 
 // 5. Authentication � JWT Bearer

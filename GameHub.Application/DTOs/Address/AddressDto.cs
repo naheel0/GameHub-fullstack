@@ -2,7 +2,7 @@
 {
     public class AddressDto
     {
-        public Guid AddressId { get; set; }= Guid.NewGuid();
+        public Guid AddressId { get; set; }
         public string FullName { get; set; } = string.Empty;
         public string AddressLine1 { get; set; } = string.Empty;
         public string AddressLine2 { get; set; } = string.Empty;
@@ -11,6 +11,6 @@
         public string ZipCode { get; set; } = string.Empty;
         public string Country { get; set; } = string.Empty;
         public string Phone { get; set; } = string.Empty;
-        public bool IsDefault { get; set; } = true;
+        public bool IsDefault { get; set; } = false;
     }
 }

@@ -24,9 +24,15 @@ namespace GameHub.Infrastructure.Services
         {
             var query = _context.Games.AsNoTracking().Where(g => true);// placeholder for soft delete later
             if (!string.IsNullOrWhiteSpace(genre))
-                query = query.Where(g => g.Genre.ToLower() == genre.ToLower());
+            {
+                var gterm = genre.ToLower();
+                query = query.Where(g => g.Genre.ToLower().Contains(gterm));
+            }
             if (!string.IsNullOrWhiteSpace(platform))
-                query = query.Where(g => g.Platform.ToLower() == platform.ToLower());
+            {
+                var pterm = platform.ToLower();
+                query = query.Where(g => g.Platform.ToLower().Contains(pterm));
+            }
             if (!string.IsNullOrWhiteSpace(search))
             {
                 var term = search.ToLower();
@@ -39,9 +45,9 @@ namespace GameHub.Infrastructure.Services
                 ("price", false) => query.OrderByDescending(g => g.Price),
                 ("rating", true) => query.OrderBy(g => g.Rating),
                 ("rating", false) => query.OrderByDescending(g => g.Rating),
+                ("name", true) => query.OrderBy(g => g.Name),
                 ("name", false) => query.OrderByDescending(g => g.Name),
                 _ => query.OrderBy(g => g.Name)
-
             };
             var totalCount = await query.CountAsync();
             var item = await query.Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();

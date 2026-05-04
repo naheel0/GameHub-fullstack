@@ -17,28 +17,33 @@ public class OrderService : IOrderService
 
     public async Task<OrderDto> PlaceOrderAsync(int userId, PlaceOrderRequest request)
     {
-        // Fetch user (needed for cart)
-        var user = await _context.Users.FindAsync(userId)
+        _ = await _context.Users.FindAsync(userId)
             ?? throw new KeyNotFoundException("User not found");
 
-        // Fetch the address from the new Addresses table
+        var cartItems = await _context.CartItems
+            .Where(ci => ci.UserId == userId)
+            .ToListAsync();
+
+        if (!cartItems.Any())
+            throw new BusinessRuleException("Cart is empty");
+
         var address = await _context.Address
             .FirstOrDefaultAsync(a => a.AddressId == request.AddressId && a.UserId == userId)
             ?? throw new KeyNotFoundException("Address not found or does not belong to user");
 
-        if (!user.CartItems.Any())
-            throw new BusinessRuleException("Cart is empty");
+        
+        var gameIds = cartItems.Select(ci => ci.GameId).Distinct();
+        var games = await _context.Games
+            .Where(g => gameIds.Contains(g.Id))
+            .ToDictionaryAsync(g => g.Id);
 
-        // Validate stock for all cart items
-        foreach (var cartItem in user.CartItems)
+        foreach (var cartItem in cartItems)
         {
-            var game = await _context.Games.FindAsync(cartItem.GameId);
-            if (game == null || !game.InStock)
+            if (!games.TryGetValue(cartItem.GameId, out var game) || !game.InStock)
                 throw new BusinessRuleException($"Game '{cartItem.GameName}' is no longer available");
         }
 
-        // Calculate totals (10% tax)
-        decimal subtotal = user.CartItems.Sum(ci => ci.Price * ci.Quantity);
+        decimal subtotal = cartItems.Sum(ci => ci.Price * ci.Quantity);
         decimal tax = Math.Round(subtotal * 0.1m, 2);
         decimal total = subtotal + tax;
 
@@ -50,7 +55,6 @@ public class OrderService : IOrderService
             SubTotal = subtotal,
             Tax = tax,
             Total = total,
-            // Snapshotted address
             ShippingAddress = new PurchaseShippingAddress
             {
                 FullName = address.FullName,
@@ -64,8 +68,7 @@ public class OrderService : IOrderService
             }
         };
 
-        // Build order items from cart
-        purchase.Items = user.CartItems.Select(ci => new OrderItem
+        purchase.Items = cartItems.Select(ci => new OrderItem
         {
             GameId = ci.GameId,
             GameName = ci.GameName,
@@ -74,7 +77,7 @@ public class OrderService : IOrderService
         }).ToList();
 
         _context.Purchases.Add(purchase);
-        user.CartItems.Clear();   // clear cart after order
+        _context.CartItems.RemoveRange(cartItems);   
 
         await _context.SaveChangeAsync();
 
@@ -86,6 +89,7 @@ public class OrderService : IOrderService
         var orders = await _context.Purchases
             .Where(p => p.UserId == userId)
             .Include(p => p.Items)
+            .Include(p => p.ShippingAddress)          
             .AsNoTracking()
             .OrderByDescending(p => p.OrderDate)
             .ToListAsync();
@@ -97,10 +101,11 @@ public class OrderService : IOrderService
     {
         var order = await _context.Purchases
             .Include(p => p.Items)
+            .Include(p => p.ShippingAddress)          
             .AsNoTracking()
             .FirstOrDefaultAsync(p => p.UserId == userId && p.OrderId == orderId);
 
-        return order != null ? MapOrderToDto(order) : null;
+        return order is not null ? MapOrderToDto(order) : null;
     }
 
     private static OrderDto MapOrderToDto(Purchase p) => new()

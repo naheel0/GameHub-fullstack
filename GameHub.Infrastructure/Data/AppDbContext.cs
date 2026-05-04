@@ -13,6 +13,8 @@ namespace GameHub.Infrastructure.Data
         public DbSet<Game> Games { get; set; }
         public DbSet<Address> Address { get; set; }
         public DbSet<Purchase> Purchases { get; set; }
+        public DbSet<CartItem> CartItems { get; set; }
+        public DbSet<WishlistItem> WishlistItems { get; set; }
         public DbSet<OrderItem> OrderItems { get; set; }
         public DbSet<BlacklistedToken> BlacklistedTokens { get; set; }
         protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -37,32 +39,6 @@ namespace GameHub.Infrastructure.Data
                 entity.Property(u => u.LastName).HasMaxLength(50);
                 entity.Property(u => u.Phone).HasMaxLength(15);
                 entity.Property(u => u.PasswordHash).IsRequired();
-
-                // Cart as a JSON column
-                entity.OwnsMany(
-                    u => u.CartItems,
-                    cart =>
-                    {
-                        cart.ToJson("Cart");            // column name in Users table
-                        cart.Property(c => c.GameId).IsRequired();
-                        cart.Property(c => c.GameName).HasMaxLength(200);
-                        cart.Property(c => c.Image)
-                            .HasConversion(
-                                v => System.Text.Json.JsonSerializer.Serialize(v, (System.Text.Json.JsonSerializerOptions?)null),
-                                v => System.Text.Json.JsonSerializer.Deserialize<List<string>>(v, (System.Text.Json.JsonSerializerOptions?)null) ?? new())
-                            .HasColumnType("nvarchar(max)")
-                            .Metadata.SetValueComparer(stringListComparer);
-                    });
-                // Wishlist as a JSON column
-                entity.OwnsMany(
-                    u => u.WishlistItems,
-                    wish =>
-                    {
-                        wish.ToJson("Wishlist");
-                        wish.Property(w => w.GameId).IsRequired();
-                        wish.Property(w => w.GameName).HasMaxLength(200);
-                        wish.Property(w => w.ImageUrl).HasMaxLength(500);
-                    });
             });
             //-----------GAMES--------------
             modelBuilder.Entity<Game>(entity =>
@@ -129,6 +105,39 @@ namespace GameHub.Infrastructure.Data
                     addr.Property(a => a.State).HasMaxLength(100);
                     addr.Property(a => a.ZipCode).HasMaxLength(10);
                     addr.Property(a => a.Phone).HasMaxLength(15);
+                });
+
+                // CartItem entity mapping (separate table)
+                modelBuilder.Entity<CartItem>(ci =>
+                {
+                    ci.ToTable("CartItems");
+                    ci.HasKey(c => c.Id);
+                    ci.Property(c => c.GameName).HasMaxLength(200);
+                    ci.Property(c => c.Image)
+                      .HasConversion(
+                          v => System.Text.Json.JsonSerializer.Serialize(v, (System.Text.Json.JsonSerializerOptions?)null),
+                          v => System.Text.Json.JsonSerializer.Deserialize<List<string>>(v, (System.Text.Json.JsonSerializerOptions?)null) ?? new())
+                      .HasColumnType("nvarchar(max)")
+                      .Metadata.SetValueComparer(stringListComparer);
+                    ci.Property(c => c.Price).HasColumnType("decimal(10,2)");
+                    ci.HasOne(c => c.User)
+                      .WithMany(u => u.CartItems)
+                      .HasForeignKey(c => c.UserId)
+                      .OnDelete(DeleteBehavior.Cascade);
+                });
+
+                // WishlistItem entity mapping (separate table)
+                modelBuilder.Entity<WishlistItem>(wi =>
+                {
+                    wi.ToTable("WishlistItems");
+                    wi.HasKey(w => w.Id);
+                    wi.Property(w => w.GameName).HasMaxLength(200);
+                    wi.Property(w => w.ImageUrl).HasMaxLength(500);
+                    wi.Property(w => w.Price).HasColumnType("decimal(10,2)");
+                    wi.HasOne(w => w.User)
+                      .WithMany(u => u.WishlistItems)
+                      .HasForeignKey(w => w.UserId)
+                      .OnDelete(DeleteBehavior.Cascade);
                 });
 
                 modelBuilder.Entity<BlacklistedToken>(entity =>

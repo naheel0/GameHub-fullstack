@@ -63,7 +63,7 @@ namespace GameHub.Infrastructure.Services
                 Country = request.Country,
                 Phone = request.Phone,
 
-                IsDefault = request.IsDefault || !hasAny
+                IsDefault = request.IsDefault
             };
 
             _context.Address.Add(address);
