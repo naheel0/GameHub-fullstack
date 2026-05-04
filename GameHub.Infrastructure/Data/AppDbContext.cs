@@ -2,9 +2,6 @@
 using GameHub.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
-using System.Linq;
-using System;
-using System.Collections.Generic;
 
 namespace GameHub.Infrastructure.Data
 {
@@ -14,9 +11,9 @@ namespace GameHub.Infrastructure.Data
         public DbSet<RefreshToken> RefreshTokens { get; set; }
         public DbSet<User> Users { get; set; }
         public DbSet<Game> Games { get; set; }
-        //public DbSet<Address> Address { get; set; }
-        //public DbSet<Purchase> Purchase { get; set; }
-        //public DbSet<PurchaseItem> PurchaseItems { get; set; }
+        public DbSet<Address> Address { get; set; }
+        public DbSet<Purchase> Purchases { get; set; }
+        public DbSet<OrderItem> OrderItems { get; set; }
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
 
@@ -74,7 +71,6 @@ namespace GameHub.Infrastructure.Data
                 entity.Property(g => g.Platform).HasMaxLength(100);
                 entity.Property(g => g.Price).HasColumnType("decimal(10,2)");
                 entity.Property(g => g.Trailer).HasMaxLength(500);
-                // ImageUrls will be a JSON column
                 entity.Property(g => g.Image)
                       .HasConversion(
                           v => System.Text.Json.JsonSerializer.Serialize(v, (System.Text.Json.JsonSerializerOptions?)null),
@@ -83,8 +79,56 @@ namespace GameHub.Infrastructure.Data
                       .Metadata.SetValueComparer(stringListComparer);
                 entity.Property(g => g.Rating).HasDefaultValue(0);
             });
+            modelBuilder.Entity<Address>(entity =>
+            {
+                entity.HasKey(a => a.AddressId);
 
-        }
+                entity.Property(a => a.FullName).HasMaxLength(100);
+                entity.Property(a => a.AddressLine1).HasMaxLength(100);
+                entity.Property(a => a.AddressLine2).HasMaxLength(100);
+                entity.Property(a => a.City).HasMaxLength(100);
+                entity.Property(a => a.State).HasMaxLength(100);
+                entity.Property(a => a.Country).HasMaxLength(100);
+                entity.Property(a => a.ZipCode).HasMaxLength(10);
+                entity.Property(a => a.Phone).HasMaxLength(15);
+
+                entity.HasOne(a => a.User)
+                      .WithMany(u => u.Addresses)
+                      .HasForeignKey(a => a.UserId)
+                      .OnDelete(DeleteBehavior.Cascade);
+            });
+            //-------------PURCHASE---------------
+            modelBuilder.Entity<Purchase>(entity =>
+            {
+                entity.ToTable("Purchases");
+                entity.HasKey(p => p.Id);
+                entity.Property(p => p.OrderId).HasMaxLength(20).IsRequired();
+                entity.Property(p => p.Status).HasMaxLength(20);
+                entity.Property(p => p.PaymentMethod).HasMaxLength(20);
+                entity.Property(p => p.SubTotal).HasColumnType("decimal(10,2)");
+                entity.Property(p => p.Tax).HasColumnType("decimal(10,2)");
+                entity.Property(p => p.Total).HasColumnType("decimal(10,2)");
+
+                entity.HasOne(p => p.user)
+          .WithMany(u => u.PurchaseHistory)
+          .HasForeignKey(p => p.UserId)
+          .OnDelete(DeleteBehavior.Cascade);
+
+                // Shipping address JSON column
+                entity.OwnsOne(p => p.ShippingAddress, addr =>
+                {
+                    addr.ToJson("ShippingAddress");
+                    addr.Property(a => a.FullName).HasMaxLength(100);
+                    addr.Property(a => a.Country).HasMaxLength(200);
+                    addr.Property(a => a.City).HasMaxLength(100);
+                    addr.Property(a => a.State).HasMaxLength(100);
+                    addr.Property(a => a.ZipCode).HasMaxLength(10);
+                    addr.Property(a => a.Phone).HasMaxLength(15);
+                });
+                });
+
+            }
+           
 
         public Task<int> SaveChangeAsync(CancellationToken cancellationToken = default)
         {

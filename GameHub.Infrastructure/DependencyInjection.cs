@@ -22,6 +22,8 @@ namespace GameHub.Infrastructure
             services.AddScoped<IGameService, GameService>();
             services.AddScoped<ICartService, CartService>();
             services.AddScoped<IWishlistService, WishlistService>();
+            services.AddScoped<IAddressService, AddressService>();
+            services.AddScoped<IOrderService, OrderService>();
             return services;
         }
     }

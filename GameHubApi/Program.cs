@@ -31,7 +31,7 @@ builder.Services.AddCors(options =>
     });
 });
 
-// 5. Authentication – JWT Bearer
+// 5. Authentication ï¿½ JWT Bearer
 builder.Services.AddAuthentication(options =>
 {
     options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -101,6 +101,8 @@ builder.Services.AddSwaggerGen(c =>
 var app = builder.Build();
 
 // 8. Pipeline
+app.UseMiddleware<GameHubApi.Middleware.ExceptionMiddleware>();
+
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
