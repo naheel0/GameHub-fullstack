@@ -77,7 +77,8 @@ namespace GameHubApi.Controllers
         public async Task<IActionResult> Logout()
         {
             var userId = int.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)!.Value);
-            await _authService.Logout(userId);
+            var jti = User.FindFirst(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Jti)?.Value;
+            await _authService.Logout(userId, jti);
             Response.Cookies.Delete("refreshToken");
             return Ok(new { message = "logged out" });
         }

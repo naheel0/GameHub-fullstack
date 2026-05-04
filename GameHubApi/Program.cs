@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Text;
+using System.Text.Json.Serialization;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -17,7 +18,10 @@ var jwtSettings = builder.Configuration.GetSection("JwtSettings");
 var secretKey = Encoding.UTF8.GetBytes(jwtSettings["SecretKey"]!);
 
 // 3. Controllers
-builder.Services.AddControllers();
+builder.Services.AddControllers().AddJsonOptions(opts =>
+{
+    opts.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+});
 
 // 4. CORS
 builder.Services.AddCors(options =>
@@ -60,6 +64,18 @@ builder.Services.AddAuthentication(options =>
                 context.Token = context.Request.Cookies["accessToken"];
             }
             return Task.CompletedTask;
+        },
+        OnTokenValidated = async context =>
+        {
+            var jti = context.Principal?.FindFirst(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Jti)?.Value;
+            if (string.IsNullOrEmpty(jti)) return;
+            var db = context.HttpContext.RequestServices.GetRequiredService<GameHub.Application.Common.interfaces.IApplicationDbContext>();
+            // check blacklist
+            var isBlacklisted = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.AnyAsync(db.BlacklistedTokens, b => b.Jti == jti);
+            if (isBlacklisted)
+            {
+                context.Fail("Token revoked");
+            }
         }
     };
 });

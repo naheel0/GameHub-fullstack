@@ -4,6 +4,7 @@ using GameHub.Application.DTOs.Address;
 using GameHub.Application.DTOs.Orders;
 using GameHub.Application.Services;
 using GameHub.Domain.Entities;
+using GameHub.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
 
 namespace GameHub.Infrastructure.Services;
@@ -45,7 +46,7 @@ public class OrderService : IOrderService
         {
             UserId = userId,
             PaymentMethod = request.PaymentMethod,
-            Status = "Placed",
+            Status = OrderStatus.Pending,
             SubTotal = subtotal,
             Tax = tax,
             Total = total,
@@ -127,7 +128,7 @@ public class OrderService : IOrderService
             Country = p.ShippingAddress.Country,
             Phone = p.ShippingAddress.Phone
         },
-        PaymentMethod = p.PaymentMethod,
-        Status = p.Status
+        PaymentMethod = p.PaymentMethod.ToString(),
+        Status = p.Status.ToString()
     };
 }

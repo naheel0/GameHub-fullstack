@@ -60,7 +60,6 @@ namespace GameHub.Infrastructure.Services
             if (user.AccountStatus == Domain.Enums.AccountStatus.Blocked)
                 return ApiResponse<AuthResponse>.Fail("Your account has Blocked", 403);
             var accessToken = _tokenService.GenerateAccessToken(user);
-            // Determine refresh token: use provided one if it is a string, otherwise generate a new one
             string refreshTokenString = newRefreshToken as string;
             if (string.IsNullOrEmpty(refreshTokenString))
             {
@@ -79,7 +78,7 @@ namespace GameHub.Infrastructure.Services
             var authResponse = MapToAuthResponse(user, accessToken, refreshTokenString);
             return ApiResponse<AuthResponse>.Ok(authResponse, "Login successful");
         }
-        public async Task Logout(int userId)
+        public async Task Logout(int userId, string? jti = null)
         {
             var tokens = await _context.RefreshTokens.Where(rt => rt.UserId == userId && !rt.Revoked).ToListAsync();
             if (tokens.Any())
@@ -88,8 +87,20 @@ namespace GameHub.Infrastructure.Services
                 {
                     t.Revoked = true;
                 }
-                await _context.SaveChangeAsync();
             }
+
+            if (!string.IsNullOrEmpty(jti))
+            {
+                // Blacklist the current access token
+                var blacklisted = new BlacklistedToken
+                {
+                    Jti = jti,
+                    Expires = DateTime.UtcNow.AddMinutes(30) // short default; actual token expiry is checked in Program.cs
+                };
+                _context.BlacklistedTokens.Add(blacklisted);
+            }
+
+            await _context.SaveChangeAsync();
         }
         public async Task<ApiResponse<AuthResponse>> GetProfileAsync(int userId)
         {

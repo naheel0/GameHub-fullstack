@@ -14,6 +14,7 @@ namespace GameHub.Infrastructure.Data
         public DbSet<Address> Address { get; set; }
         public DbSet<Purchase> Purchases { get; set; }
         public DbSet<OrderItem> OrderItems { get; set; }
+        public DbSet<BlacklistedToken> BlacklistedTokens { get; set; }
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
 
@@ -103,8 +104,12 @@ namespace GameHub.Infrastructure.Data
                 entity.ToTable("Purchases");
                 entity.HasKey(p => p.Id);
                 entity.Property(p => p.OrderId).HasMaxLength(20).IsRequired();
-                entity.Property(p => p.Status).HasMaxLength(20);
-                entity.Property(p => p.PaymentMethod).HasMaxLength(20);
+                entity.Property(p => p.Status)
+                    .HasConversion<string>()
+                    .HasMaxLength(20);
+                entity.Property(p => p.PaymentMethod)
+                    .HasConversion<string>()
+                    .HasMaxLength(20);
                 entity.Property(p => p.SubTotal).HasColumnType("decimal(10,2)");
                 entity.Property(p => p.Tax).HasColumnType("decimal(10,2)");
                 entity.Property(p => p.Total).HasColumnType("decimal(10,2)");
@@ -125,10 +130,17 @@ namespace GameHub.Infrastructure.Data
                     addr.Property(a => a.ZipCode).HasMaxLength(10);
                     addr.Property(a => a.Phone).HasMaxLength(15);
                 });
-                });
 
-            }
-           
+                modelBuilder.Entity<BlacklistedToken>(entity =>
+                {
+                    entity.HasKey(b => b.Id);
+                    entity.Property(b => b.Jti).IsRequired().HasMaxLength(200);
+                    entity.Property(b => b.Expires).IsRequired();
+                });
+            });
+
+        }
+
 
         public Task<int> SaveChangeAsync(CancellationToken cancellationToken = default)
         {

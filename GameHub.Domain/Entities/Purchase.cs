@@ -1,4 +1,5 @@
-﻿using System;
+﻿using GameHub.Domain.Enums;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -17,8 +18,8 @@ namespace GameHub.Domain.Entities
         public decimal SubTotal { get; set; }
         public decimal Tax {  get; set; }
         public decimal Total { get; set; }
-        public Address ShippingAddress { get; set; } = new();
-        public string PaymentMethod { get; set; }= string.Empty;
-        public string Status {  get; set; }= "placed";
+        public PurchaseShippingAddress ShippingAddress { get; set; } = new();
+        public PaymentMethod PaymentMethod { get; set; } = PaymentMethod.GooglePay;
+        public OrderStatus Status { get; set; } = OrderStatus.Pending;
     }
 }
