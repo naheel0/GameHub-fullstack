@@ -11,7 +11,7 @@ namespace GameHub.Api.Models
         public decimal Price { get; set; }
         public double Rating { get; set; }
         public bool InStock { get; set; }
-        public string? TrailerUrl { get; set; }
+        public IFormFile? TrailerFile { get; set; }
         public string Description { get; set; } = null!;
         public List<IFormFile>? ImageFiles { get; set; }
     }

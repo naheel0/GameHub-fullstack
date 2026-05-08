@@ -1,5 +1,6 @@
 ﻿using GameHub.Application.Common.Interfaces;
 using GameHub.Application.DTOs.Games;
+using GameHub.Api.Models;
 using GameHub.Application.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -23,7 +24,7 @@ namespace GameHub.Api.Controllers
 
         [HttpPost]
         [Consumes("multipart/form-data")]
-        public async Task<IActionResult> CreateGame([FromForm] Models.CreateGameFormModel model)
+        public async Task<IActionResult> CreateGame([FromForm] CreateGameFormModel model)
         {
             // Upload images
             List<string> imageUrls = new();
@@ -43,7 +44,18 @@ namespace GameHub.Api.Controllers
                 }
             }
 
-            string trailer = model.TrailerUrl ?? "";
+            string trailer = "";
+            if (model.TrailerFile != null)
+            {
+                try
+                {
+                    trailer = await _storage.UploadVideoAsync(model.TrailerFile);
+                }
+                catch (Exception ex)
+                {
+                    return StatusCode(502, new { error = "Trailer upload failed", message = ex.Message });
+                }
+            }
 
             var request = new CreateGameRequest
             {
@@ -64,7 +76,7 @@ namespace GameHub.Api.Controllers
 
         [HttpPut("{id}")]
         [Consumes("multipart/form-data")]
-        public async Task<IActionResult> UpdateGame(int id, [FromForm] Models.CreateGameFormModel model)
+        public async Task<IActionResult> UpdateGame(int id, [FromForm] CreateGameFormModel model)
         {
             List<string> imageUrls = new();
             if (model.ImageFiles != null)
@@ -83,7 +95,18 @@ namespace GameHub.Api.Controllers
                 }
             }
 
-            string trailer = model.TrailerUrl ?? "";
+            string trailer = "";
+            if (model.TrailerFile != null)
+            {
+                try
+                {
+                    trailer = await _storage.UploadVideoAsync(model.TrailerFile);
+                }
+                catch (Exception ex)
+                {
+                    return StatusCode(502, new { error = "Trailer upload failed", message = ex.Message });
+                }
+            }
 
             var request = new UpdateGameRequest
             {
