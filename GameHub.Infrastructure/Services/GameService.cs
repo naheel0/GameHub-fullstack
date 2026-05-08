@@ -1,7 +1,10 @@
-﻿using GameHub.Application.Common.interfaces;
+﻿using GameHub.Application.Common.Exceptions;
+using GameHub.Application.Common.interfaces;
 using GameHub.Application.Common.Models;
 using GameHub.Application.DTOs.Games;
 using GameHub.Application.Services;
+using GameHub.Domain.Entities;
+using GameHub.Infrastructure.Extensions;
 using Microsoft.EntityFrameworkCore;
 
 namespace GameHub.Infrastructure.Services
@@ -13,45 +16,19 @@ namespace GameHub.Infrastructure.Services
         {
             _context = context;
         }
-        public async Task<PagedResult<GameDto>> GetGameAsync(
-            string? genre = null,
-            string? platform = null,
-            string? sortBy = null,
-            bool ascending = true,
-            string? search = null,
-            int page = 1,
-            int pageSize = 10)
+        public async Task<PagedResult<GameDto>> GetGameAsync(QueryParameters options)
         {
-            var query = _context.Games.AsNoTracking().Where(g => true);// placeholder for soft delete later
-            if (!string.IsNullOrWhiteSpace(genre))
-            {
-                var gterm = genre.ToLower();
-                query = query.Where(g => g.Genre.ToLower().Contains(gterm));
-            }
-            if (!string.IsNullOrWhiteSpace(platform))
-            {
-                var pterm = platform.ToLower();
-                query = query.Where(g => g.Platform.ToLower().Contains(pterm));
-            }
-            if (!string.IsNullOrWhiteSpace(search))
-            {
-                var term = search.ToLower();
-                query = query.Where(g => g.Name.ToLower().Contains(term) || g.Description.ToLower().Contains(term));
-            }
-            //-----------SORTING-------------
-            query = (sortBy?.ToLower(), ascending) switch
-            {
-                ("price", true) => query.OrderBy(g => g.Price),
-                ("price", false) => query.OrderByDescending(g => g.Price),
-                ("rating", true) => query.OrderBy(g => g.Rating),
-                ("rating", false) => query.OrderByDescending(g => g.Rating),
-                ("name", true) => query.OrderBy(g => g.Name),
-                ("name", false) => query.OrderByDescending(g => g.Name),
-                _ => query.OrderBy(g => g.Name)
-            };
+            options ??= new QueryParameters();
+            options.Page = Math.Max(1, options.Page);
+            options.PageSize = Math.Clamp(options.PageSize, 1, 100);
+
+            var query = _context.Games.AsNoTracking().Where(g => true);
+            query = query.ApplyQueryParameters(options);
+
             var totalCount = await query.CountAsync();
-            var item = await query.Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
-            var dtos = item.Select(g => new GameDto
+            var items = await query.Skip(options.Skip).Take(options.PageSize).ToListAsync();
+
+            var dtos = items.Select(g => new GameDto
             {
                 Id = g.Id,
                 Name = g.Name,
@@ -64,19 +41,42 @@ namespace GameHub.Infrastructure.Services
                 ImageUrls = g.Image,
                 Description = g.Description,
             }).ToList();
+
             return new PagedResult<GameDto>
             {
                 Items = dtos,
                 TotalCount = totalCount,
-                Page = page,
-                PageSize = pageSize,
+                Page = options.Page,
+                PageSize = options.PageSize,
             };
+        }
+
+        public Task<PagedResult<GameDto>> GetGameAsync(
+            string? genre = null,
+            string? platform = null,
+            string? sortBy = null,
+            bool ascending = true,
+            string? search = null,
+            int page = 1,
+            int pageSize = 10)
+        {
+            var options = new QueryParameters
+            {
+                Genre = genre,
+                Platform = platform,
+                SortBy = sortBy,
+                SortOrder = ascending ? "asc" : "desc",
+                Search = search,
+                Page = page,
+                PageSize = pageSize
+            };
+            return GetGameAsync(options);
         }
         public async Task<GameDto> GetGameAsync(int id)
         {
             var game = await _context.Games.AsNoTracking().FirstOrDefaultAsync(g => g.Id == id);
             if (game == null)
-                throw new KeyNotFoundException($"Game with id {id} not found.");
+                throw new NotFoundException($"Game with id {id} not found.", "GameNotFoundById", id);
 
             return new GameDto
             {
@@ -96,5 +96,60 @@ namespace GameHub.Infrastructure.Services
         {
             return GetGameAsync(id);
         }
+        //-----------------------------------ADMIN------------------------------------//
+        public async Task<GameDto> CreateGameAsync(CreateGameRequest request)
+        {
+            var game = new Game
+            {
+                Name = request.Name,
+                Genre = request.Genre,
+                Platform = request.Platform,
+                Price = request.Price,
+                Rating = (decimal)request.Rating,
+                InStock = request.InStock,
+                Trailer = request.Trailer,
+                Image = request.Image,
+                Description = request.Description
+            };
+            _context.Games.Add(game);
+            await _context.SaveChangeAsync();
+            return MapToDto(game);
+        }
+        public async Task<GameDto> UpdateGameAsync(int id, UpdateGameRequest request)
+        {
+            var game = await _context.Games.FindAsync(id)
+                ?? throw new NotFoundException("Game not found");
+            game.Name = request.Name;
+            game.Genre = request.Genre;
+            game.Platform = request.Platform;
+            game.InStock = request.InStock;
+            game.Price = request.Price;
+            game.Trailer = request.Trailer;
+            game.Image = request.Image;
+            game.Description = request.Description;
+            await _context.SaveChangeAsync();
+            return MapToDto(game);
+        }
+        public async Task<GameDto> DeleteGameAsync(int id)
+        {
+            var game = await _context.Games.FindAsync(id)
+                ?? throw new NotFoundException("Game not found");
+            _context.Games.Remove(game);
+            await _context.SaveChangeAsync();
+            return MapToDto(game);
+        }
+        private static GameDto MapToDto(Game g) => new()
+        {
+            Id = g.Id,
+            Name = g.Name,
+            Genre = g.Genre,
+            Platform = g.Platform,
+            Price = g.Price,
+            Rating = (double)g.Rating,
+            InStock = g.InStock,
+            TrailerUrl = g.Trailer,
+            ImageUrls = g.Image,
+            Description = g.Description
+        };
     }
 }

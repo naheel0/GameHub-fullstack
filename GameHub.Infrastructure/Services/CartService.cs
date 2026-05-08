@@ -35,10 +35,10 @@ namespace GameHub.Infrastructure.Services
         public async Task AddToCartAsync(int userId, int gameId, int quantity)
         {
             var game = await _context.Games.FindAsync(gameId)
-                       ?? throw new KeyNotFoundException("Game not found");
+                       ?? throw new NotFoundException("Game not found", "GameNotFound");
 
             if (!game.InStock)
-                throw new BusinessRuleException("Game is out of stock");
+                throw new BusinessRuleException("Game is out of stock", "GameOutOfStock");
 
             var existingItem = await _context.CartItems
                 .FirstOrDefaultAsync(c => c.UserId == userId && c.GameId == gameId);
@@ -62,10 +62,10 @@ namespace GameHub.Infrastructure.Services
                 throw new BusinessRuleException("Quantity must be at least 1");  
 
             var game = await _context.Games.FindAsync(gameId)
-                       ?? throw new KeyNotFoundException("Game not found");
+                       ?? throw new NotFoundException("Game not found", "GameNotFound");
 
             if (!game.InStock)
-                throw new BusinessRuleException("Game is currently out of stock");
+                throw new BusinessRuleException("Game is currently out of stock", "GameOutOfStock");
 
             var existingItem = await _context.CartItems
                 .FirstOrDefaultAsync(c => c.UserId == userId && c.GameId == gameId);

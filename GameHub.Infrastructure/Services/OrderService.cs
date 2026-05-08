@@ -18,7 +18,7 @@ public class OrderService : IOrderService
     public async Task<OrderDto> PlaceOrderAsync(int userId, PlaceOrderRequest request)
     {
         _ = await _context.Users.FindAsync(userId)
-            ?? throw new KeyNotFoundException("User not found");
+            ?? throw new NotFoundException("User not found", "UserNotFound");
 
         var cartItems = await _context.CartItems
             .Where(ci => ci.UserId == userId)
@@ -29,7 +29,7 @@ public class OrderService : IOrderService
 
         var address = await _context.Address
             .FirstOrDefaultAsync(a => a.AddressId == request.AddressId && a.UserId == userId)
-            ?? throw new KeyNotFoundException("Address not found or does not belong to user");
+            ?? throw new NotFoundException("Address not found or does not belong to user", "AddressNotFoundOrDoesNotBelong");
 
         
         var gameIds = cartItems.Select(ci => ci.GameId).Distinct();
@@ -39,8 +39,8 @@ public class OrderService : IOrderService
 
         foreach (var cartItem in cartItems)
         {
-            if (!games.TryGetValue(cartItem.GameId, out var game) || !game.InStock)
-                throw new BusinessRuleException($"Game '{cartItem.GameName}' is no longer available");
+                if (!games.TryGetValue(cartItem.GameId, out var game) || !game.InStock)
+                    throw new BusinessRuleException($"Game '{cartItem.GameName}' is no longer available", "GameNoLongerAvailable", cartItem.GameName);
         }
 
         decimal subtotal = cartItems.Sum(ci => ci.Price * ci.Quantity);

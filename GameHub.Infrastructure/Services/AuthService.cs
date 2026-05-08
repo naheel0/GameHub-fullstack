@@ -95,7 +95,7 @@ namespace GameHub.Infrastructure.Services
                 var blacklisted = new BlacklistedToken
                 {
                     Jti = jti,
-                    Expires = DateTime.UtcNow.AddMinutes(30) // short default; actual token expiry is checked in Program.cs
+                    Expires = DateTime.UtcNow.AddMinutes(30) 
                 };
                 _context.BlacklistedTokens.Add(blacklisted);
             }

@@ -107,7 +107,7 @@ namespace GameHub.Infrastructure.Data
                     addr.Property(a => a.Phone).HasMaxLength(15);
                 });
 
-                // CartItem entity mapping (separate table)
+                // ----------CART----------------
                 modelBuilder.Entity<CartItem>(ci =>
                 {
                     ci.ToTable("CartItems");
@@ -126,7 +126,7 @@ namespace GameHub.Infrastructure.Data
                       .OnDelete(DeleteBehavior.Cascade);
                 });
 
-                // WishlistItem entity mapping (separate table)
+                // ------------WISHLIST-------------
                 modelBuilder.Entity<WishlistItem>(wi =>
                 {
                     wi.ToTable("WishlistItems");

@@ -5,6 +5,7 @@ namespace GameHub.Application.Services
 {
     public interface IGameService
     {
+        Task<PagedResult<GameDto>> GetGameAsync(GameHub.Application.Common.Models.QueryParameters options);
         Task<PagedResult<GameDto>> GetGameAsync(
             string? genre = null,
             string? platform = null,
@@ -14,5 +15,9 @@ namespace GameHub.Application.Services
             int page = 1,
             int pageSize = 10);
         Task<GameDto> GetByIdAsync(int id);
+        //----------ADMIN------------------
+        Task<GameDto> CreateGameAsync(CreateGameRequest request);
+        Task<GameDto> UpdateGameAsync( int id, UpdateGameRequest request );
+        Task<GameDto> DeleteGameAsync(int id);
     }
 }

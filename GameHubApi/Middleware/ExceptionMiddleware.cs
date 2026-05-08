@@ -1,5 +1,6 @@
 using System.Text.Json;
 using GameHub.Application.Common.Exceptions;
+using System.Resources;
 
 namespace GameHubApi.Middleware;
 
@@ -25,16 +26,49 @@ public class ExceptionMiddleware
             _logger.LogError(ex, "Unhandled exception");
             context.Response.ContentType = "application/json";
 
-            var (status, message) = ex switch
+            string message;
+            int status;
+
+            if (ex is GameHub.Application.Common.Exceptions.NotFoundException nfEx)
             {
-                KeyNotFoundException _ => (StatusCodes.Status404NotFound, ex.Message),
-                BusinessRuleException _ => (StatusCodes.Status400BadRequest, ex.Message),
-                _ => (StatusCodes.Status500InternalServerError, "An unexpected error occurred")
-            };
+                status = StatusCodes.Status404NotFound;
+                message = ResolveMessage(nfEx.Message, nfEx.ResourceKey, nfEx.ResourceArgs);
+            }
+            else if (ex is BusinessRuleException brEx)
+            {
+                status = StatusCodes.Status400BadRequest;
+                message = ResolveMessage(brEx.Message, brEx.ResourceKey, brEx.ResourceArgs);
+            }
+            else if (ex is KeyNotFoundException)
+            {
+                status = StatusCodes.Status404NotFound;
+                message = ex.Message;
+            }
+            else
+            {
+                status = StatusCodes.Status500InternalServerError;
+                message = "An unexpected error occurred";
+            }
 
             context.Response.StatusCode = status;
             var payload = JsonSerializer.Serialize(new { error = message });
             await context.Response.WriteAsync(payload);
+
+            string ResolveMessage(string fallback, string? resourceKey, object[]? args)
+            {
+                if (string.IsNullOrWhiteSpace(resourceKey)) return fallback;
+                try
+                {
+                    var rm = new ResourceManager("GameHub.Application.Resources.ExceptionMessages", typeof(GameHub.Application.Common.Exceptions.BusinessRuleException).Assembly);
+                    var res = rm.GetString(resourceKey);
+                    if (string.IsNullOrEmpty(res)) return fallback;
+                    return args != null && args.Length > 0 ? string.Format(res, args) : res;
+                }
+                catch
+                {
+                    return fallback;
+                }
+            }
         }
     }
 }

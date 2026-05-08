@@ -1,4 +1,4 @@
-﻿using System;
+﻿using GameHub.Application.Common.Models;
 using GameHub.Application.Services;
 using Microsoft.AspNetCore.Mvc;
 
@@ -9,30 +9,33 @@ namespace GameHubApi.Controllers
     public class GamesController : ControllerBase
     {
         private readonly IGameService _gameService;
-        public GamesController(IGameService gameService)
+        private readonly GameHub.Application.Queries.GetGames.IGetGamesQueryHandler _getGamesHandler;
+
+        public GamesController(IGameService gameService, GameHub.Application.Queries.GetGames.IGetGamesQueryHandler getGamesHandler)
         {
             _gameService = gameService;
+            _getGamesHandler = getGamesHandler;
         }
         [HttpGet]
-        public async Task<IActionResult> GetGames(
-           [FromQuery] string? genre,
-           [FromQuery] string? platform,
-           [FromQuery] string? _sort,
-           [FromQuery] string? _order,
-           [FromQuery] string? q,
-           [FromQuery] int _page = 1,
-           [FromQuery] int _limit = 10)
+        public async Task<IActionResult> GetGames([FromQuery] QueryParameters query)
         {
-            int page = Math.Max(1, _page);
-            int limit = Math.Clamp(_limit, 1, 100);
-            bool ascending = _order?.ToLower() != "desc";
+            var qParams = query ?? new QueryParameters();
 
-            var result = await _gameService.GetGameAsync(genre, platform, _sort, ascending, q, page, limit);
+            // Map underscored keys that don't map automatically to properties
+            if (Request.Query.TryGetValue("_sort", out var s)) qParams.SortBy = s;
+            if (Request.Query.TryGetValue("_order", out var o)) qParams.SortOrder = o;
+            if (Request.Query.TryGetValue("q", out var qq)) qParams.Search = qq;
+            if (Request.Query.TryGetValue("_page", out var p) && int.TryParse(p, out var pi)) qParams.Page = pi;
+            if (Request.Query.TryGetValue("_limit", out var l) && int.TryParse(l, out var li)) qParams.PageSize = li;
 
-            Response.Headers["X-Total-Count"] = result.TotalCount.ToString();
+            qParams.Page = Math.Max(1, qParams.Page);
+            qParams.PageSize = Math.Clamp(qParams.PageSize, 1, 100);
 
-            // Return full paged wrapper (Items + metadata) to make clients independent of headers
-            return Ok(result);
+            var response = await _getGamesHandler.HandleAsync(qParams);
+
+            Response.Headers["X-Total-Count"] = response.Data?.TotalCount.ToString() ?? "0";
+
+            return StatusCode(response.StatusCode, response);
         }
         [HttpGet("{id}")]
         public async Task<IActionResult> GetById(int id)

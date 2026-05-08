@@ -2,7 +2,6 @@
 using GameHub.Application.DTOs.Orders;
 using GameHub.Application.Services;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
 namespace GameHubApi.Controllers
@@ -21,7 +20,7 @@ namespace GameHubApi.Controllers
             _currentUserService = currentUserService;
         }
         [HttpPost]
-        public async  Task<IActionResult> PlaceOrder([FromBody] PlaceOrderRequest request)
+        public async Task<IActionResult> PlaceOrder([FromBody] PlaceOrderRequest request)
         {
             var order = await _orderService.PlaceOrderAsync(_currentUserService.UserId!.Value, request);
             return Ok(order);
@@ -36,7 +35,7 @@ namespace GameHubApi.Controllers
         public async Task<IActionResult> GetOrdersById(Guid orderId)
         {
             var order = await _orderService.GetOrderByIdAsync(_currentUserService.UserId!.Value, orderId);
-            if(order == null) return NotFound(new {message="Order not found"});
+            if (order == null) return NotFound(new { message = "Order not found" });
             return Ok(order);
         }
     }

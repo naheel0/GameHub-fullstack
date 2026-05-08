@@ -1,4 +1,5 @@
 ﻿using GameHub.Application.Common.interfaces;
+using GameHub.Application.Common.Interfaces;
 using GameHub.Application.Services;
 using GameHub.Infrastructure.Data;
 using GameHub.Infrastructure.Services;
@@ -24,6 +25,8 @@ namespace GameHub.Infrastructure
             services.AddScoped<IWishlistService, WishlistService>();
             services.AddScoped<IAddressService, AddressService>();
             services.AddScoped<IOrderService, OrderService>();
+            services.AddScoped<IAdminService, AdminService>();
+            services.AddScoped<IFileStorageService, CloudinaryStorageService>();
             return services;
         }
     }

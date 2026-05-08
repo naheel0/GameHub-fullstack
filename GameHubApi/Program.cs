@@ -1,5 +1,7 @@
 using GameHub.Application;
 using GameHub.Infrastructure;
+using FluentValidation;
+using FluentValidation.AspNetCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
@@ -22,6 +24,10 @@ builder.Services.AddControllers().AddJsonOptions(opts =>
 {
     opts.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
 });
+
+// 3.1 FluentValidation (for QueryParameters)
+builder.Services.AddFluentValidationAutoValidation();
+builder.Services.AddValidatorsFromAssemblyContaining<GameHub.Application.Validators.QueryParametersValidator>();
 
 // 4. CORS
 builder.Services.AddCors(options =>
@@ -114,6 +120,9 @@ builder.Services.AddSwaggerGen(c =>
     };
     c.AddSecurityRequirement(securityRequirement);
 });
+
+// Register application query handlers
+builder.Services.AddScoped<GameHub.Application.Queries.GetGames.IGetGamesQueryHandler, GameHub.Application.Queries.GetGames.GetGamesQueryHandler>();
 
 var app = builder.Build();
 

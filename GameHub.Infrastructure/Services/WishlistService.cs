@@ -34,7 +34,7 @@ namespace GameHub.Infrastructure.Services
         public async Task AddToWishlistAsync(int userId, int gameId)
         {
             var game = await _context.Games.FindAsync(gameId)
-                       ?? throw new KeyNotFoundException("Game not found");
+                       ?? throw new NotFoundException("Game not found", "GameNotFound");
 
             var alreadyExists = await _context.WishlistItems
                 .AnyAsync(w => w.UserId == userId && w.GameId == gameId);
@@ -70,13 +70,13 @@ namespace GameHub.Infrastructure.Services
         {
             var wishItem = await _context.WishlistItems
                 .FirstOrDefaultAsync(w => w.UserId == userId && w.GameId == gameId)
-                ?? throw new KeyNotFoundException("Item not found in wishlist");
+                ?? throw new NotFoundException("Item not found in wishlist", "ItemNotFoundInWishlist");
 
             var game = await _context.Games.FindAsync(gameId)
-                       ?? throw new KeyNotFoundException("Game not found");
+                       ?? throw new NotFoundException("Game not found", "GameNotFound");
 
             if (!game.InStock)
-                throw new BusinessRuleException("Game is out of stock");
+                throw new BusinessRuleException("Game is out of stock", "GameOutOfStock");
 
             var cartItem = await _context.CartItems
                 .FirstOrDefaultAsync(c => c.UserId == userId && c.GameId == gameId);
