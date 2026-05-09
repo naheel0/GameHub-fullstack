@@ -1,4 +1,5 @@
-﻿using GameHub.Domain.Enums;
+﻿using System;
+using GameHub.Domain.Enums;
 
 namespace GameHub.Domain.Entities
 {
@@ -12,6 +13,7 @@ namespace GameHub.Domain.Entities
         public string PasswordHash { get; set; } = string.Empty;
         public Role Role { get; set; } = Role.User;
         public AccountStatus AccountStatus { get; set; } = AccountStatus.Active;
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public List<RefreshToken> RefreshTokens { get; set; }
         public List<CartItem> CartItems { get; set; } = new();
         public List<WishlistItem> WishlistItems { get; set; } = new();
