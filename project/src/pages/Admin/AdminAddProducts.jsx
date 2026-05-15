@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useAdmin } from "./contexts/AdminContext";
 // eslint-disable-next-line no-unused-vars
 import { motion } from 'framer-motion';
@@ -15,11 +15,14 @@ export default function AdminAddProducts({ onClose, editingProduct }) {
     rating: 4.0,
     inStock: true,
     trailer: "",
-    images: [""],
+    images: [],
     description: ""
   });
+  const [imageFiles, setImageFiles] = useState([]);
+  const [trailerFile, setTrailerFile] = useState(null);
 
-  const [newImage, setNewImage] = useState("");
+  const imageInputRef = useRef(null);
+  const trailerInputRef = useRef(null);
 
   useEffect(() => {
     if (editingProduct) {
@@ -28,9 +31,11 @@ export default function AdminAddProducts({ onClose, editingProduct }) {
         price: editingProduct.price || "",
         rating: editingProduct.rating || 4.0,
         inStock: editingProduct.inStock !== undefined ? editingProduct.inStock : true,
-        images: editingProduct.images || [""],
+        images: editingProduct.images || [],
         trailer: editingProduct.trailer || ""
       });
+      setImageFiles([]);
+      setTrailerFile(null);
     }
   }, [editingProduct]);
 
@@ -42,41 +47,83 @@ export default function AdminAddProducts({ onClose, editingProduct }) {
     }));
   };
 
-  const handleAddImage = () => {
-    if (newImage.trim()) {
-      setFormData(prev => ({
-        ...prev,
-        images: [...prev.images, newImage.trim()]
-      }));
-      setNewImage("");
-    }
+  const handleImageFilesChange = (event) => {
+    const files = Array.from(event.target.files || []);
+    if (!files.length) return;
+
+    const mapped = files.map((file) => ({
+      file,
+      preview: URL.createObjectURL(file)
+    }));
+
+    setImageFiles((prev) => [...prev, ...mapped]);
+    event.target.value = "";
   };
 
-  const handleRemoveImage = (index) => {
-    setFormData(prev => ({
+  const handleRemoveExistingImage = (index) => {
+    setFormData((prev) => ({
       ...prev,
       images: prev.images.filter((_, i) => i !== index)
     }));
   };
 
-  const handleImageChange = (index, value) => {
-    const updatedImages = [...formData.images];
-    updatedImages[index] = value;
-    setFormData(prev => ({
-      ...prev,
-      images: updatedImages
-    }));
+  const handleRemoveNewImage = (index) => {
+    setImageFiles((prev) => {
+      const next = [...prev];
+      const removed = next.splice(index, 1)[0];
+      if (removed?.preview) {
+        URL.revokeObjectURL(removed.preview);
+      }
+      return next;
+    });
+  };
+
+  const handleTrailerChange = (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (trailerFile?.preview) {
+      URL.revokeObjectURL(trailerFile.preview);
+    }
+
+    setTrailerFile({
+      file,
+      preview: URL.createObjectURL(file)
+    });
+    event.target.value = "";
+  };
+
+  const clearTrailerFile = () => {
+    if (trailerFile?.preview) {
+      URL.revokeObjectURL(trailerFile.preview);
+    }
+    setTrailerFile(null);
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    const hasImages = formData.images.length > 0 || imageFiles.length > 0;
+    const hasTrailer = Boolean(formData.trailer) || Boolean(trailerFile);
+
+    if (!hasImages) {
+      window.alert("Please add at least one product image.");
+      return;
+    }
+
+    if (!hasTrailer) {
+      window.alert("Please add a trailer file.");
+      return;
+    }
 
     const productData = {
       ...formData,
       price: parseFloat(formData.price),
       rating: parseFloat(formData.rating),
       inStock: formData.inStock,
-      images: formData.images.filter(img => img.trim() !== "")
+      images: (formData.images || []).filter(Boolean),
+      imageFiles: imageFiles.map((item) => item.file),
+      trailerFile: trailerFile?.file || null
     };
 
     if (editingProduct) {
@@ -237,21 +284,33 @@ export default function AdminAddProducts({ onClose, editingProduct }) {
             </div>
           </div>
 
-          {/* Trailer URL */}
+          {/* Trailer File Upload */}
           <div className="space-y-2">
             <label className="flex items-center gap-2 text-sm font-semibold text-gray-300">
               <Video className="w-4 h-4 text-red-400" />
-              YouTube Trailer URL *
+              Trailer File *
             </label>
+
             <input
-              type="url"
-              name="trailer"
-              placeholder="https://www.youtube.com/embed/VIDEO_ID"
-              value={formData.trailer}
-              onChange={handleChange}
-              className="w-full p-3.5 rounded-xl bg-gray-800/50 border border-gray-700 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-red-500/50 focus:border-red-500 transition-all duration-200"
-              required
+              ref={trailerInputRef}
+              type="file"
+              accept="video/*"
+              onChange={handleTrailerChange}
+              className="hidden"
             />
+
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => trailerInputRef.current?.click()}
+                className="px-4 py-3 bg-red-600 hover:bg-red-500 rounded-xl transition-all duration-200 hover:scale-105 active:scale-95 font-medium flex items-center gap-2"
+              >
+                <Plus className="w-4 h-4" />
+                Upload Trailer
+              </button>
+
+              <div className="text-sm text-gray-400">Accepted: MP4, WEBM, MOV</div>
+            </div>
           </div>
 
           {/* Description */}
@@ -271,125 +330,104 @@ export default function AdminAddProducts({ onClose, editingProduct }) {
             />
           </div>
 
-          {/* Images Section */}
+          {/* Images Section (file inputs) */}
           <div className="space-y-3">
             <label className="flex items-center gap-2 text-sm font-semibold text-gray-300">
               <Image className="w-4 h-4 text-yellow-400" />
               Product Images *
             </label>
-            
-            {/* Existing Images */}
-            {formData.images.map((image, index) => (
-              <div key={index} className="flex items-center gap-3">
-                <input
-                  type="url"
-                  placeholder="https://example.com/image.jpg"
-                  value={image}
-                  onChange={(e) => handleImageChange(index, e.target.value)}
-                  className="flex-1 p-3.5 rounded-xl bg-gray-800/50 border border-gray-700 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-yellow-500/50 focus:border-yellow-500 transition-all duration-200"
-                />
-                <button
-                  type="button"
-                  onClick={() => handleRemoveImage(index)}
-                  className="p-3 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-xl transition-all duration-200 hover:scale-110"
-                  title="Remove image"
-                >
-                  <Trash2 className="w-5 h-5" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const input = document.querySelector(`input[value="${image}"]`);
-                    input?.focus();
-                  }}
-                  className="p-3 text-blue-400 hover:text-blue-300 hover:bg-blue-500/10 rounded-xl transition-all duration-200 hover:scale-110"
-                  title="Edit image URL"
-                >
-                  <Edit3 className="w-5 h-5" />
-                </button>
-              </div>
-            ))}
 
-            {/* Add New Image */}
             <div className="flex items-center gap-3">
               <input
-                type="url"
-                placeholder="Add new image URL..."
-                value={newImage}
-                onChange={(e) => setNewImage(e.target.value)}
-                className="flex-1 p-3.5 rounded-xl bg-gray-800/50 border border-gray-700 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-yellow-500/50 focus:border-yellow-500 transition-all duration-200"
+                ref={imageInputRef}
+                type="file"
+                accept="image/*"
+                multiple
+                onChange={handleImageFilesChange}
+                className="hidden"
               />
+
               <button
                 type="button"
-                onClick={handleAddImage}
-                className="p-3 bg-green-600 hover:bg-green-500 rounded-xl transition-all duration-200 hover:scale-105 active:scale-95 flex items-center gap-2"
-                title="Add image"
+                onClick={() => imageInputRef.current?.click()}
+                className="px-4 py-3 bg-red-600 hover:bg-red-500 rounded-xl transition-all duration-200 hover:scale-105 active:scale-95 font-medium flex items-center gap-2"
               >
-                <Plus className="w-5 h-5" />
-                <span className="text-sm font-medium">Add</span>
+                <Plus className="w-4 h-4" />
+                Upload Images
               </button>
-            </div>
-          </div>
 
-          {/* Image Previews */}
-          {formData.images.some(img => img.trim() !== "") && (
+              <div className="text-sm text-gray-400">You can upload multiple images. Existing URLs remain shown below.</div>
+            </div>
+
+            {/* Previews for existing URL images and newly selected files */}
             <div className="space-y-3">
               <label className="flex items-center gap-2 text-sm font-semibold text-gray-300">
                 <Image className="w-4 h-4 text-yellow-400" />
                 Image Previews
               </label>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                {formData.images.filter(img => img.trim() !== "").map((image, index) => (
-                  <div key={index} className="relative group group">
+                {formData.images.map((image, index) => (
+                  <div key={`existing-${index}`} className="relative group">
                     <img
                       src={image}
                       alt={`Preview ${index + 1}`}
                       className="w-full h-20 object-cover rounded-xl border-2 border-gray-700 group-hover:border-yellow-500 transition-all duration-200"
-                      onError={(e) => {
-                        e.target.src = 'https://via.placeholder.com/150?text=Image+Error';
-                      }}
+                      onError={(e) => { e.target.src = 'https://via.placeholder.com/150?text=Image+Error'; }}
                     />
                     <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity duration-200 rounded-xl flex items-center justify-center gap-2">
                       <button
                         type="button"
-                        onClick={() => handleRemoveImage(index)}
+                        onClick={() => handleRemoveExistingImage(index)}
                         className="p-1.5 bg-red-500/80 hover:bg-red-500 rounded-lg transition-all duration-200"
                         title="Remove image"
                       >
                         <Trash2 className="w-3 h-3" />
                       </button>
+                    </div>
+                  </div>
+                ))}
+
+                {imageFiles.map((img, index) => (
+                  <div key={`new-${index}`} className="relative group">
+                    <img
+                      src={img.preview}
+                      alt={`New ${index + 1}`}
+                      className="w-full h-20 object-cover rounded-xl border-2 border-gray-700 group-hover:border-yellow-500 transition-all duration-200"
+                    />
+                    <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity duration-200 rounded-xl flex items-center justify-center gap-2">
                       <button
                         type="button"
-                        onClick={() => {
-                          const input = document.querySelectorAll('input[type="url"]')[index];
-                          input?.focus();
-                        }}
-                        className="p-1.5 bg-blue-500/80 hover:bg-blue-500 rounded-lg transition-all duration-200"
-                        title="Edit image URL"
+                        onClick={() => handleRemoveNewImage(index)}
+                        className="p-1.5 bg-red-500/80 hover:bg-red-500 rounded-lg transition-all duration-200"
+                        title="Remove image"
                       >
-                        <Edit3 className="w-3 h-3" />
+                        <Trash2 className="w-3 h-3" />
                       </button>
                     </div>
                   </div>
                 ))}
               </div>
             </div>
-          )}
+          </div>
 
           {/* Trailer Preview */}
-          {formData.trailer && (
+          {(formData.trailer || trailerFile) && (
             <div className="space-y-3">
               <label className="flex items-center gap-2 text-sm font-semibold text-gray-300">
                 <Video className="w-4 h-4 text-red-400" />
                 Trailer Preview
               </label>
               <div className="aspect-video bg-gray-800/50 rounded-xl border border-gray-700 overflow-hidden shadow-lg">
-                <iframe
-                  src={formData.trailer}
-                  title="Trailer Preview"
-                  className="w-full h-full"
-                  allowFullScreen
-                />
+                {trailerFile ? (
+                  <video src={trailerFile.preview} controls className="w-full h-full" />
+                ) : (
+                  <iframe
+                    src={formData.trailer}
+                    title="Trailer Preview"
+                    className="w-full h-full"
+                    allowFullScreen
+                  />
+                )}
               </div>
             </div>
           )}

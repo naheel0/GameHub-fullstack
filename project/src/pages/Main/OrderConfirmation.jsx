@@ -119,6 +119,24 @@ const OrderConfirmation = () => {
     }
   };
 
+  const formatPaymentMethod = (method) => {
+    const normalized = (method || '').toLowerCase();
+    switch (normalized) {
+      case 'creditdebitcard':
+        return 'Credit/Debit Card';
+      case 'paypal':
+        return 'PayPal';
+      case 'applepay':
+        return 'Apple Pay';
+      case 'googlepay':
+        return 'Google Pay';
+      case 'card':
+        return 'Card';
+      default:
+        return method || 'Card';
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-linear-to-br from-green-900 via-gray-900 to-black py-8">
@@ -155,6 +173,7 @@ const OrderConfirmation = () => {
   const orderDate = order.date || new Date().toISOString();
   const orderStatus = order.status || 'completed';
   const paymentMethod = order.paymentMethod || 'card';
+  const paymentMethodLabel = formatPaymentMethod(paymentMethod);
   const orderSummary = order.summary || { subtotal: '0.00', tax: '0.00', total: '0.00' };
   const orderItems = order.items || [];
 
@@ -263,7 +282,7 @@ const OrderConfirmation = () => {
                       <span className="ml-2">Payment Method</span>
                     </span>
                     <span className="text-white font-semibold capitalize">
-                      {paymentMethod}
+                      {paymentMethodLabel}
                     </span>
                   </div>
                   <div className="flex justify-between items-center p-3 bg-gray-700/30 rounded-lg">

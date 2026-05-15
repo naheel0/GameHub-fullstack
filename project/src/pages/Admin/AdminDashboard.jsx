@@ -2,15 +2,17 @@ import { Menu, X } from "lucide-react";
 import { useState } from "react";
 import { NavLink, useNavigate, Outlet } from "react-router-dom";
 import { FiLogOut } from "react-icons/fi";
+import { useAuth } from "../../contexts/AuthContext";
 
 export default function AdminDashboard() {
   const [isOpen, setIsOpen] = useState(false);
   const navigate = useNavigate();
+  const { logout } = useAuth();
 
   const toggleSidebar = () => setIsOpen(!isOpen);
 
   const handleLogout = () => {
-    localStorage.removeItem("loggedInUser");
+    logout();
     navigate("/login");
   };
 

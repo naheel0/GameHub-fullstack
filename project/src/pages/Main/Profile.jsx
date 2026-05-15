@@ -21,7 +21,7 @@ import {
   ShoppingBagIcon as ShoppingBagSolid,
   HeartIcon as HeartSolid
 } from '@heroicons/react/24/solid';
-import { BaseUrl } from '../../Services/api';
+import { BaseUrl, buildAuthHeaders, normalizeGame } from '../../Services/api';
 
 const Profile = () => {
   const { user, updateUser } = useAuth();
@@ -40,8 +40,11 @@ const Profile = () => {
   const [orderHistory, setOrderHistory] = useState([]);
   const [ordersLoading, setOrdersLoading] = useState(true);
   const [orderCount, setOrderCount] = useState(0);
+  const [addresses, setAddresses] = useState([]);
+  const [addressesLoading, setAddressesLoading] = useState(false);
 
-  const API_BASE = BaseUrl ;
+  const API_BASE = BaseUrl;
+  const token = user?.accessToken;
 
   const formatRupees = useCallback((amount) => {
     if (!amount) return '₹0';
@@ -57,86 +60,90 @@ const Profile = () => {
   }, []);
 
   const fetchOrderCount = useCallback(async () => {
-    if (!user) return;
+    if (!user || !token) return;
 
     try {
-      const userResponse = await fetch(`${API_BASE}/users/${user.id}`);
-      if (!userResponse.ok) {
-        throw new Error('Failed to fetch user data');
+      const response = await fetch(`${API_BASE}/orders`, {
+        headers: {
+          ...buildAuthHeaders(token),
+        },
+        credentials: 'include',
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch orders');
       }
-      
-      const userData = await userResponse.json();
-      const purchaseHistory = userData.purchaseHistory || [];
-      setOrderCount(purchaseHistory.length);
+
+      const orders = await response.json();
+      setOrderCount((orders || []).length);
     } catch (error) {
       console.error('Error fetching order count:', error);
       setOrderCount(0);
     }
-  }, [user, API_BASE]);
+  }, [API_BASE, token, user]);
 
   const fetchOrderHistory = useCallback(async () => {
-    if (!user) return;
+    if (!user || !token) return;
 
     try {
       setOrdersLoading(true);
-      
-      const userResponse = await fetch(`${API_BASE}/users/${user.id}`);
-      if (!userResponse.ok) {
-        throw new Error('Failed to fetch user data');
-      }
-      
-      const userData = await userResponse.json();
-      const purchaseHistory = userData.purchaseHistory || [];
-      
-      setOrderCount(purchaseHistory.length);
+      const response = await fetch(`${API_BASE}/orders`, {
+        headers: {
+          ...buildAuthHeaders(token),
+        },
+        credentials: 'include',
+      });
 
-      if (purchaseHistory.length === 0) {
+      if (!response.ok) {
+        throw new Error('Failed to fetch orders');
+      }
+
+      const orders = await response.json();
+      setOrderCount((orders || []).length);
+
+      if (!orders || orders.length === 0) {
         setOrderHistory([]);
         setOrdersLoading(false);
         return;
       }
 
-      const gamesResponse = await fetch(`${API_BASE}/games`);
+      const gamesResponse = await fetch(`${API_BASE}/games?pageSize=100`);
       if (!gamesResponse.ok) {
         throw new Error('Failed to fetch games data');
       }
-      
-      const allGames = await gamesResponse.json();
 
-      const enhancedOrders = await Promise.all(
-        purchaseHistory.map(async (order) => {
-          const enhancedItems = await Promise.all(
-            (order.items || []).map(async (item) => {
-              const game = allGames.find(g => g.id === item.gameId || g.id === item.id);
-              
-              if (game) {
-                return {
-                  ...item,
-                  name: game.name,
-                  price: game.price,
-                  image: game.images?.[0] || '/images/placeholder-game.jpg',
-                  genre: game.genre,
-                  platform: game.platform
-                };
-              }
-              
-              return {
-                ...item,
-                image: item.image || '/images/placeholder-game.jpg',
-                name: item.name || 'Unknown Game',
-                price: item.price || 0,
-                genre: item.genre || '',
-                platform: item.platform || ''
-              };
-            })
-          );
+      const gamesPayload = await gamesResponse.json();
+      const gameItems = gamesPayload?.data?.items || gamesPayload?.items || gamesPayload || [];
+      const allGames = (gameItems || []).map(normalizeGame).filter(Boolean);
+
+      const enhancedOrders = (orders || []).map((order) => {
+        const enhancedItems = (order.items || []).map((item) => {
+          const game = allGames.find((g) => g.id === item.gameId);
 
           return {
-            ...order,
-            items: enhancedItems
+            ...item,
+            name: item.gameName || item.name || game?.name || 'Unknown Game',
+            price: item.price || game?.price || 0,
+            quantity: item.quantity || 1,
+            image: game?.images?.[0] || '/images/placeholder-game.jpg',
+            genre: game?.genre || '',
+            platform: game?.platform || '',
           };
-        })
-      );
+        });
+
+        return {
+          id: order.orderId || order.id,
+          date: order.orderDate || order.date,
+          status: order.status,
+          paymentMethod: order.paymentMethod,
+          summary: {
+            subtotal: Number(order.subTotal || order.summary?.subtotal || 0).toFixed(2),
+            tax: Number(order.tax || order.summary?.tax || 0).toFixed(2),
+            total: Number(order.total || order.summary?.total || 0).toFixed(2),
+          },
+          items: enhancedItems,
+        };
+      });
 
       setOrderHistory(enhancedOrders);
     } catch (error) {
@@ -145,7 +152,37 @@ const Profile = () => {
     } finally {
       setOrdersLoading(false);
     }
-  }, [user, API_BASE]);
+  }, [API_BASE, token, user]);
+
+  const fetchAddresses = useCallback(async () => {
+    if (!user || !token) return;
+
+    try {
+      setAddressesLoading(true);
+      const response = await fetch(`${API_BASE}/addresses`, {
+        headers: {
+          ...buildAuthHeaders(token),
+        },
+        credentials: 'include',
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch addresses');
+      }
+
+      const data = await response.json();
+      const mapped = (data || []).map((addr) => ({
+        ...addr,
+        id: addr.addressId || addr.id,
+      }));
+      setAddresses(mapped);
+    } catch (error) {
+      console.error('Error fetching addresses:', error);
+      setAddresses([]);
+    } finally {
+      setAddressesLoading(false);
+    }
+  }, [API_BASE, token, user]);
 
   const handleInputChange = useCallback((e) => {
     const { name, value } = e.target;
@@ -222,6 +259,12 @@ const Profile = () => {
       fetchOrderHistory();
     }
   }, [activeTab, user, fetchOrderHistory]);
+
+  useEffect(() => {
+    if (activeTab === 'addresses' && user) {
+      fetchAddresses();
+    }
+  }, [activeTab, user, fetchAddresses]);
 
   const cartSummary = getCartSummary();
   const wishlistCount = getWishlistCount();
@@ -654,10 +697,15 @@ const Profile = () => {
             {activeTab === 'addresses' && (
               <div className="bg-gray-900 rounded-xl p-6 border border-gray-800">
                 <h2 className="text-2xl font-bold text-white mb-6">Saved Addresses</h2>
-                
-                {user.addresses && user.addresses.length > 0 ? (
+
+                {addressesLoading ? (
+                  <div className="text-center py-12">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600 mx-auto mb-4"></div>
+                    <p className="text-white text-lg">Loading your addresses...</p>
+                  </div>
+                ) : addresses.length > 0 ? (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {user.addresses.map((address, index) => (
+                    {addresses.map((address, index) => (
                       <div key={address.id || index} className="bg-gray-800 rounded-lg p-6 border border-gray-700">
                         <div className="flex items-start justify-between mb-4">
                           <h3 className="text-lg font-semibold text-white">{address.fullName}</h3>

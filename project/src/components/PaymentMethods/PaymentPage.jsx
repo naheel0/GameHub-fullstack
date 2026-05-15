@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useCart } from "../../contexts/CartContext";
 import { useAuth } from "../../contexts/AuthContext";
+import { BaseUrl, buildAuthHeaders } from "../../Services/api";
 import { toast } from "react-toastify";
 import AddressSection from '../PaymentMethods/AddressSection'; // New Component
 import PaymentFormSection from "../PaymentMethods/PaymentFormSection"; // New Component
@@ -43,11 +44,14 @@ const PaymentPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { getCartSummary, checkout, cart } = useCart();
-  const { user, updateUserPartial } = useAuth();
+  const { user } = useAuth();
 
   const order = location.state?.order;
   const summary = order?.summary || getCartSummary();
-  const userAddresses = useMemo(() => user?.addresses || [], [user]);
+  const [addresses, setAddresses] = useState([]);
+  const userAddresses = useMemo(() => addresses, [addresses]);
+  const API_BASE = BaseUrl;
+  const token = user?.accessToken;
 
   useEffect(() => {
     if (!user) {
@@ -67,6 +71,40 @@ const PaymentPage = () => {
       setSelectedAddress(defaultAddress.id);
     }
   }, [user, order, cart, navigate, userAddresses, selectedAddress]);
+
+  const refreshAddresses = useCallback(async () => {
+    if (!user || !token) {
+      setAddresses([]);
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_BASE}/addresses`, {
+        headers: {
+          ...buildAuthHeaders(token),
+        },
+        credentials: 'include',
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch addresses');
+      }
+
+      const data = await response.json();
+      const mapped = (data || []).map((addr) => ({
+        ...addr,
+        id: addr.addressId || addr.id,
+      }));
+      setAddresses(mapped);
+    } catch (error) {
+      console.error('Error loading addresses:', error);
+      setAddresses([]);
+    }
+  }, [API_BASE, token, user]);
+
+  useEffect(() => {
+    refreshAddresses();
+  }, [refreshAddresses]);
 
 
   const handleAddressInputChange = (field, value) => {
@@ -126,40 +164,65 @@ const PaymentPage = () => {
     if (!validateAddress()) return;
 
     try {
-      const newAddress = {
-        id: editingAddress || `addr_${Date.now()}`,
-        ...addressForm,
-        zipCode: addressForm.zipCode.replace(/\D/g, ""),
-        phone: addressForm.phone.replace(/\D/g, ""),
-      };
-
-      let updatedAddresses;
-
-      if (editingAddress) {
-        updatedAddresses = userAddresses.map((addr) =>
-          addr.id === editingAddress ? newAddress : addr
-        );
-      } else {
-        updatedAddresses = [...userAddresses];
-
-        if (addressForm.isDefault) {
-          updatedAddresses = updatedAddresses.map((addr) => ({
-            ...addr,
-            isDefault: false,
-          }));
-        }
-
-        updatedAddresses.push(newAddress);
+      if (!user || !token) {
+        toast.warning('Please log in to manage addresses.');
+        return;
       }
 
-      await updateUserPartial({ addresses: updatedAddresses });
+      const payload = {
+        fullName: addressForm.fullName,
+        addressLine1: addressForm.addressLine1,
+        addressLine2: addressForm.addressLine2,
+        city: addressForm.city,
+        state: addressForm.state,
+        zipCode: addressForm.zipCode.replace(/\D/g, ""),
+        country: addressForm.country,
+        phone: addressForm.phone.replace(/\D/g, ""),
+        isDefault: addressForm.isDefault,
+      };
 
-      toast.success(
-        `Address ${editingAddress ? "updated" : "saved"} successfully!`
-      );
+      let createdId = null;
+
+      if (editingAddress) {
+        const response = await fetch(`${API_BASE}/addresses/${editingAddress}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            ...buildAuthHeaders(token),
+          },
+          credentials: 'include',
+          body: JSON.stringify(payload),
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to update address');
+        }
+      } else {
+        const response = await fetch(`${API_BASE}/addresses`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...buildAuthHeaders(token),
+          },
+          credentials: 'include',
+          body: JSON.stringify(payload),
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to add address');
+        }
+
+        const created = await response.json();
+        createdId = created.addressId || created.id;
+      }
+
+      await refreshAddresses();
+      toast.success(`Address ${editingAddress ? "updated" : "saved"} successfully!`);
       setShowAddressForm(false);
       resetAddressForm();
-      setSelectedAddress(newAddress.id);
+      if (createdId) {
+        setSelectedAddress(createdId);
+      }
     } catch (error) {
       console.error("Error saving address:", error);
       toast.error("Failed to save address. Please try again.");
@@ -189,17 +252,31 @@ const PaymentPage = () => {
     }
 
     try {
-      const updatedAddresses = userAddresses.filter(
-        (addr) => addr.id !== addressId
-      );
-
-      await updateUserPartial({ addresses: updatedAddresses });
-
-      if (selectedAddress === addressId) {
-        setSelectedAddress(updatedAddresses[0]?.id || null);
+      if (!user || !token) {
+        toast.warning('Please log in to manage addresses.');
+        return;
       }
 
-      toast.success("Address deleted successfully!");
+      const response = await fetch(`${API_BASE}/addresses/${addressId}`, {
+        method: 'DELETE',
+        headers: {
+          ...buildAuthHeaders(token),
+        },
+        credentials: 'include',
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to delete address');
+      }
+
+      await refreshAddresses();
+
+      if (selectedAddress === addressId) {
+        const fallback = userAddresses.filter((addr) => addr.id !== addressId);
+        setSelectedAddress(fallback[0]?.id || null);
+      }
+
+      toast.success('Address deleted successfully!');
     } catch (error) {
       console.error("Error deleting address:", error);
       toast.error("Failed to delete address. Please try again.");
@@ -208,14 +285,25 @@ const PaymentPage = () => {
 
   const handleSetDefaultAddress = async (addressId) => {
     try {
-      const updatedAddresses = userAddresses.map((addr) => ({
-        ...addr,
-        isDefault: addr.id === addressId,
-      }));
+      if (!user || !token) {
+        toast.warning('Please log in to manage addresses.');
+        return;
+      }
 
-      await updateUserPartial({ addresses: updatedAddresses });
+      const response = await fetch(`${API_BASE}/addresses/${addressId}/default`, {
+        method: 'PUT',
+        headers: {
+          ...buildAuthHeaders(token),
+        },
+        credentials: 'include',
+      });
 
-      toast.success("Default address updated!");
+      if (!response.ok) {
+        throw new Error('Failed to update default address');
+      }
+
+      await refreshAddresses();
+      toast.success('Default address updated!');
     } catch (error) {
       console.error("Error setting default address:", error);
       toast.error("Failed to update default address.");

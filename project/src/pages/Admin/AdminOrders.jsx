@@ -14,11 +14,12 @@ export default function AdminOrders() {
   const [filteredOrders, setFilteredOrders] = useState([]);
 
 useEffect(() => {
+  // Initialize filteredOrders when orders load
   setFilteredOrders(orders);
 }, [orders]);
 const handleSearch = (query) => {
   if (!query) {
-    setFilteredOrders(orders); 
+    setFilteredOrders(orders); // reset to all orders
   } else {
     const lowerQuery = query.toLowerCase();
     const filtered = orders.filter(
@@ -27,13 +28,15 @@ const handleSearch = (query) => {
         order.email.toLowerCase().includes(lowerQuery)
     );
     setFilteredOrders(filtered);
-    setCurrentPage(1); 
+    setCurrentPage(1); // reset to first page
   }
 };
 
 
-  const getTotalPrice = (items) =>
-    items.reduce((sum, item) => sum + item.price * (item.qty || 1), 0);
+  const getTotalPrice = (items, total) =>
+    items && items.length
+      ? items.reduce((sum, item) => sum + item.price * (item.qty || 1), 0)
+      : (total || 0);
 
   const getTotalQty = (items) =>
     items.reduce((sum, item) => sum + (item.qty || 1), 0);
@@ -183,7 +186,7 @@ const totalPages = Math.ceil((filteredOrders?.length || 0) / itemsPerPage);
                       <td className="p-4">
                         <div className="flex items-center gap-1 text-white font-semibold">
                           <IndianRupee className="w-4 h-4" />
-                          {getTotalPrice(order.items).toLocaleString()}
+                          {getTotalPrice(order.items, order.total).toLocaleString()}
                         </div>
                       </td>
 
@@ -338,7 +341,7 @@ const totalPages = Math.ceil((filteredOrders?.length || 0) / itemsPerPage);
                 <span className="text-gray-300 font-medium">Total Amount</span>
                 <div className="flex items-center gap-1 text-xl font-bold text-white">
                   <IndianRupee className="w-5 h-5" />
-                  {getTotalPrice(selectedOrder.items).toLocaleString()}
+                  {getTotalPrice(selectedOrder.items, selectedOrder.total).toLocaleString()}
                 </div>
               </div>
             </div>

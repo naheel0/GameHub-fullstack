@@ -1,5 +1,5 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
-import { BaseUrl } from '../Services/api';
+import { BaseUrl, buildAuthHeaders, getStoredAuth, normalizeUser, setStoredAuth } from '../Services/api';
 const AuthContext = createContext();
 // eslint-disable-next-line react-refresh/only-export-components
 export const useAuth = () => {
@@ -25,37 +25,37 @@ export const AuthProvider = ({ children }) => {
   const API_BASE = BaseUrl;
 
   useEffect(() => {
-    const savedUser = localStorage.getItem('gameHubUser');
-    if (savedUser) {
-      try {
-        setUser(JSON.parse(savedUser));
-      } catch (error) {
-        console.error('Error parsing saved user:', error);
-        localStorage.removeItem('gameHubUser');
+    const savedAuth = getStoredAuth();
+    if (savedAuth?.user) {
+      // restore accessToken if it was stored separately
+      if (savedAuth.accessToken && !savedAuth.user.accessToken) {
+        savedAuth.user.accessToken = savedAuth.accessToken;
       }
+      setUser(savedAuth.user);
     }
     setLoading(false);
   }, []);
 
   const login = async (email, password) => {
     try {
-      const response = await fetch(`${API_BASE}/users`);
-      if (!response.ok) {
-        throw new Error('Failed to fetch users');
+      const response = await fetch(`${API_BASE}/auth/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({ email, password }),
+      });
+
+      const payload = await response.json();
+      if (!response.ok || !payload?.success) {
+        return { success: false, error: payload?.message || 'Invalid email or password' };
       }
-      
-      const users = await response.json();
-      const foundUser = users.find(u => u.email === email && u.password === password);
-      
-      if (foundUser) {
-        const userData = { ...foundUser };
-        delete userData.password;
-        setUser(userData);
-        localStorage.setItem('gameHubUser', JSON.stringify(userData));
-        return { success: true, user: userData };
-      } else {
-        return { success: false, error: 'Invalid email or password' };
-      }
+
+      const userData = normalizeUser(payload.data, payload.data?.accessToken);
+      setUser(userData);
+      setStoredAuth({ user: userData, accessToken: userData.accessToken });
+      return { success: true, user: userData };
     } catch (error) {
       console.error('Login error:', error);
       return { success: false, error: 'Login failed. Please try again.' };
@@ -64,46 +64,32 @@ export const AuthProvider = ({ children }) => {
 
   const signup = async (userData) => {
     try {
-      const checkResponse = await fetch(`${API_BASE}/users?email=${userData.email}`);
-      if (!checkResponse.ok) {
-        throw new Error('Failed to check existing users');
-      }
-      
-      const existingUsers = await checkResponse.json();
-      if (existingUsers.length > 0) {
-        return { success: false, error: 'User with this email already exists' };
-      }
-
-      const newUser = {
-        ...userData,
-        wishlist: [],
-        cart: [],
-        purchaseHistory: [],
-        addresses: [],
-        createdAt: new Date().toISOString()
-      };
-
-      const createResponse = await fetch(`${API_BASE}/users`, {
+      const createResponse = await fetch(`${API_BASE}/auth/register`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(newUser),
+        credentials: 'include',
+        body: JSON.stringify({
+          firstName: userData.firstName,
+          lastName: userData.lastName,
+          phone: userData.phone || '',
+          email: userData.email,
+          password: userData.password,
+          confirmPassword: userData.confirmPassword || userData.password,
+        }),
       });
 
-      if (!createResponse.ok) {
-        throw new Error('Failed to create user');
+      const payload = await createResponse.json();
+      if (!createResponse.ok || !payload?.success) {
+        return { success: false, error: payload?.message || 'Signup failed. Please try again.' };
       }
 
-      const createdUser = await createResponse.json();
-      
-      const userWithoutPassword = { ...createdUser };
-      delete userWithoutPassword.password;
-      
-      setUser(userWithoutPassword);
-      localStorage.setItem('gameHubUser', JSON.stringify(userWithoutPassword));
-      
-      return { success: true, user: userWithoutPassword };
+      const createdUser = normalizeUser(payload.data, payload.data?.accessToken);
+      setUser(createdUser);
+      setStoredAuth({ user: createdUser, accessToken: createdUser.accessToken });
+
+      return { success: true, user: createdUser };
     } catch (error) {
       console.error('Signup error:', error);
       return { success: false, error: 'Signup failed. Please try again.' };
@@ -111,33 +97,34 @@ export const AuthProvider = ({ children }) => {
   };
 
   const logout = () => {
+    const token = user?.accessToken;
+    if (token) {
+      fetch(`${API_BASE}/auth/logout`, {
+        method: 'POST',
+        headers: {
+          ...buildAuthHeaders(token),
+        },
+        credentials: 'include',
+      }).catch((error) => console.error('Logout error:', error));
+    }
     setUser(null);
-    localStorage.removeItem('gameHubUser');
+    setStoredAuth(null);
   };
 
   const updateUser = async (userUpdates) => {
     try {
       // Merge updates with current user state instead of replacing
-      const updatedUser = { 
-        ...user,  // Current user state (includes cart, wishlist, etc.)
-        ...userUpdates  // New updates (addresses)
-      };
-
-      const response = await fetch(`${API_BASE}/users/${updatedUser.id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(updatedUser),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to update user');
+      if (!user) {
+        throw new Error('No user logged in');
       }
 
+      const updatedUser = {
+        ...user,
+        ...userUpdates,
+      };
+
       setUser(updatedUser);
-      localStorage.setItem('gameHubUser', JSON.stringify(updatedUser));
-      
+      setStoredAuth({ user: updatedUser, accessToken: updatedUser.accessToken });
       return { success: true };
     } catch (error) {
       console.error('Update user error:', error);
@@ -151,22 +138,9 @@ export const AuthProvider = ({ children }) => {
         throw new Error('No user logged in');
       }
 
-      const response = await fetch(`${API_BASE}/users/${user.id}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(updates),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to update user');
-      }
-
       const updatedUser = { ...user, ...updates };
       setUser(updatedUser);
-      localStorage.setItem('gameHubUser', JSON.stringify(updatedUser));
-      
+      setStoredAuth({ user: updatedUser, accessToken: updatedUser.accessToken });
       return { success: true };
     } catch (error) {
       console.error('Update user error:', error);

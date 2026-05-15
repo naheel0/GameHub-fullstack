@@ -9,7 +9,7 @@ import {
   Trash2,
   Users,
 } from "lucide-react";
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo } from "react";
 import { ChevronLeftIcon, ChevronRightIcon } from "@heroicons/react/24/outline";
 import FormGroup from '@mui/material/FormGroup';
 import FormControlLabel from '@mui/material/FormControlLabel';
@@ -18,6 +18,7 @@ import { styled } from '@mui/material/styles';
 import SearchBar from "./components/SearchBar"; 
 import StatusSwitch from './components/Switches';
 
+// Custom styled switches
 
 
 const RoleSwitch = styled(Switch)(() => ({
@@ -58,6 +59,7 @@ export default function AdminUsers() {
   const [itemsPerPage, setItemsPerPage] = useState(5);
   const [searchTerm, setSearchTerm] = useState("");
 
+  // Filter users based on searchTerm
   const filteredUsers = useMemo(() => {
     if (!searchTerm) return users;
 
@@ -125,7 +127,7 @@ export default function AdminUsers() {
   const currentUsers = filteredUsers?.slice(indexOfFirstItem, indexOfLastItem) || [];
   const totalPages = Math.ceil((filteredUsers?.length || 0) / itemsPerPage);
 
-  useEffect(() => {
+  useState(() => {
     setCurrentPage(1);
   }, [searchTerm]);
 
@@ -275,7 +277,7 @@ export default function AdminUsers() {
                               {u.firstName} {u.lastName}
                             </div>
                             <div className="text-gray-400 text-sm">
-                              ID: {u.id.slice(0, 8)}...
+                              ID: {String(u.id).slice(0, 8)}...
                             </div>
                           </div>
                         </div>

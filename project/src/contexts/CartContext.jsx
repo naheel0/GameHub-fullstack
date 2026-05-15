@@ -1,10 +1,10 @@
-
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { toast } from 'react-toastify';
 import { useAuth } from './AuthContext';
-import { BaseUrl } from '../Services/api';
+import { BaseUrl, buildAuthHeaders, normalizeGame } from '../Services/api';
 
 const CartContext = createContext();
+
 // eslint-disable-next-line react-refresh/only-export-components
 export const useCart = () => {
   const context = useContext(CartContext);
@@ -14,75 +14,102 @@ export const useCart = () => {
   return context;
 };
 
+const mapPaymentMethod = (method) => {
+  switch ((method || '').toLowerCase()) {
+    case 'card':
+      return 'CreditDebitCard';
+    case 'paypal':
+      return 'PayPal';
+    case 'apple':
+      return 'ApplePay';
+    case 'google':
+      return 'GooglePay';
+    default:
+      return 'CreditDebitCard';
+  }
+};
+
 export const CartProvider = ({ children }) => {
   const [cart, setCart] = useState([]);
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
 
-  
   const API_BASE = BaseUrl;
+  const token = user?.accessToken;
+
+  const fetchGame = useCallback(async (gameId) => {
+    try {
+      const response = await fetch(`${API_BASE}/games/${gameId}`);
+      if (!response.ok) return null;
+      const data = await response.json();
+      return normalizeGame(data);
+    } catch (error) {
+      console.error('Error fetching game:', error);
+      return null;
+    }
+  }, [API_BASE]);
+
+  const mapCartItem = useCallback(async (item) => {
+    const game = await fetchGame(item.gameId);
+
+    return {
+      id: item.gameId,
+      cartItemId: item.gameId,
+      name: game?.name || item.gameName || 'Unknown Game',
+      price: typeof item.price === 'number' ? item.price : game?.price || 0,
+      quantity: item.quantity || 1,
+      images: (game?.images && game.images.length > 0)
+        ? game.images
+        : item.image
+          ? [item.image]
+          : [],
+      inStock: typeof game?.inStock === 'boolean' ? game.inStock : true,
+      genre: game?.genre || '',
+      platform: game?.platform || '',
+      rating: game?.rating || 0,
+      description: game?.description || '',
+      trailer: game?.trailer || '',
+    };
+  }, [fetchGame]);
+
+  const loadCart = useCallback(async () => {
+    if (!user || !token) {
+      setCart([]);
+      setLoading(false);
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const response = await fetch(`${API_BASE}/cart`, {
+        headers: {
+          ...buildAuthHeaders(token),
+        },
+        credentials: 'include',
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch cart');
+      }
+
+      const items = await response.json();
+      const mapped = await Promise.all((items || []).map(mapCartItem));
+      setCart(mapped.filter(Boolean));
+    } catch (error) {
+      console.error('Error loading cart:', error);
+      toast.error('Failed to load cart');
+      setCart([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [API_BASE, mapCartItem, token, user]);
 
   useEffect(() => {
-    const loadCart = async () => {
-      if (!user) {
-        setCart([]);
-        setLoading(false);
-        return;
-      }
-
-      try {
-        setLoading(true);
-        
-        const response = await fetch(`${API_BASE}/users/${user.id}`);
-        if (!response.ok) {
-          throw new Error('Failed to fetch user data');
-        }
-        
-        const userData = await response.json();
-        const cartItems = userData.cart || [];
-
-        if (cartItems.length > 0) {
-          const cartPromises = cartItems.map(async (cartItem) => {
-            try {
-              const gameResponse = await fetch(`${API_BASE}/games/${cartItem.gameId}`);
-              if (gameResponse.ok) {
-                const game = await gameResponse.json();
-                return {
-                  ...game,
-                  quantity: cartItem.quantity,
-                  cartItemId: cartItem.id,
-                  addedAt: cartItem.addedAt
-                };
-              }
-            } catch (error) {
-              console.error(`Error fetching game ${cartItem.gameId}:`, error);
-            }
-            return null;
-          });
-
-          const cartGames = (await Promise.all(cartPromises)).filter(item => item !== null);
-          setCart(cartGames);
-        } else {
-          setCart([]);
-        }
-        
-        setLoading(false);
-      } catch (error) {
-        console.error('Error loading cart:', error);
-        toast.error('Failed to load cart');
-        setLoading(false);
-      }
-    };
-
     loadCart();
-  }, [user,API_BASE]);
-
-  const generateCartItemId = () => {
-    return 'cart_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-  };
+  }, [loadCart]);
 
   const addToCart = async (game, quantity = 1) => {
-    if (!user) {
+    if (!user || !token) {
       toast.warning('Please log in to add items to your cart.');
       return false;
     }
@@ -93,81 +120,24 @@ export const CartProvider = ({ children }) => {
     }
 
     try {
-      const userResponse = await fetch(`${API_BASE}/users/${user.id}`);
-      if (!userResponse.ok) {
-        throw new Error('Failed to fetch user data');
-      }
-
-      const userData = await userResponse.json();
-      const currentCart = userData.cart || [];
-
-      const existingItemIndex = currentCart.findIndex(item => item.gameId === game.id);
-      let updatedCart;
-
-      if (existingItemIndex > -1) {
-        updatedCart = currentCart.map((item, index) => 
-          index === existingItemIndex 
-            ? { 
-                ...item, 
-                quantity: item.quantity + quantity,
-                updatedAt: new Date().toISOString()
-              }
-            : item
-        );
-      } else {
-        const newCartItem = {
-          id: generateCartItemId(),
-          gameId: game.id,
-          quantity: quantity,
-          addedAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        };
-        updatedCart = [...currentCart, newCartItem];
-      }
-
-      const updateResponse = await fetch(`${API_BASE}/users/${user.id}`, {
-        method: 'PATCH',
+      const response = await fetch(`${API_BASE}/cart`, {
+        method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          ...buildAuthHeaders(token),
         },
+        credentials: 'include',
         body: JSON.stringify({
-          cart: updatedCart
+          gameId: game.id,
+          quantity,
         }),
       });
 
-      if (!updateResponse.ok) {
-        throw new Error('Failed to update cart');
+      if (!response.ok) {
+        throw new Error('Failed to add to cart');
       }
 
-      const reloadResponse = await fetch(`${API_BASE}/users/${user.id}`);
-      const updatedUserData = await reloadResponse.json();
-      const updatedCartItems = updatedUserData.cart || [];
-      
-      if (updatedCartItems.length > 0) {
-        const cartPromises = updatedCartItems.map(async (cartItem) => {
-          try {
-            const gameResponse = await fetch(`${API_BASE}/games/${cartItem.gameId}`);
-            if (gameResponse.ok) {
-              const game = await gameResponse.json();
-              return {
-                ...game,
-                quantity: cartItem.quantity,
-                cartItemId: cartItem.id,
-                addedAt: cartItem.addedAt
-              };
-            }
-          } catch (error) {
-            console.error(`Error fetching game ${cartItem.gameId}:`, error);
-          }
-          return null;
-        });
-
-        const cartGames = (await Promise.all(cartPromises)).filter(item => item !== null);
-        setCart(cartGames);
-      } else {
-        setCart([]);
-      }
-      
+      await loadCart();
       toast.success(`${game.name} added to cart!`);
       return true;
     } catch (error) {
@@ -178,40 +148,25 @@ export const CartProvider = ({ children }) => {
   };
 
   const removeFromCart = async (gameId) => {
-    if (!user) {
+    if (!user || !token) {
       toast.warning('Please log in to manage your cart.');
       return false;
     }
 
     try {
-      const userResponse = await fetch(`${API_BASE}/users/${user.id}`);
-      if (!userResponse.ok) {
-        throw new Error('Failed to fetch user data');
-      }
-
-      const userData = await userResponse.json();
-      const updatedCart = (userData.cart || []).filter(item => item.gameId !== gameId);
-
-      const updateResponse = await fetch(`${API_BASE}/users/${user.id}`, {
-        method: 'PATCH',
+      const response = await fetch(`${API_BASE}/cart/${gameId}`, {
+        method: 'DELETE',
         headers: {
-          'Content-Type': 'application/json',
+          ...buildAuthHeaders(token),
         },
-        body: JSON.stringify({
-          cart: updatedCart
-        }),
+        credentials: 'include',
       });
 
-      if (!updateResponse.ok) {
-        throw new Error('Failed to update cart');
+      if (!response.ok) {
+        throw new Error('Failed to remove from cart');
       }
 
-      const removedGame = cart.find(item => item.id === gameId);
-      setCart(prev => prev.filter(item => item.id !== gameId));
-      
-      if (removedGame) {
-        toast.info(`${removedGame.name} removed from cart`);
-      }
+      setCart((prev) => prev.filter((item) => item.id !== gameId));
       return true;
     } catch (error) {
       console.error('Error removing from cart:', error);
@@ -221,7 +176,7 @@ export const CartProvider = ({ children }) => {
   };
 
   const updateQuantity = async (gameId, newQuantity) => {
-    if (!user) {
+    if (!user || !token) {
       toast.warning('Please log in to manage your cart.');
       return false;
     }
@@ -231,35 +186,23 @@ export const CartProvider = ({ children }) => {
     }
 
     try {
-      const userResponse = await fetch(`${API_BASE}/users/${user.id}`);
-      if (!userResponse.ok) {
-        throw new Error('Failed to fetch user data');
-      }
-
-      const userData = await userResponse.json();
-      const updatedCart = (userData.cart || []).map(item => 
-        item.gameId === gameId 
-          ? { ...item, quantity: newQuantity, updatedAt: new Date().toISOString() }
-          : item
-      );
-
-      const updateResponse = await fetch(`${API_BASE}/users/${user.id}`, {
-        method: 'PATCH',
+      const response = await fetch(`${API_BASE}/cart/${gameId}`, {
+        method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
+          ...buildAuthHeaders(token),
         },
-        body: JSON.stringify({
-          cart: updatedCart
-        }),
+        credentials: 'include',
+        body: JSON.stringify({ quantity: newQuantity }),
       });
 
-      if (!updateResponse.ok) {
-        throw new Error('Failed to update cart');
+      if (!response.ok) {
+        throw new Error('Failed to update quantity');
       }
 
-      setCart(prev => prev.map(item => 
+      setCart((prev) => prev.map((item) => (
         item.id === gameId ? { ...item, quantity: newQuantity } : item
-      ));
+      )));
       return true;
     } catch (error) {
       console.error('Error updating quantity:', error);
@@ -269,23 +212,21 @@ export const CartProvider = ({ children }) => {
   };
 
   const clearCart = async () => {
-    if (!user) {
+    if (!user || !token) {
       toast.warning('Please log in to manage your cart.');
       return false;
     }
 
     try {
-      const updateResponse = await fetch(`${API_BASE}/users/${user.id}`, {
-        method: 'PATCH',
+      const response = await fetch(`${API_BASE}/cart`, {
+        method: 'DELETE',
         headers: {
-          'Content-Type': 'application/json',
+          ...buildAuthHeaders(token),
         },
-        body: JSON.stringify({
-          cart: []
-        }),
+        credentials: 'include',
       });
 
-      if (!updateResponse.ok) {
+      if (!response.ok) {
         throw new Error('Failed to clear cart');
       }
 
@@ -302,7 +243,7 @@ export const CartProvider = ({ children }) => {
   const getCartSummary = () => {
     const totalItems = cart.reduce((total, item) => total + item.quantity, 0);
     const subtotal = cart.reduce((total, item) => total + (item.price * item.quantity), 0);
-    const tax = subtotal * 0.1; // 10% tax
+    const tax = subtotal * 0.1;
     const total = subtotal + tax;
 
     return {
@@ -310,25 +251,25 @@ export const CartProvider = ({ children }) => {
       subtotal: subtotal.toFixed(2),
       tax: tax.toFixed(2),
       total: total.toFixed(2),
-      items: cart.length
+      items: cart.length,
     };
   };
 
   const getItemQuantity = (gameId) => {
-    const item = cart.find(item => item.id === gameId);
+    const item = cart.find((cartItem) => cartItem.id === gameId);
     return item ? item.quantity : 0;
   };
 
   const isInCart = (gameId) => {
-    return cart.some(item => item.id === gameId);
+    return cart.some((item) => item.id === gameId);
   };
 
   const isEmpty = () => {
     return cart.length === 0;
   };
 
-  const checkout = async (paymentMethod = 'card') => {
-    if (!user) {
+  const checkout = async (paymentMethod, address) => {
+    if (!user || !token) {
       toast.warning('Please log in to checkout.');
       return { success: false, error: 'User not logged in' };
     }
@@ -338,123 +279,88 @@ export const CartProvider = ({ children }) => {
       return { success: false, error: 'Cart is empty' };
     }
 
+    if (!address?.addressId && !address?.id) {
+      toast.error('Please select a shipping address.');
+      return { success: false, error: 'No address selected' };
+    }
+
     try {
-      const userResponse = await fetch(`${API_BASE}/users/${user.id}`);
-      if (!userResponse.ok) {
-        throw new Error('Failed to fetch user data');
-      }
-
-      const userData = await userResponse.json();
-      const purchaseHistory = userData.purchaseHistory || [];
-      const summary = getCartSummary();
-
-      const order = {
-        id: generateCartItemId(),
-        items: cart.map(item => ({
-          gameId: item.id,
-          name: item.name,
-          price: item.price,
-          quantity: item.quantity,
-          image: item.images?.[0]
-        })),
-        summary: {
-          subtotal: summary.subtotal,
-          tax: summary.tax,
-          total: summary.total
-        },
-        paymentMethod,
-        status: 'completed',
-        date: new Date().toISOString()
-      };
-
-      const updateResponse = await fetch(`${API_BASE}/users/${user.id}`, {
-        method: 'PATCH',
+      const response = await fetch(`${API_BASE}/orders`, {
+        method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          ...buildAuthHeaders(token),
         },
+        credentials: 'include',
         body: JSON.stringify({
-          purchaseHistory: [...purchaseHistory, order],
-          cart: []
+          addressId: address.addressId || address.id,
+          paymentMethod: mapPaymentMethod(paymentMethod),
         }),
       });
 
-      if (!updateResponse.ok) {
-        throw new Error('Failed to process checkout');
+      if (!response.ok) {
+        const errorPayload = await response.json().catch(() => ({}));
+        throw new Error(errorPayload?.message || 'Failed to process checkout');
       }
+
+      const orderDto = await response.json();
+      const items = await Promise.all((orderDto.items || []).map(async (item) => {
+        const game = await fetchGame(item.gameId);
+        return {
+          gameId: item.gameId,
+          name: item.gameName || game?.name || 'Unknown Game',
+          price: item.price,
+          quantity: item.quantity,
+          image: game?.images?.[0] || '',
+          genre: game?.genre || '',
+          platform: game?.platform || '',
+        };
+      }));
+
+      const order = {
+        id: orderDto.orderId,
+        items,
+        summary: {
+          subtotal: Number(orderDto.subTotal || 0).toFixed(2),
+          tax: Number(orderDto.tax || 0).toFixed(2),
+          total: Number(orderDto.total || 0).toFixed(2),
+        },
+        paymentMethod: orderDto.paymentMethod,
+        status: orderDto.status,
+        date: orderDto.orderDate,
+        shippingAddress: orderDto.shippingAddress || address,
+      };
 
       setCart([]);
       toast.success('Order placed successfully! Thank you for your purchase.');
       return { success: true, order };
     } catch (error) {
       console.error('Error during checkout:', error);
-      toast.error('Failed to process checkout');
+      toast.error(error.message || 'Failed to process checkout');
       return { success: false, error: error.message };
     }
   };
 
   const refreshCart = async () => {
-    if (!user) {
-      setCart([]);
-      return;
-    }
-
-    try {
-      const response = await fetch(`${API_BASE}/users/${user.id}`);
-      if (!response.ok) {
-        throw new Error('Failed to fetch user data');
-      }
-      
-      const userData = await response.json();
-      const cartItems = userData.cart || [];
-
-      if (cartItems.length > 0) {
-        const cartPromises = cartItems.map(async (cartItem) => {
-          try {
-            const gameResponse = await fetch(`${API_BASE}/games/${cartItem.gameId}`);
-            if (gameResponse.ok) {
-              const game = await gameResponse.json();
-              return {
-                ...game,
-                quantity: cartItem.quantity,
-                cartItemId: cartItem.id,
-                addedAt: cartItem.addedAt
-              };
-            }
-          } catch (error) {
-            console.error(`Error fetching game ${cartItem.gameId}:`, error);
-          }
-          return null;
-        });
-
-        const cartGames = (await Promise.all(cartPromises)).filter(item => item !== null);
-        setCart(cartGames);
-      } else {
-        setCart([]);
-      }
-    } catch (error) {
-      console.error('Error refreshing cart:', error);
-    }
+    await loadCart();
   };
 
   const value = {
     cart,
     loading,
-    
     addToCart,
     removeFromCart,
     updateQuantity,
     clearCart,
     checkout,
     refreshCart,
-    
     getCartSummary,
     getItemQuantity,
     isInCart,
     isEmpty,
-    
     getCartItemCount: () => getCartSummary().totalItems,
     getTotalPrice: () => parseFloat(getCartSummary().subtotal),
-    isCartEmpty: isEmpty
+    isCartEmpty: isEmpty,
   };
 
   return (

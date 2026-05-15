@@ -1,8 +1,77 @@
-import { createContext, useContext, useState, useEffect } from "react";
-import { BaseUrl } from "../../../Services/api";
-const BASE_API = BaseUrl;
+import { createContext, useContext, useState, useEffect, useCallback } from "react";
+import { BaseUrl, buildAuthHeaders, normalizeGame } from "../../../Services/api";
+import { useAuth } from "../../../contexts/AuthContext";
 
 const AdminContext = createContext();
+
+const mapUsers = (items) => {
+  return (items || []).map((user) => {
+    const fullName = user.fullName || "";
+    const [firstName, ...rest] = fullName.split(" ");
+    const lastName = rest.join(" ");
+
+    return {
+      id: user.id,
+      firstName: firstName || "",
+      lastName: lastName || "",
+      email: user.email,
+      phone: user.phone || "",
+      role: (user.role || "user").toLowerCase(),
+      status: (user.status || "active").toLowerCase(),
+      createdAt: user.createdAt,
+    };
+  });
+};
+
+const buildGameFormData = async (productData) => {
+  const formData = new FormData();
+
+  formData.append("Name", productData.name);
+  formData.append("Genre", productData.genre);
+  formData.append("Platform", productData.platform);
+  formData.append("Price", String(productData.price));
+  formData.append("Rating", String(productData.rating));
+  formData.append("InStock", String(productData.inStock));
+  formData.append("Description", productData.description || "");
+
+  const imageUrls = (productData.images || []).filter((url) => url);
+  const imageFiles = await Promise.all(
+    imageUrls.map(async (url, index) => {
+      try {
+        const response = await fetch(url);
+        if (!response.ok) return null;
+        const blob = await response.blob();
+        const ext = blob.type.split("/")[1] || "jpg";
+        return new File([blob], `image-${index}.${ext}`, { type: blob.type });
+      } catch (error) {
+        console.error("Image download failed:", error);
+        return null;
+      }
+    })
+  );
+
+  imageFiles.filter(Boolean).forEach((file) => {
+    formData.append("ImageFiles", file);
+  });
+
+  if (productData.trailer) {
+    try {
+      const response = await fetch(productData.trailer);
+      if (response.ok) {
+        const blob = await response.blob();
+        if (blob.type.startsWith("video/")) {
+          const ext = blob.type.split("/")[1] || "mp4";
+          const trailerFile = new File([blob], `trailer.${ext}`, { type: blob.type });
+          formData.append("TrailerFile", trailerFile);
+        }
+      }
+    } catch (error) {
+      console.error("Trailer download failed:", error);
+    }
+  }
+
+  return formData;
+};
 
 export function AdminProvider({ children }) {
   const [products, setProducts] = useState([]);
@@ -11,102 +80,183 @@ export function AdminProvider({ children }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  const convertPurchaseToOrder = (purchase, user) => {
-    return {
-      id: purchase.id,
-      orderId: `ORD-${purchase.id.slice(-8).toUpperCase()}`,
-      email: user.email,
-      userFullName: `${user.firstName} ${user.lastName}`,
-      status: purchase.status || "Completed",
-      items: purchase.items.map((item) => ({
-        id: item.gameId,
-        name: item.name,
-        price: item.price,
-        qty: item.quantity,
-        image: item.image,
-      })),
-      total: parseFloat(purchase.summary.total),
-      subtotal: parseFloat(purchase.summary.subtotal),
-      tax: parseFloat(purchase.summary.tax),
-      date: purchase.date,
-      paymentMethod: purchase.paymentMethod,
-      shippingAddress: user.addresses?.[0] || {},
-    };
-  };
+  const API_BASE = BaseUrl;
+  const { user } = useAuth();
+  const token = user?.accessToken;
+
+  // Debug: log API base and token presence for troubleshooting
+  console.debug("AdminProvider init", { API_BASE, tokenPresent: Boolean(token) });
+
+  const fetchGames = useCallback(async () => {
+    const response = await fetch(`${API_BASE}/games?pageSize=100`);
+    let payload = null;
+    try {
+      payload = await response.json();
+    } catch (err) {
+      console.error("fetchGames: failed to parse JSON", err);
+    }
+    console.debug("fetchGames", { url: `${API_BASE}/games?pageSize=100`, status: response.status, ok: response.ok, payload });
+
+    if (!response.ok) throw new Error("Failed to fetch products");
+
+    const items = payload?.data?.items || payload?.items || payload || [];
+    return items.map(normalizeGame).filter(Boolean);
+  }, [API_BASE]);
+
+  const fetchUsers = useCallback(async () => {
+    const response = await fetch(`${API_BASE}/admin/users?pageSize=100`, {
+      headers: {
+        ...buildAuthHeaders(token),
+      },
+      credentials: "include",
+    });
+
+    let data = null;
+    try {
+      data = await response.json();
+    } catch (err) {
+      console.error("fetchUsers: failed to parse JSON", err);
+    }
+    console.debug("fetchUsers", { url: `${API_BASE}/admin/users?pageSize=100`, status: response.status, ok: response.ok, data });
+
+    if (!response.ok) throw new Error("Failed to fetch users");
+
+    return mapUsers(data);
+  }, [API_BASE, token]);
+
+  const fetchOrders = useCallback(async (gamesById) => {
+    const response = await fetch(`${API_BASE}/admin/orders?pageSize=100`, {
+      headers: {
+        ...buildAuthHeaders(token),
+      },
+      credentials: "include",
+    });
+
+    let list = null;
+    try {
+      list = await response.json();
+    } catch (err) {
+      console.error("fetchOrders: failed to parse JSON", err);
+    }
+    console.debug("fetchOrders", { url: `${API_BASE}/admin/orders?pageSize=100`, status: response.status, ok: response.ok, list });
+
+    if (!response.ok) throw new Error("Failed to fetch orders");
+
+    const detailedOrders = await Promise.all(
+      (list || []).map(async (order) => {
+        try {
+          const detailResponse = await fetch(`${API_BASE}/admin/orders/${order.id}`, {
+            headers: {
+              ...buildAuthHeaders(token),
+            },
+            credentials: "include",
+          });
+
+          if (!detailResponse.ok) {
+            return {
+              id: order.id,
+              orderId: order.orderId,
+              email: order.customerEmail,
+              userFullName: order.customerName,
+              status: order.status,
+              items: [],
+              total: order.total,
+              subtotal: order.total,
+              tax: 0,
+              date: order.orderDate,
+              paymentMethod: "",
+              shippingAddress: {},
+            };
+          }
+
+          const detail = await detailResponse.json();
+          const items = (detail.items || []).map((item) => {
+            const game = gamesById.get(item.gameId);
+            return {
+              id: item.gameId,
+              name: item.gameName || game?.name || "Unknown Game",
+              price: item.price,
+              qty: item.quantity,
+              quantity: item.quantity,
+              image: game?.images?.[0] || "",
+            };
+          });
+
+          return {
+            id: detail.id,
+            orderId: detail.orderId,
+            email: detail.customerEmail,
+            userFullName: detail.customerName,
+            status: detail.status,
+            items,
+            total: detail.total,
+            subtotal: detail.subTotal,
+            tax: detail.tax,
+            date: detail.orderDate,
+            paymentMethod: detail.paymentMethod,
+            shippingAddress: detail.shippingAddress,
+          };
+        } catch (error) {
+          console.error("Error loading order details:", error);
+          return null;
+        }
+      })
+    );
+
+    return detailedOrders.filter(Boolean);
+  }, [API_BASE, token]);
+
+  const refreshAdminData = useCallback(async () => {
+    if (!token) {
+      setLoading(false);
+      setError("Admin authorization required");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError(null);
+
+      const games = await fetchGames();
+      const gamesById = new Map(games.map((game) => [game.id, game]));
+      const [usersData, ordersData] = await Promise.all([
+        fetchUsers(),
+        fetchOrders(gamesById),
+      ]);
+
+      setProducts(games);
+      setUsers(usersData);
+      setOrders(ordersData);
+    } catch (error) {
+      console.error("Error loading admin data:", error);
+      setError(error.message || "Failed to load admin data");
+      setProducts([]);
+      setUsers([]);
+      setOrders([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [fetchGames, fetchOrders, fetchUsers, token]);
 
   useEffect(() => {
-    const loadData = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-
-        console.log("Loading admin data...");
-        const [productsRes, usersRes] = await Promise.all([
-          fetch(`${BASE_API}/games`),
-          fetch(`${BASE_API}/users`),
-        ]);
-
-        if (!productsRes.ok) throw new Error("Failed to fetch products");
-        if (!usersRes.ok) throw new Error("Failed to fetch users");
-
-        const productsData = await productsRes.json();
-        const usersData = await usersRes.json();
-
-        console.log("Loaded users:", usersData);
-        console.log("Loaded products:", productsData);
-
-        setProducts(productsData || []);
-        setUsers(usersData || []);
-
-        const allOrders = [];
-        usersData.forEach((user) => {
-          if (user.purchaseHistory && user.purchaseHistory.length > 0) {
-            user.purchaseHistory.forEach((purchase) => {
-              if (typeof purchase === "object" && purchase.id) {
-                const order = convertPurchaseToOrder(purchase, user);
-                allOrders.push(order);
-              }
-            });
-          }
-        });
-
-        console.log("Generated orders:", allOrders);
-        setOrders(allOrders);
-      } catch (error) {
-        console.error("Error loading admin data:", error);
-        setError(error.message);
-        setProducts([]);
-        setUsers([]);
-        setOrders([]);
-      } finally {
-        setLoading(false);
-      }
-    };
-    loadData();
-  }, []);
+    refreshAdminData();
+  }, [refreshAdminData]);
 
   const addProduct = async (productData) => {
     try {
-      const newProduct = {
-        id: Date.now().toString(),
-        ...productData,
-        price: parseFloat(productData.price),
-        stock: parseInt(productData.stock),
-        rating: 4.0,
-        inStock: true,
-      };
-
-      const response = await fetch(`${BASE_API}/games`, {
+      const formData = await buildGameFormData(productData);
+      const response = await fetch(`${API_BASE}/admin/games`, {
         method: "POST",
         headers: {
-          "Content-Type": "application/json",
+          ...buildAuthHeaders(token),
         },
-        body: JSON.stringify(newProduct),
+        credentials: "include",
+        body: formData,
       });
 
       if (!response.ok) throw new Error("Failed to add product");
 
-      const savedProduct = await response.json();
+      const savedProduct = normalizeGame(await response.json());
       setProducts((prev) => [...prev, savedProduct]);
       return { success: true, product: savedProduct };
     } catch (error) {
@@ -117,23 +267,19 @@ export function AdminProvider({ children }) {
 
   const editProduct = async (id, productData) => {
     try {
-      const updatedProduct = {
-        ...productData,
-        price: parseFloat(productData.price),
-        stock: parseInt(productData.stock),
-      };
-
-      const response = await fetch(`${BASE_API}/games/${id}`, {
+      const formData = await buildGameFormData(productData);
+      const response = await fetch(`${API_BASE}/admin/games/${id}`, {
         method: "PUT",
         headers: {
-          "Content-Type": "application/json",
+          ...buildAuthHeaders(token),
         },
-        body: JSON.stringify(updatedProduct),
+        credentials: "include",
+        body: formData,
       });
 
       if (!response.ok) throw new Error("Failed to update product");
 
-      const savedProduct = await response.json();
+      const savedProduct = normalizeGame(await response.json());
       setProducts((prev) => prev.map((p) => (p.id === id ? savedProduct : p)));
       return { success: true, product: savedProduct };
     } catch (error) {
@@ -144,8 +290,12 @@ export function AdminProvider({ children }) {
 
   const deleteProduct = async (id) => {
     try {
-      const response = await fetch(`${BASE_API}/games/${id}`, {
+      const response = await fetch(`${API_BASE}/admin/games/${id}`, {
         method: "DELETE",
+        headers: {
+          ...buildAuthHeaders(token),
+        },
+        credentials: "include",
       });
 
       if (!response.ok) throw new Error("Failed to delete product");
@@ -160,34 +310,35 @@ export function AdminProvider({ children }) {
 
   const updateUser = async (id, userData) => {
     try {
-      const response = await fetch(`${BASE_API}/users/${id}`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(userData),
-      });
+      if (userData.role) {
+        const response = await fetch(`${API_BASE}/admin/users/${id}/role`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            ...buildAuthHeaders(token),
+          },
+          credentials: "include",
+          body: JSON.stringify({ role: userData.role }),
+        });
 
-      if (!response.ok) throw new Error("Failed to update user");
-
-      const updatedUser = await response.json();
-      setUsers((prev) => prev.map((u) => (u.id === id ? updatedUser : u)));
-
-      if (userData.firstName || userData.lastName || userData.email) {
-        setOrders((prev) =>
-          prev.map((order) =>
-            order.email === updatedUser.email
-              ? {
-                  ...order,
-                  email: updatedUser.email,
-                  userFullName: `${updatedUser.firstName} ${updatedUser.lastName}`,
-                }
-              : order
-          )
-        );
+        if (!response.ok) throw new Error("Failed to update user role");
       }
 
-      return { success: true, user: updatedUser };
+      if (userData.status) {
+        const endpoint = userData.status === "blocked" ? "block" : "activate";
+        const response = await fetch(`${API_BASE}/admin/users/${id}/${endpoint}`, {
+          method: "PUT",
+          headers: {
+            ...buildAuthHeaders(token),
+          },
+          credentials: "include",
+        });
+
+        if (!response.ok) throw new Error("Failed to update user status");
+      }
+
+      await refreshAdminData();
+      return { success: true };
     } catch (error) {
       console.error("Error updating user:", error);
       return { success: false, error: error.message };
@@ -196,21 +347,17 @@ export function AdminProvider({ children }) {
 
   const deleteUser = async (id) => {
     try {
-      const userToDelete = users.find((u) => u.id === id);
-      const response = await fetch(`${BASE_API}/users/${id}`, {
+      const response = await fetch(`${API_BASE}/admin/users/${id}`, {
         method: "DELETE",
+        headers: {
+          ...buildAuthHeaders(token),
+        },
+        credentials: "include",
       });
 
       if (!response.ok) throw new Error("Failed to delete user");
 
       setUsers((prev) => prev.filter((u) => u.id !== id));
-
-      if (userToDelete) {
-        setOrders((prev) =>
-          prev.filter((order) => order.email !== userToDelete.email)
-        );
-      }
-
       return { success: true };
     } catch (error) {
       console.error("Error deleting user:", error);
@@ -220,37 +367,23 @@ export function AdminProvider({ children }) {
 
   const updateOrderStatus = async (orderId, status) => {
     try {
-      const orderToUpdate = orders.find((order) => order.id === orderId);
-      if (!orderToUpdate) throw new Error("Order not found");
-      const user = users.find((u) => u.email === orderToUpdate.email);
-      if (!user) throw new Error("User not found");
-
-      const updatedPurchaseHistory = user.purchaseHistory.map((purchase) =>
-        typeof purchase === "object" && purchase.id === orderId
-          ? { ...purchase, status }
-          : purchase
-      );
-
-      const response = await fetch(`${BASE_API}/users/${user.id}`, {
-        method: "PATCH",
+      const response = await fetch(`${API_BASE}/admin/orders/${orderId}/status`, {
+        method: "PUT",
         headers: {
           "Content-Type": "application/json",
+          ...buildAuthHeaders(token),
         },
-        body: JSON.stringify({ purchaseHistory: updatedPurchaseHistory }),
+        credentials: "include",
+        body: JSON.stringify({ status }),
       });
 
       if (!response.ok) throw new Error("Failed to update order status");
 
-      const updatedUser = await response.json();
+      setOrders((prev) => prev.map((order) =>
+        order.id === orderId ? { ...order, status } : order
+      ));
 
-      setUsers((prev) => prev.map((u) => (u.id === user.id ? updatedUser : u)));
-      setOrders((prev) =>
-        prev.map((order) =>
-          order.id === orderId ? { ...order, status } : order
-        )
-      );
-
-      return { success: true, order: { ...orderToUpdate, status } };
+      return { success: true };
     } catch (error) {
       console.error("Error updating order status:", error);
       return { success: false, error: error.message };
@@ -259,38 +392,23 @@ export function AdminProvider({ children }) {
 
   const deleteOrder = async (orderId) => {
     try {
-      const orderToDelete = orders.find((order) => order.id === orderId);
-      if (!orderToDelete) throw new Error("Order not found");
-
-      const user = users.find((u) => u.email === orderToDelete.email);
-      if (!user) throw new Error("User not found");
-
-      const updatedPurchaseHistory = user.purchaseHistory.filter(
-        (purchase) => !(typeof purchase === "object" && purchase.id === orderId)
-      );
-
-      const response = await fetch(`${BASE_API}/users/${user.id}`, {
-        method: "PATCH",
+      const response = await fetch(`${API_BASE}/admin/orders/${orderId}`, {
+        method: "DELETE",
         headers: {
-          "Content-Type": "application/json",
+          ...buildAuthHeaders(token),
         },
-        body: JSON.stringify({ purchaseHistory: updatedPurchaseHistory }),
+        credentials: "include",
       });
 
       if (!response.ok) throw new Error("Failed to delete order");
 
-      const updatedUser = await response.json();
-
-      setUsers((prev) => prev.map((u) => (u.id === user.id ? updatedUser : u)));
       setOrders((prev) => prev.filter((order) => order.id !== orderId));
-
       return { success: true };
     } catch (error) {
       console.error("Error deleting order:", error);
       return { success: false, error: error.message };
     }
   };
-
 
   const value = {
     products,
@@ -305,6 +423,7 @@ export function AdminProvider({ children }) {
     deleteUser,
     updateOrderStatus,
     deleteOrder,
+    refreshAdminData,
   };
 
   return (

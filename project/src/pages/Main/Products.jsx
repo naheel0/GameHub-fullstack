@@ -14,7 +14,7 @@ import { toast } from "react-toastify";
 import { useCart } from "../../contexts/CartContext";
 import { useWishlist } from "../../contexts/WishlistContext";
 import { useAuth } from "../../contexts/AuthContext";
-import { BaseUrl } from "../../Services/api";
+import { BaseUrl, normalizeGame } from "../../Services/api";
 
 const Products = () => {
   const [games, setGames] = useState([]);
@@ -44,13 +44,15 @@ const Products = () => {
     const fetchGames = async () => {
       try {
         setLoading(true);
-        const response = await fetch(`${API_BASE}/games`);
+        const response = await fetch(`${API_BASE}/games?pageSize=100`);
         if (!response.ok) {
           throw new Error("Failed to fetch games data");
         }
-        const data = await response.json();
-        setGames(data);
-        setFilteredGames(data);
+        const payload = await response.json();
+        const items = payload?.data?.items || payload?.items || payload || [];
+        const normalized = items.map(normalizeGame).filter(Boolean);
+        setGames(normalized);
+        setFilteredGames(normalized);
         setLoading(false);
       } catch (err) {
         setError(err.message);
@@ -228,7 +230,7 @@ const Products = () => {
         <div className="text-center text-red-500">
           <p className="text-xl font-semibold">Error: {error}</p>
           <p className="mt-2 text-sm text-gray-400">
-            Make sure JSON Server is running on port 3001
+            Make sure the GameHub API is running
           </p>
           <button
             onClick={() => window.location.reload()}
@@ -255,7 +257,7 @@ const Products = () => {
           <div className="mt-2 text-sm text-gray-400">
             {filteredGames.length} games found • {getWishlistCount()} in
             wishlist
-            {user && <span> • Welcome, {user.name}!</span>}
+            {user && <span> • Welcome, {user.firstName || user.email}!</span>}
           </div>
         </div>
 

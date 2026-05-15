@@ -17,7 +17,7 @@ import "swiper/css";
 import "swiper/css/navigation";
 import "swiper/css/pagination";
 import "swiper/css/effect-fade";
-import { BaseUrl } from "../../Services/api";
+import { BaseUrl, normalizeGame } from "../../Services/api";
 
 const Home = () => {
   const [featuredGames, setFeaturedGames] = useState([]);
@@ -28,12 +28,14 @@ const Home = () => {
   useEffect(() => {
     const fetchGames = async () => {
       try {
-        const response = await fetch(`${API_BASE}/games`);
+        const response = await fetch(`${API_BASE}/games?pageSize=100`);
         if (!response.ok) {
           throw new Error("Failed to fetch games data");
         }
-        const data = await response.json();
-        setFeaturedGames(data.slice(0, 6));
+        const payload = await response.json();
+        const items = payload?.data?.items || payload?.items || payload || [];
+        const normalized = items.map(normalizeGame).filter(Boolean);
+        setFeaturedGames(normalized.slice(0, 6));
         setLoading(false);
       } catch (err) {
         console.error("Error fetching games:", err);

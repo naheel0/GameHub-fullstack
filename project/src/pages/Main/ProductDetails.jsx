@@ -8,7 +8,7 @@ import { useWishlist } from '../../contexts/WishlistContext';
 import { GiFastBackwardButton } from 'react-icons/gi';
 import { MdArrowForwardIos, MdArrowBackIosNew } from "react-icons/md";
 import { toast } from 'react-toastify';
-import { BaseUrl } from '../../Services/api';
+import { BaseUrl, normalizeGame } from '../../Services/api';
 
 const ProductDetails = () => {
   const { id } = useParams();
@@ -41,9 +41,10 @@ const ProductDetails = () => {
           throw new Error('Failed to fetch game data');
         }
         const foundGame = await response.json();
-        
-        if (foundGame) {
-          setGame(foundGame);
+        const normalized = normalizeGame(foundGame);
+
+        if (normalized) {
+          setGame(normalized);
         } else {
           throw new Error('Game not found');
         }

@@ -1,9 +1,10 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { toast } from 'react-toastify';
 import { useAuth } from './AuthContext';
-import { BaseUrl } from '../Services/api';
+import { BaseUrl, buildAuthHeaders, normalizeGame } from '../Services/api';
 
 const WishlistContext = createContext();
+
 // eslint-disable-next-line react-refresh/only-export-components
 export const useWishlist = () => {
   const context = useContext(WishlistContext);
@@ -16,13 +17,46 @@ export const useWishlist = () => {
 export const WishlistProvider = ({ children }) => {
   const [wishlist, setWishlist] = useState([]);
   const [loading, setLoading] = useState(true);
-  const { user, updateUserPartial } = useAuth();
+  const { user } = useAuth();
 
   const API_BASE = BaseUrl;
+  const token = user?.accessToken;
 
-  // Use useCallback to prevent unnecessary reloads
+  const fetchGame = useCallback(async (gameId) => {
+    try {
+      const response = await fetch(`${API_BASE}/games/${gameId}`);
+      if (!response.ok) return null;
+      const data = await response.json();
+      return normalizeGame(data);
+    } catch (error) {
+      console.error('Error fetching game:', error);
+      return null;
+    }
+  }, [API_BASE]);
+
+  const mapWishlistItem = useCallback(async (item) => {
+    const game = await fetchGame(item.gameId);
+
+    return {
+      id: item.gameId,
+      name: game?.name || item.gameName || 'Unknown Game',
+      price: typeof item.price === 'number' ? item.price : game?.price || 0,
+      images: (game?.images && game.images.length > 0)
+        ? game.images
+        : item.image
+          ? [item.image]
+          : [],
+      genre: game?.genre || '',
+      platform: game?.platform || '',
+      rating: game?.rating || 0,
+      inStock: typeof game?.inStock === 'boolean' ? game.inStock : true,
+      trailer: game?.trailer || '',
+      description: game?.description || '',
+    };
+  }, [fetchGame]);
+
   const loadWishlist = useCallback(async () => {
-    if (!user) {
+    if (!user || !token) {
       setWishlist([]);
       setLoading(false);
       return;
@@ -30,66 +64,58 @@ export const WishlistProvider = ({ children }) => {
 
     try {
       setLoading(true);
-      
-      const response = await fetch(`${API_BASE}/users/${user.id}`);
+      const response = await fetch(`${API_BASE}/wishlist`, {
+        headers: {
+          ...buildAuthHeaders(token),
+        },
+        credentials: 'include',
+      });
+
       if (!response.ok) {
-        throw new Error('Failed to fetch user data');
+        throw new Error('Failed to fetch wishlist');
       }
-      
-      const userData = await response.json();
-      const wishlistIds = userData.wishlist || [];
 
-      if (wishlistIds.length > 0) {
-        const wishlistPromises = wishlistIds.map(async (gameId) => {
-          const gameResponse = await fetch(`${API_BASE}/games/${gameId}`);
-          if (gameResponse.ok) {
-            return await gameResponse.json();
-          }
-          return null;
-        });
-
-        const wishlistGames = (await Promise.all(wishlistPromises)).filter(game => game !== null);
-        setWishlist(wishlistGames);
-      } else {
-        setWishlist([]);
-      }
-      
-      setLoading(false);
+      const items = await response.json();
+      const mapped = await Promise.all((items || []).map(mapWishlistItem));
+      setWishlist(mapped.filter(Boolean));
     } catch (error) {
       console.error('Error loading wishlist:', error);
       toast.error('Failed to load wishlist');
+      setWishlist([]);
+    } finally {
       setLoading(false);
     }
-  }, [user,API_BASE]);
+  }, [API_BASE, mapWishlistItem, token, user]);
 
   useEffect(() => {
     loadWishlist();
   }, [loadWishlist]);
 
   const addToWishlist = async (game) => {
-    if (!user) {
+    if (!user || !token) {
       toast.warning('Please log in to manage your wishlist.');
       return;
     }
 
     try {
-      if (wishlist.some(item => item.id === game.id)) {
+      if (wishlist.some((item) => item.id === game.id)) {
         toast.info(`${game.name} is already in your wishlist!`);
         return;
       }
 
-      const userResponse = await fetch(`${API_BASE}/users/${user.id}`);
-      if (!userResponse.ok) {
-        throw new Error('Failed to fetch user data');
+      const response = await fetch(`${API_BASE}/wishlist/${game.id}`, {
+        method: 'POST',
+        headers: {
+          ...buildAuthHeaders(token),
+        },
+        credentials: 'include',
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to add to wishlist');
       }
 
-      const userData = await userResponse.json();
-      const updatedWishlist = [...(userData.wishlist || []), game.id];
-
-      // Use partial update
-      await updateUserPartial({ wishlist: updatedWishlist });
-
-      setWishlist(prev => [...prev, game]);
+      await loadWishlist();
       toast.success(`${game.name} added to wishlist!`);
     } catch (error) {
       console.error('Error adding to wishlist:', error);
@@ -98,29 +124,25 @@ export const WishlistProvider = ({ children }) => {
   };
 
   const removeFromWishlist = async (gameId) => {
-    if (!user) {
+    if (!user || !token) {
       toast.warning('Please log in to manage your wishlist.');
       return;
     }
 
     try {
-      const userResponse = await fetch(`${API_BASE}/users/${user.id}`);
-      if (!userResponse.ok) {
-        throw new Error('Failed to fetch user data');
+      const response = await fetch(`${API_BASE}/wishlist/${gameId}`, {
+        method: 'DELETE',
+        headers: {
+          ...buildAuthHeaders(token),
+        },
+        credentials: 'include',
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to remove from wishlist');
       }
 
-      const userData = await userResponse.json();
-      const updatedWishlist = (userData.wishlist || []).filter(id => id !== gameId);
-
-      // Use partial update
-      await updateUserPartial({ wishlist: updatedWishlist });
-
-      const removedGame = wishlist.find(item => item.id === gameId);
-      setWishlist(prev => prev.filter(item => item.id !== gameId));
-      
-      if (removedGame) {
-        toast.info(`${removedGame.name} removed from wishlist`);
-      }
+      setWishlist((prev) => prev.filter((item) => item.id !== gameId));
     } catch (error) {
       console.error('Error removing from wishlist:', error);
       toast.error('Failed to remove from wishlist');
@@ -128,18 +150,25 @@ export const WishlistProvider = ({ children }) => {
   };
 
   const isInWishlist = (gameId) => {
-    return wishlist.some(item => item.id === gameId);
+    return wishlist.some((item) => item.id === gameId);
   };
 
   const clearWishlist = async () => {
-    if (!user) {
+    if (!user || !token) {
       toast.warning('Please log in to manage your wishlist.');
       return;
     }
 
     try {
-      // Use partial update
-      await updateUserPartial({ wishlist: [] });
+      await Promise.all(wishlist.map((item) =>
+        fetch(`${API_BASE}/wishlist/${item.id}`, {
+          method: 'DELETE',
+          headers: {
+            ...buildAuthHeaders(token),
+          },
+          credentials: 'include',
+        })
+      ));
 
       setWishlist([]);
       toast.info('Wishlist cleared');
@@ -149,12 +178,34 @@ export const WishlistProvider = ({ children }) => {
     }
   };
 
-  const moveToCart = (item, addToCartFunction) => {
-    if (item.inStock) {
-      addToCartFunction(item);
-      removeFromWishlist(item.id);
-    } else {
-      toast.error(`${item.name} is out of stock!`);
+  const moveToCart = async (item, onCartUpdated) => {
+    if (!user || !token) {
+      toast.warning('Please log in to manage your wishlist.');
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_BASE}/wishlist/${item.id}/move-to-cart`, {
+        method: 'POST',
+        headers: {
+          ...buildAuthHeaders(token),
+        },
+        credentials: 'include',
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to move item to cart');
+      }
+
+      await loadWishlist();
+      if (typeof onCartUpdated === 'function') {
+        await onCartUpdated();
+      }
+
+      toast.success(`${item.name} moved to cart!`);
+    } catch (error) {
+      console.error('Error moving to cart:', error);
+      toast.error('Failed to move item to cart');
     }
   };
 
@@ -163,7 +214,7 @@ export const WishlistProvider = ({ children }) => {
   };
 
   const getWishlistTotal = () => {
-    return wishlist.reduce((total, item) => total + item.price, 0);
+    return wishlist.reduce((total, item) => total + (item.price || 0), 0);
   };
 
   const isWishlistEmpty = () => {
@@ -171,37 +222,7 @@ export const WishlistProvider = ({ children }) => {
   };
 
   const refreshWishlist = async () => {
-    if (!user) {
-      setWishlist([]);
-      return;
-    }
-
-    try {
-      const response = await fetch(`${API_BASE}/users/${user.id}`);
-      if (!response.ok) {
-        throw new Error('Failed to fetch user data');
-      }
-      
-      const userData = await response.json();
-      const wishlistIds = userData.wishlist || [];
-
-      if (wishlistIds.length > 0) {
-        const wishlistPromises = wishlistIds.map(async (gameId) => {
-          const gameResponse = await fetch(`${API_BASE}/games/${gameId}`);
-          if (gameResponse.ok) {
-            return await gameResponse.json();
-          }
-          return null;
-        });
-
-        const wishlistGames = (await Promise.all(wishlistPromises)).filter(game => game !== null);
-        setWishlist(wishlistGames);
-      } else {
-        setWishlist([]);
-      }
-    } catch (error) {
-      console.error('Error refreshing wishlist:', error);
-    }
+    await loadWishlist();
   };
 
   const value = {
@@ -215,7 +236,7 @@ export const WishlistProvider = ({ children }) => {
     getWishlistCount,
     getWishlistTotal,
     isWishlistEmpty,
-    refreshWishlist
+    refreshWishlist,
   };
 
   return (

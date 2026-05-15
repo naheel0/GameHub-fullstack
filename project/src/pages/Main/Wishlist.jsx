@@ -8,7 +8,7 @@ import { StarIcon as StarOutline } from '@heroicons/react/24/outline';
 
 const Wishlist = () => {
   const { wishlist, removeFromWishlist, clearWishlist, getWishlistTotal, moveToCart, isWishlistEmpty } = useWishlist();
-  const { addToCart } = useCart();
+  const { refreshCart } = useCart();
 
   const renderStars = (rating) => {
     return Array.from({ length: 5 }, (_, index) => (
@@ -104,7 +104,7 @@ const Wishlist = () => {
                   </button>
                   
                   <button
-                    onClick={() => moveToCart(game, addToCart)}
+                    onClick={() => moveToCart(game, refreshCart)}
                     disabled={!game.inStock}
                     className={`flex-1 py-2 rounded-lg transition duration-300 flex items-center justify-center ${
                       game.inStock
