@@ -34,39 +34,44 @@ const buildGameFormData = async (productData) => {
   formData.append("InStock", String(productData.inStock));
   formData.append("Description", productData.description || "");
 
-  const imageUrls = (productData.images || []).filter((url) => url);
-  const imageFiles = await Promise.all(
-    imageUrls.map(async (url, index) => {
-      try {
-        const response = await fetch(url);
-        if (!response.ok) return null;
-        const blob = await response.blob();
-        const ext = blob.type.split("/")[1] || "jpg";
-        return new File([blob], `image-${index}.${ext}`, { type: blob.type });
-      } catch (error) {
-        console.error("Image download failed:", error);
-        return null;
-      }
-    })
-  );
+  // Append new image File objects directly (from file input)
+  const newImageFiles = (productData.imageFiles || []).filter(Boolean);
+  newImageFiles.forEach((file) => formData.append("ImageFiles", file));
 
-  imageFiles.filter(Boolean).forEach((file) => {
-    formData.append("ImageFiles", file);
-  });
+  // Re-fetch existing image URLs only if no new files provided
+  if (newImageFiles.length === 0) {
+    const existingUrls = (productData.images || []).filter(Boolean);
+    const refetched = await Promise.all(
+      existingUrls.map(async (url, index) => {
+        try {
+          const res = await fetch(url);
+          if (!res.ok) return null;
+          const blob = await res.blob();
+          const ext = blob.type.split("/")[1] || "jpg";
+          return new File([blob], `image-${index}.${ext}`, { type: blob.type });
+        } catch {
+          return null;
+        }
+      })
+    );
+    refetched.filter(Boolean).forEach((file) => formData.append("ImageFiles", file));
+  }
 
-  if (productData.trailer) {
+  // Use new trailer File if provided, otherwise re-fetch existing URL
+  if (productData.trailerFile) {
+    formData.append("TrailerFile", productData.trailerFile);
+  } else if (productData.trailer) {
     try {
-      const response = await fetch(productData.trailer);
-      if (response.ok) {
-        const blob = await response.blob();
+      const res = await fetch(productData.trailer);
+      if (res.ok) {
+        const blob = await res.blob();
         if (blob.type.startsWith("video/")) {
           const ext = blob.type.split("/")[1] || "mp4";
-          const trailerFile = new File([blob], `trailer.${ext}`, { type: blob.type });
-          formData.append("TrailerFile", trailerFile);
+          formData.append("TrailerFile", new File([blob], `trailer.${ext}`, { type: blob.type }));
         }
       }
-    } catch (error) {
-      console.error("Trailer download failed:", error);
+    } catch {
+      // trailer re-fetch failed, skip
     }
   }
 
@@ -81,71 +86,51 @@ export function AdminProvider({ children }) {
   const [error, setError] = useState(null);
 
   const API_BASE = BaseUrl;
-  const { user } = useAuth();
+  const { user, authFetch } = useAuth();
   const token = user?.accessToken;
-
-  // Debug: log API base and token presence for troubleshooting
-  console.debug("AdminProvider init", { API_BASE, tokenPresent: Boolean(token) });
 
   const fetchGames = useCallback(async () => {
     const response = await fetch(`${API_BASE}/games?pageSize=100`);
-    let payload = null;
-    try {
-      payload = await response.json();
-    } catch (err) {
-      console.error("fetchGames: failed to parse JSON", err);
-    }
-    console.debug("fetchGames", { url: `${API_BASE}/games?pageSize=100`, status: response.status, ok: response.ok, payload });
-
-    if (!response.ok) throw new Error("Failed to fetch products");
-
+    if (!response.ok) throw new Error(`Failed to fetch products (${response.status})`);
+    const payload = await response.json();
     const items = payload?.data?.items || payload?.items || payload || [];
     return items.map(normalizeGame).filter(Boolean);
   }, [API_BASE]);
 
   const fetchUsers = useCallback(async () => {
-    const response = await fetch(`${API_BASE}/admin/users?pageSize=100`, {
-      headers: {
-        ...buildAuthHeaders(token),
-      },
-      credentials: "include",
+    const url = `${API_BASE}/admin/adminusers`;
+    const response = await authFetch(url, {
+      headers: { "Content-Type": "application/json", ...buildAuthHeaders(token) },
     });
 
-    let data = null;
-    try {
-      data = await response.json();
-    } catch (err) {
-      console.error("fetchUsers: failed to parse JSON", err);
+    if (response.status === 401) throw new Error("Unauthorized: token expired or invalid. Please log out and log in again.");
+    if (!response.ok) {
+      const text = await response.text().catch(() => "");
+      throw new Error(`Failed to fetch users (${response.status})${text ? ": " + text : ""}`);
     }
-    console.debug("fetchUsers", { url: `${API_BASE}/admin/users?pageSize=100`, status: response.status, ok: response.ok, data });
 
-    if (!response.ok) throw new Error("Failed to fetch users");
-
+    const data = await response.json();
     return mapUsers(data);
   }, [API_BASE, token]);
 
   const fetchOrders = useCallback(async (gamesById) => {
-    const response = await fetch(`${API_BASE}/admin/orders?pageSize=100`, {
-      headers: {
-        ...buildAuthHeaders(token),
-      },
-      credentials: "include",
+    const url = `${API_BASE}/admin/adminorders`;
+    const response = await authFetch(url, {
+      headers: { "Content-Type": "application/json", ...buildAuthHeaders(token) },
     });
 
-    let list = null;
-    try {
-      list = await response.json();
-    } catch (err) {
-      console.error("fetchOrders: failed to parse JSON", err);
+    if (response.status === 401) throw new Error("Unauthorized: token expired or invalid. Please log out and log in again.");
+    if (!response.ok) {
+      const text = await response.text().catch(() => "");
+      throw new Error(`Failed to fetch orders (${response.status})${text ? ": " + text : ""}`);
     }
-    console.debug("fetchOrders", { url: `${API_BASE}/admin/orders?pageSize=100`, status: response.status, ok: response.ok, list });
 
-    if (!response.ok) throw new Error("Failed to fetch orders");
+    const list = await response.json();
 
     const detailedOrders = await Promise.all(
       (list || []).map(async (order) => {
         try {
-          const detailResponse = await fetch(`${API_BASE}/admin/orders/${order.id}`, {
+          const detailResponse = await authFetch(`${API_BASE}/admin/adminorders/${order.orderId}`, {
             headers: {
               ...buildAuthHeaders(token),
             },
@@ -154,7 +139,7 @@ export function AdminProvider({ children }) {
 
           if (!detailResponse.ok) {
             return {
-              id: order.id,
+              id: order.orderId,
               orderId: order.orderId,
               email: order.customerEmail,
               userFullName: order.customerName,
@@ -171,7 +156,7 @@ export function AdminProvider({ children }) {
 
           const detail = await detailResponse.json();
           const items = (detail.items || []).map((item) => {
-            const game = gamesById.get(item.gameId);
+            const game = gamesById.get(String(item.gameId));
             return {
               id: item.gameId,
               name: item.gameName || game?.name || "Unknown Game",
@@ -183,7 +168,7 @@ export function AdminProvider({ children }) {
           });
 
           return {
-            id: detail.id,
+            id: detail.orderId,
             orderId: detail.orderId,
             email: detail.customerEmail,
             userFullName: detail.customerName,
@@ -218,7 +203,7 @@ export function AdminProvider({ children }) {
       setError(null);
 
       const games = await fetchGames();
-      const gamesById = new Map(games.map((game) => [game.id, game]));
+      const gamesById = new Map(games.map((game) => [String(game.id), game]));
       const [usersData, ordersData] = await Promise.all([
         fetchUsers(),
         fetchOrders(gamesById),
@@ -245,7 +230,7 @@ export function AdminProvider({ children }) {
   const addProduct = async (productData) => {
     try {
       const formData = await buildGameFormData(productData);
-      const response = await fetch(`${API_BASE}/admin/games`, {
+      const response = await authFetch(`${API_BASE}/admin/games`, {
         method: "POST",
         headers: {
           ...buildAuthHeaders(token),
@@ -268,7 +253,7 @@ export function AdminProvider({ children }) {
   const editProduct = async (id, productData) => {
     try {
       const formData = await buildGameFormData(productData);
-      const response = await fetch(`${API_BASE}/admin/games/${id}`, {
+      const response = await authFetch(`${API_BASE}/admin/games/${id}`, {
         method: "PUT",
         headers: {
           ...buildAuthHeaders(token),
@@ -290,7 +275,7 @@ export function AdminProvider({ children }) {
 
   const deleteProduct = async (id) => {
     try {
-      const response = await fetch(`${API_BASE}/admin/games/${id}`, {
+      const response = await authFetch(`${API_BASE}/admin/games/${id}`, {
         method: "DELETE",
         headers: {
           ...buildAuthHeaders(token),
@@ -310,8 +295,8 @@ export function AdminProvider({ children }) {
 
   const updateUser = async (id, userData) => {
     try {
-      if (userData.role) {
-        const response = await fetch(`${API_BASE}/admin/users/${id}/role`, {
+      if (userData.role !== undefined) {
+        const response = await authFetch(`${API_BASE}/admin/adminusers/${id}/role`, {
           method: "PUT",
           headers: {
             "Content-Type": "application/json",
@@ -320,24 +305,29 @@ export function AdminProvider({ children }) {
           credentials: "include",
           body: JSON.stringify({ role: userData.role }),
         });
-
-        if (!response.ok) throw new Error("Failed to update user role");
+        if (!response.ok) {
+          const text = await response.text().catch(() => "");
+          throw new Error(`Failed to update role (${response.status})${text ? ": " + text : ""}`);
+        }
       }
 
-      if (userData.status) {
+      if (userData.status !== undefined) {
         const endpoint = userData.status === "blocked" ? "block" : "activate";
-        const response = await fetch(`${API_BASE}/admin/users/${id}/${endpoint}`, {
+        const response = await authFetch(`${API_BASE}/admin/adminusers/${id}/${endpoint}`, {
           method: "PUT",
-          headers: {
-            ...buildAuthHeaders(token),
-          },
+          headers: { ...buildAuthHeaders(token) },
           credentials: "include",
         });
-
-        if (!response.ok) throw new Error("Failed to update user status");
+        if (!response.ok) {
+          const text = await response.text().catch(() => "");
+          throw new Error(`Failed to update status (${response.status})${text ? ": " + text : ""}`);
+        }
       }
 
-      await refreshAdminData();
+      // Optimistically update local state — no full re-fetch needed
+      setUsers((prev) =>
+        prev.map((u) => (u.id === id ? { ...u, ...userData } : u))
+      );
       return { success: true };
     } catch (error) {
       console.error("Error updating user:", error);
@@ -347,7 +337,7 @@ export function AdminProvider({ children }) {
 
   const deleteUser = async (id) => {
     try {
-      const response = await fetch(`${API_BASE}/admin/users/${id}`, {
+      const response = await authFetch(`${API_BASE}/admin/adminusers/${id}`, {
         method: "DELETE",
         headers: {
           ...buildAuthHeaders(token),
@@ -367,7 +357,7 @@ export function AdminProvider({ children }) {
 
   const updateOrderStatus = async (orderId, status) => {
     try {
-      const response = await fetch(`${API_BASE}/admin/orders/${orderId}/status`, {
+      const response = await authFetch(`${API_BASE}/admin/adminorders/${orderId}/status`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -392,7 +382,7 @@ export function AdminProvider({ children }) {
 
   const deleteOrder = async (orderId) => {
     try {
-      const response = await fetch(`${API_BASE}/admin/orders/${orderId}`, {
+      const response = await authFetch(`${API_BASE}/admin/adminorders/${orderId}`, {
         method: "DELETE",
         headers: {
           ...buildAuthHeaders(token),

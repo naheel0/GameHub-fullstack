@@ -17,7 +17,7 @@ export const useWishlist = () => {
 export const WishlistProvider = ({ children }) => {
   const [wishlist, setWishlist] = useState([]);
   const [loading, setLoading] = useState(true);
-  const { user } = useAuth();
+  const { user, authFetch } = useAuth();
 
   const API_BASE = BaseUrl;
   const token = user?.accessToken;
@@ -64,10 +64,8 @@ export const WishlistProvider = ({ children }) => {
 
     try {
       setLoading(true);
-      const response = await fetch(`${API_BASE}/wishlist`, {
-        headers: {
-          ...buildAuthHeaders(token),
-        },
+      const response = await authFetch(`${API_BASE}/wishlist`, {
+        headers: { ...buildAuthHeaders(token) },
         credentials: 'include',
       });
 
@@ -103,11 +101,9 @@ export const WishlistProvider = ({ children }) => {
         return;
       }
 
-      const response = await fetch(`${API_BASE}/wishlist/${game.id}`, {
+      const response = await authFetch(`${API_BASE}/wishlist/${game.id}`, {
         method: 'POST',
-        headers: {
-          ...buildAuthHeaders(token),
-        },
+        headers: { ...buildAuthHeaders(token) },
         credentials: 'include',
       });
 
@@ -130,11 +126,9 @@ export const WishlistProvider = ({ children }) => {
     }
 
     try {
-      const response = await fetch(`${API_BASE}/wishlist/${gameId}`, {
+      const response = await authFetch(`${API_BASE}/wishlist/${gameId}`, {
         method: 'DELETE',
-        headers: {
-          ...buildAuthHeaders(token),
-        },
+        headers: { ...buildAuthHeaders(token) },
         credentials: 'include',
       });
 
@@ -161,11 +155,9 @@ export const WishlistProvider = ({ children }) => {
 
     try {
       await Promise.all(wishlist.map((item) =>
-        fetch(`${API_BASE}/wishlist/${item.id}`, {
+        authFetch(`${API_BASE}/wishlist/${item.id}`, {
           method: 'DELETE',
-          headers: {
-            ...buildAuthHeaders(token),
-          },
+          headers: { ...buildAuthHeaders(token) },
           credentials: 'include',
         })
       ));
@@ -185,11 +177,9 @@ export const WishlistProvider = ({ children }) => {
     }
 
     try {
-      const response = await fetch(`${API_BASE}/wishlist/${item.id}/move-to-cart`, {
+      const response = await authFetch(`${API_BASE}/wishlist/${item.id}/move-to-cart`, {
         method: 'POST',
-        headers: {
-          ...buildAuthHeaders(token),
-        },
+        headers: { ...buildAuthHeaders(token) },
         credentials: 'include',
       });
 

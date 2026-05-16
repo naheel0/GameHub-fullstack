@@ -5,6 +5,7 @@ import {
   FaApple,
   FaGoogle,
   FaRegCreditCard,
+  FaTrash,
 } from "react-icons/fa";
 import { SiVisa, SiMastercard } from "react-icons/si";
 
@@ -35,6 +36,51 @@ const paymentMethods = [
   },
 ];
 
+const SavedCardSelector = ({ savedCards, selectedCardId, onSelectSavedCard, onDeleteSavedCard }) => {
+  if (!savedCards?.length) return null;
+  return (
+    <div className="mb-4">
+      <p className="text-sm font-medium text-gray-300 mb-2">Saved Cards</p>
+      <div className="space-y-2">
+        {savedCards.map((card) => (
+          <div
+            key={card.id}
+            onClick={() => onSelectSavedCard(card)}
+            className={`flex items-center justify-between px-4 py-3 rounded-lg border cursor-pointer transition-all duration-200 ${
+              selectedCardId === card.id
+                ? "border-red-500 bg-red-500/10"
+                : "border-gray-600 hover:border-red-400 bg-gray-800/50"
+            }`}
+          >
+            <div className="flex items-center gap-3">
+              <FaCreditCard className={selectedCardId === card.id ? "text-red-400" : "text-gray-400"} />
+              <div>
+                <p className="text-white text-sm font-medium">
+                  •••• •••• •••• {card.cardNumber.slice(-4)}
+                </p>
+                <p className="text-gray-400 text-xs">{card.cardholderName} · {card.expiryDate}</p>
+              </div>
+              {card.isDefault && (
+                <span className="text-xs text-yellow-400 border border-yellow-500/50 px-1.5 py-0.5 rounded">Default</span>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); onDeleteSavedCard(card.id); }}
+              className="p-1.5 text-gray-500 hover:text-red-400 hover:bg-red-500/10 rounded transition-all"
+            >
+              <FaTrash className="text-xs" />
+            </button>
+          </div>
+        ))}
+      </div>
+      <div className="border-t border-gray-700/50 mt-4 pt-4">
+        <p className="text-xs text-gray-500 mb-3">Or enter a new card</p>
+      </div>
+    </div>
+  );
+};
+
 const CardPaymentForm = ({
   cardDetails,
   handleCardInputChange,
@@ -44,8 +90,18 @@ const CardPaymentForm = ({
   isProcessing,
   summary,
   selectedAddress,
+  savedCards,
+  selectedCardId,
+  onSelectSavedCard,
+  onDeleteSavedCard,
 }) => (
   <form onSubmit={handlePaymentSubmit} className="space-y-4">
+    <SavedCardSelector
+      savedCards={savedCards}
+      selectedCardId={selectedCardId}
+      onSelectSavedCard={onSelectSavedCard}
+      onDeleteSavedCard={onDeleteSavedCard}
+    />
     <div>
       <label className="block text-sm font-medium text-gray-300 mb-2">
         Card Number
@@ -182,6 +238,10 @@ const PaymentFormSection = ({
   isProcessing,
   summary,
   selectedAddress,
+  savedCards,
+  selectedCardId,
+  onSelectSavedCard,
+  onDeleteSavedCard,
 }) => {
   return (
     <div className="bg-gray-900/80 backdrop-blur-sm rounded-xl shadow-2xl p-6 border border-gray-700/50">
@@ -241,6 +301,10 @@ const PaymentFormSection = ({
             isProcessing={isProcessing}
             summary={summary}
             selectedAddress={selectedAddress}
+            savedCards={savedCards}
+            selectedCardId={selectedCardId}
+            onSelectSavedCard={onSelectSavedCard}
+            onDeleteSavedCard={onDeleteSavedCard}
           />
         )}
 

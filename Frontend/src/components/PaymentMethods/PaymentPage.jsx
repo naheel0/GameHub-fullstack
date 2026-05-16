@@ -21,6 +21,8 @@ const PaymentPage = () => {
   const [showAddressForm, setShowAddressForm] = useState(false);
   const [editingAddress, setEditingAddress] = useState(null);
   const [selectedAddress, setSelectedAddress] = useState(null);
+  const [savedCards, setSavedCards] = useState([]);
+  const [selectedCardId, setSelectedCardId] = useState(null);
 
   const [cardDetails, setCardDetails] = useState({
     number: "",
@@ -106,6 +108,26 @@ const PaymentPage = () => {
     refreshAddresses();
   }, [refreshAddresses]);
 
+  const fetchSavedCards = useCallback(async () => {
+    if (!user || !token) return;
+    try {
+      const res = await fetch(`${API_BASE}/carddetails`, {
+        headers: { ...buildAuthHeaders(token) },
+        credentials: "include",
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setSavedCards(data || []);
+        const def = (data || []).find((c) => c.isDefault) || data?.[0];
+        if (def) setSelectedCardId(def.id);
+      }
+    } catch { /* ignore */ }
+  }, [API_BASE, token, user]);
+
+  useEffect(() => {
+    fetchSavedCards();
+  }, [fetchSavedCards]);
+
 
   const handleAddressInputChange = (field, value) => {
     setAddressForm((prev) => ({
@@ -161,8 +183,6 @@ const PaymentPage = () => {
   };
 
   const handleSaveAddress = async () => {
-    if (!validateAddress()) return;
-
     try {
       if (!user || !token) {
         toast.warning('Please log in to manage addresses.');
@@ -420,6 +440,24 @@ const PaymentPage = () => {
       }
 
       if (result.success) {
+        // Save card if requested
+        if (selectedMethod === "card" && saveCard) {
+          try {
+            await fetch(`${API_BASE}/carddetails`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json", ...buildAuthHeaders(token) },
+              credentials: "include",
+              body: JSON.stringify({
+                cardNumber: cardDetails.number.replace(/\s/g, ""),
+                expiryDate: cardDetails.expiry,
+                cvv: cardDetails.cvv,
+                cardholderName: cardDetails.name,
+                isDefault: savedCards.length === 0,
+              }),
+            });
+          } catch { /* non-critical */ }
+        }
+
         toast.success("Payment processed successfully!");
 
         navigate("/order-confirmation", {
@@ -521,6 +559,34 @@ const PaymentPage = () => {
               isProcessing={isProcessing}
               summary={summary}
               selectedAddress={selectedAddress}
+              savedCards={savedCards}
+              selectedCardId={selectedCardId}
+              onSelectSavedCard={(card) => {
+                setSelectedCardId(card.id);
+                setCardDetails({
+                  number: card.cardNumber.replace(/(\d{4})(?=\d)/g, "$1 "),
+                  expiry: card.expiryDate,
+                  cvv: card.cvv,
+                  name: card.cardholderName,
+                });
+              }}
+              onDeleteSavedCard={async (cardId) => {
+                try {
+                  const res = await fetch(`${API_BASE}/carddetails/${cardId}`, {
+                    method: "DELETE",
+                    headers: { ...buildAuthHeaders(token) },
+                    credentials: "include",
+                  });
+                  if (res.ok) {
+                    await fetchSavedCards();
+                    if (selectedCardId === cardId) {
+                      setSelectedCardId(null);
+                      setCardDetails({ number: "", expiry: "", cvv: "", name: "" });
+                    }
+                    toast.success("Card removed");
+                  }
+                } catch { toast.error("Failed to remove card"); }
+              }}
             />
 
             {/* Security Features (Can be a standalone component too, but keeping inline for simplicity) */}

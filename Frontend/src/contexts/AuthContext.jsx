@@ -27,7 +27,6 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     const savedAuth = getStoredAuth();
     if (savedAuth?.user) {
-      // restore accessToken if it was stored separately
       if (savedAuth.accessToken && !savedAuth.user.accessToken) {
         savedAuth.user.accessToken = savedAuth.accessToken;
       }
@@ -35,6 +34,46 @@ export const AuthProvider = ({ children }) => {
     }
     setLoading(false);
   }, []);
+
+  // Call this to silently get a new access token using the HttpOnly refresh token cookie
+  const refreshAccessToken = async () => {
+    try {
+      const response = await fetch(`${API_BASE}/auth/refresh`, {
+        method: 'POST',
+        credentials: 'include', // sends the refreshToken cookie automatically
+      });
+      if (!response.ok) return null;
+      const payload = await response.json();
+      const newToken = payload.data?.accessToken;
+      if (!newToken) return null;
+      // Update stored user with new token
+      setUser(prev => {
+        if (!prev) return prev;
+        const updated = { ...prev, accessToken: newToken };
+        setStoredAuth({ user: updated, accessToken: newToken });
+        return updated;
+      });
+      return newToken;
+    } catch {
+      return null;
+    }
+  };
+
+  // Wrapper: auto-retry once with refreshed token on 401
+  const authFetch = async (url, options = {}) => {
+    let response = await fetch(url, { ...options, credentials: 'include' });
+    if (response.status === 401) {
+      const newToken = await refreshAccessToken();
+      if (newToken) {
+        response = await fetch(url, {
+          ...options,
+          credentials: 'include',
+          headers: { ...options.headers, Authorization: `Bearer ${newToken}` },
+        });
+      }
+    }
+    return response;
+  };
 
   const login = async (email, password) => {
     try {
@@ -155,6 +194,8 @@ export const AuthProvider = ({ children }) => {
     logout,
     updateUser,
     updateUserPartial,
+    refreshAccessToken,
+    authFetch,
     loading
   };
 

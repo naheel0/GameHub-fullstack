@@ -8,8 +8,15 @@ import {
   CheckCircle,
   Trash2,
   Users,
+  Eye,
+  X,
+  Mail,
+  Phone,
+  ShoppingBag,
+  MapPin,
+  IndianRupee,
 } from "lucide-react";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { ChevronLeftIcon, ChevronRightIcon } from "@heroicons/react/24/outline";
 import FormGroup from '@mui/material/FormGroup';
 import FormControlLabel from '@mui/material/FormControlLabel';
@@ -17,6 +24,8 @@ import Switch from '@mui/material/Switch';
 import { styled } from '@mui/material/styles';
 import SearchBar from "./components/SearchBar"; 
 import StatusSwitch from './components/Switches';
+import { BaseUrl, buildAuthHeaders } from "../../Services/api";
+import { useAuth } from "../../contexts/AuthContext";
 
 // Custom styled switches
 
@@ -54,10 +63,37 @@ const RoleSwitch = styled(Switch)(() => ({
 
 export default function AdminUsers() {
   const { users, updateUser, deleteUser } = useAdmin();
+  const { user: authUser } = useAuth();
   const [updatingUserId, setUpdatingUserId] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(5);
   const [searchTerm, setSearchTerm] = useState("");
+  const [selectedUser, setSelectedUser] = useState(null);
+  const [userDetail, setUserDetail] = useState(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+
+  const handleViewUser = async (u) => {
+    setSelectedUser(u);
+    setDetailLoading(true);
+    try {
+      const res = await fetch(`${BaseUrl}/admin/adminusers/${u.id}`, {
+        headers: { ...buildAuthHeaders(authUser?.accessToken) },
+        credentials: "include",
+      });
+      if (res.ok) {
+        const data = await res.json();
+        // Stored proc returns enum integers as strings ("0","1") — normalize them
+        const roleMap = { "0": "user", "1": "admin" };
+        const statusMap = { "0": "active", "1": "blocked" };
+        setUserDetail({
+          ...data,
+          role: roleMap[data.role] ?? data.role?.toLowerCase() ?? "user",
+          status: statusMap[data.status] ?? data.status?.toLowerCase() ?? "active",
+        });
+      }
+    } catch { /* show basic info */ }
+    setDetailLoading(false);
+  };
 
   // Filter users based on searchTerm
   const filteredUsers = useMemo(() => {
@@ -127,7 +163,7 @@ export default function AdminUsers() {
   const currentUsers = filteredUsers?.slice(indexOfFirstItem, indexOfLastItem) || [];
   const totalPages = Math.ceil((filteredUsers?.length || 0) / itemsPerPage);
 
-  useState(() => {
+  useEffect(() => {
     setCurrentPage(1);
   }, [searchTerm]);
 
@@ -361,7 +397,14 @@ export default function AdminUsers() {
 
                       {/* Actions */}
                       <td className="p-4">
-                        <div className="flex justify-center">
+                        <div className="flex justify-center gap-2">
+                          <button
+                            onClick={() => handleViewUser(u)}
+                            className="p-2 text-blue-400 hover:text-blue-300 hover:bg-blue-500/10 rounded-xl transition-all duration-200"
+                            title="View Details"
+                          >
+                            <Eye className="w-4 h-4" />
+                          </button>
                           <button
                             onClick={() => handleDeleteUser(u.id)}
                             disabled={updatingUserId === u.id}
@@ -445,6 +488,100 @@ export default function AdminUsers() {
           </div>
         )}
       </motion.div>
+
+      {/* User Detail Modal */}
+      {selectedUser && (
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="fixed inset-0 bg-black/70 backdrop-blur-md flex items-center justify-center p-4 z-50">
+          <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="bg-gray-900 border border-gray-700/50 rounded-3xl p-6 w-full max-w-md shadow-2xl">
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 bg-red-500/20 rounded-full flex items-center justify-center text-white font-bold text-lg">
+                  {selectedUser.firstName?.[0]}{selectedUser.lastName?.[0]}
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-white">{selectedUser.firstName} {selectedUser.lastName}</h2>
+                  <span className={`text-xs px-2 py-0.5 rounded-full border ${selectedUser.role === "admin" ? "text-yellow-400 border-yellow-500 bg-yellow-500/10" : "text-blue-400 border-blue-500 bg-blue-500/10"}`}>
+                    {selectedUser.role}
+                  </span>
+                </div>
+              </div>
+              <button onClick={() => { setSelectedUser(null); setUserDetail(null); }} className="p-2 hover:bg-gray-700/50 rounded-xl transition-all duration-200">
+                <X className="w-5 h-5 text-gray-400" />
+              </button>
+            </div>
+
+            {detailLoading ? (
+              <div className="flex items-center justify-center py-8 gap-3">
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-red-500"></div>
+                <span className="text-gray-400">Loading details...</span>
+              </div>
+            ) : (() => {
+              const d = userDetail || selectedUser;
+              const status = (d.status ?? "active").toLowerCase();
+              const role = (d.role ?? "user").toLowerCase();
+              return (
+                <div className="space-y-4">
+                  {/* Info fields */}
+                  <div className="bg-gray-800/50 rounded-2xl p-4 border border-gray-700/50 space-y-3">
+                    <div className="flex items-center gap-3 text-gray-300">
+                      <User className="w-4 h-4 text-gray-500 shrink-0" />
+                      <span className="text-xs text-gray-500 w-20 shrink-0">User ID</span>
+                      <span className="text-sm font-mono break-all">{d.id ?? selectedUser.id}</span>
+                    </div>
+                    <div className="flex items-center gap-3 text-gray-300">
+                      <Mail className="w-4 h-4 text-gray-500 shrink-0" />
+                      <span className="text-xs text-gray-500 w-20 shrink-0">Email</span>
+                      <span className="text-sm break-all">{d.email}</span>
+                    </div>
+                    <div className="flex items-center gap-3 text-gray-300">
+                      <Phone className="w-4 h-4 text-gray-500 shrink-0" />
+                      <span className="text-xs text-gray-500 w-20 shrink-0">Phone</span>
+                      <span className="text-sm">{d.phone || <span className="text-gray-600 italic">N/A</span>}</span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      {role === "admin"
+                        ? <Crown className="w-4 h-4 text-yellow-400 shrink-0" />
+                        : <User className="w-4 h-4 text-blue-400 shrink-0" />}
+                      <span className="text-xs text-gray-500 w-20 shrink-0">Role</span>
+                      <span className={`text-sm font-medium capitalize ${role === "admin" ? "text-yellow-400" : "text-blue-400"}`}>
+                        {role}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      {status === "active"
+                        ? <CheckCircle className="w-4 h-4 text-green-400 shrink-0" />
+                        : <Ban className="w-4 h-4 text-red-400 shrink-0" />}
+                      <span className="text-xs text-gray-500 w-20 shrink-0">Status</span>
+                      <span className={`text-sm font-medium capitalize ${status === "active" ? "text-green-400" : "text-red-400"}`}>
+                        {status}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Stats */}
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="bg-gray-800/50 rounded-2xl p-4 border border-gray-700/50 text-center">
+                      <ShoppingBag className="w-5 h-5 text-blue-400 mx-auto mb-1" />
+                      <p className="text-2xl font-bold text-white">{d.orderCount ?? 0}</p>
+                      <p className="text-xs text-gray-400 mt-1">Orders</p>
+                    </div>
+                    <div className="bg-gray-800/50 rounded-2xl p-4 border border-gray-700/50 text-center">
+                      <MapPin className="w-5 h-5 text-green-400 mx-auto mb-1" />
+                      <p className="text-2xl font-bold text-white">{d.addressCount ?? 0}</p>
+                      <p className="text-xs text-gray-400 mt-1">Addresses</p>
+                    </div>
+                    <div className="bg-gray-800/50 rounded-2xl p-4 border border-gray-700/50 text-center">
+                      <IndianRupee className="w-5 h-5 text-yellow-400 mx-auto mb-1" />
+                      <p className="text-xl font-bold text-white">₹{(d.totalSpent ?? 0).toLocaleString()}</p>
+                      <p className="text-xs text-gray-400 mt-1">Spent</p>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+          </motion.div>
+        </motion.div>
+      )}
     </div>
   );
 }

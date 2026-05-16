@@ -3,6 +3,17 @@ import { useState } from "react";
 import { NavLink, useNavigate, Outlet } from "react-router-dom";
 import { FiLogOut } from "react-icons/fi";
 import { useAuth } from "../../contexts/AuthContext";
+import { useAdmin } from "./contexts/AdminContext";
+
+function AdminError() {
+  const { error } = useAdmin();
+  if (!error) return null;
+  return (
+    <div className="mb-4 p-4 bg-red-900/40 border border-red-500/50 rounded-xl text-red-300 text-sm">
+      ⚠️ {error}
+    </div>
+  );
+}
 
 export default function AdminDashboard() {
   const [isOpen, setIsOpen] = useState(false);
@@ -120,6 +131,7 @@ export default function AdminDashboard() {
       {/* Main Content */}
       <main className="flex-1 md:ml-0 min-h-screen overflow-auto bg-black">
         <div className="p-6 mt-16 md:mt-0">
+          <AdminError />
           <Outlet />
         </div>
       </main>

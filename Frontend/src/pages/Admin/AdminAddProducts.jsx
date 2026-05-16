@@ -106,12 +106,12 @@ export default function AdminAddProducts({ onClose, editingProduct }) {
     const hasImages = formData.images.length > 0 || imageFiles.length > 0;
     const hasTrailer = Boolean(formData.trailer) || Boolean(trailerFile);
 
-    if (!hasImages) {
+    if (!hasImages && !editingProduct) {
       window.alert("Please add at least one product image.");
       return;
     }
 
-    if (!hasTrailer) {
+    if (!hasTrailer && !editingProduct) {
       window.alert("Please add a trailer file.");
       return;
     }

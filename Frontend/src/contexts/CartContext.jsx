@@ -32,7 +32,7 @@ const mapPaymentMethod = (method) => {
 export const CartProvider = ({ children }) => {
   const [cart, setCart] = useState([]);
   const [loading, setLoading] = useState(true);
-  const { user } = useAuth();
+  const { user, authFetch } = useAuth();
 
   const API_BASE = BaseUrl;
   const token = user?.accessToken;
@@ -81,10 +81,8 @@ export const CartProvider = ({ children }) => {
 
     try {
       setLoading(true);
-      const response = await fetch(`${API_BASE}/cart`, {
-        headers: {
-          ...buildAuthHeaders(token),
-        },
+      const response = await authFetch(`${API_BASE}/cart`, {
+        headers: { ...buildAuthHeaders(token) },
         credentials: 'include',
       });
 
@@ -120,17 +118,11 @@ export const CartProvider = ({ children }) => {
     }
 
     try {
-      const response = await fetch(`${API_BASE}/cart`, {
+      const response = await authFetch(`${API_BASE}/cart`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...buildAuthHeaders(token),
-        },
+        headers: { 'Content-Type': 'application/json', ...buildAuthHeaders(token) },
         credentials: 'include',
-        body: JSON.stringify({
-          gameId: game.id,
-          quantity,
-        }),
+        body: JSON.stringify({ gameId: game.id, quantity }),
       });
 
       if (!response.ok) {
@@ -154,11 +146,9 @@ export const CartProvider = ({ children }) => {
     }
 
     try {
-      const response = await fetch(`${API_BASE}/cart/${gameId}`, {
+      const response = await authFetch(`${API_BASE}/cart/${gameId}`, {
         method: 'DELETE',
-        headers: {
-          ...buildAuthHeaders(token),
-        },
+        headers: { ...buildAuthHeaders(token) },
         credentials: 'include',
       });
 
@@ -186,12 +176,9 @@ export const CartProvider = ({ children }) => {
     }
 
     try {
-      const response = await fetch(`${API_BASE}/cart/${gameId}`, {
+      const response = await authFetch(`${API_BASE}/cart/${gameId}`, {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          ...buildAuthHeaders(token),
-        },
+        headers: { 'Content-Type': 'application/json', ...buildAuthHeaders(token) },
         credentials: 'include',
         body: JSON.stringify({ quantity: newQuantity }),
       });
@@ -218,11 +205,9 @@ export const CartProvider = ({ children }) => {
     }
 
     try {
-      const response = await fetch(`${API_BASE}/cart`, {
+      const response = await authFetch(`${API_BASE}/cart`, {
         method: 'DELETE',
-        headers: {
-          ...buildAuthHeaders(token),
-        },
+        headers: { ...buildAuthHeaders(token) },
         credentials: 'include',
       });
 
@@ -285,12 +270,9 @@ export const CartProvider = ({ children }) => {
     }
 
     try {
-      const response = await fetch(`${API_BASE}/orders`, {
+      const response = await authFetch(`${API_BASE}/orders`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...buildAuthHeaders(token),
-        },
+        headers: { 'Content-Type': 'application/json', ...buildAuthHeaders(token) },
         credentials: 'include',
         body: JSON.stringify({
           addressId: address.addressId || address.id,

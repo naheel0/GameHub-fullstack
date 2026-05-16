@@ -1,4 +1,4 @@
-import { Eye, Trash2, Package, X, Users, IndianRupee } from "lucide-react";
+import { Eye, Trash2, Package, X, Users, IndianRupee, MapPin, CreditCard, Calendar, Phone } from "lucide-react";
 import { useAdmin } from "./contexts/AdminContext";
 // eslint-disable-next-line no-unused-vars
 import { motion } from "framer-motion";
@@ -13,24 +13,25 @@ export default function AdminOrders() {
   const [itemsPerPage, setItemsPerPage] = useState(5);
   const [filteredOrders, setFilteredOrders] = useState([]);
 
-useEffect(() => {
-  // Initialize filteredOrders when orders load
-  setFilteredOrders(orders);
-}, [orders]);
-const handleSearch = (query) => {
-  if (!query) {
-    setFilteredOrders(orders); // reset to all orders
-  } else {
-    const lowerQuery = query.toLowerCase();
-    const filtered = orders.filter(
-      (order) =>
-        (order.orderId || order.id).toString().toLowerCase().includes(lowerQuery) ||
-        order.email.toLowerCase().includes(lowerQuery)
-    );
-    setFilteredOrders(filtered);
-    setCurrentPage(1); // reset to first page
-  }
-};
+  const [searchQuery, setSearchQuery] = useState("");
+
+  useEffect(() => {
+    if (!searchQuery) {
+      setFilteredOrders(orders);
+    } else {
+      const lowerQuery = searchQuery.toLowerCase();
+      setFilteredOrders(orders.filter(
+        (order) =>
+          (order.orderId || order.id).toString().toLowerCase().includes(lowerQuery) ||
+          order.email.toLowerCase().includes(lowerQuery)
+      ));
+    }
+  }, [orders, searchQuery]);
+
+  const handleSearch = (query) => {
+    setSearchQuery(query);
+    setCurrentPage(1);
+  };
 
 
   const getTotalPrice = (items, total) =>
@@ -200,7 +201,7 @@ const totalPages = Math.ceil((filteredOrders?.length || 0) / itemsPerPage);
                         <select
                           value={order.status || "Pending"}
                           onChange={(e) => handleStatusChange(order.id, e.target.value)}
-                          className={`bg-gray-800 border rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500/50 focus:border-red-500 transition-all duration-200  cursor-pointer   ${
+                          className={`bg-gray-800 border rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500/50 focus:border-red-500 transition-all duration-200 cursor-pointer ${
                             order.status?.toLowerCase() === "delivered"
                               ? "border-green-500 text-green-400"
                               : order.status?.toLowerCase() === "cancelled"
@@ -208,9 +209,12 @@ const totalPages = Math.ceil((filteredOrders?.length || 0) / itemsPerPage);
                               : "border-yellow-500 text-yellow-400"
                           }`}
                         >
-                          <option className="text-yellow-500" value="Pending">Pending</option>
-                          <option className="text-green-500" value="Delivered">Delivered</option>
-                          <option className="text-red-500" value="Cancelled">Cancelled</option>
+                          <option value="Pending">Pending</option>
+                          <option value="Placed">Placed</option>
+                          <option value="Processing">Processing</option>
+                          <option value="Shipped">Shipped</option>
+                          <option value="Delivered">Delivered</option>
+                          <option value="Cancelled">Cancelled</option>
                         </select>
                       </td>
 
@@ -264,7 +268,7 @@ const totalPages = Math.ceil((filteredOrders?.length || 0) / itemsPerPage);
       {/* Order Details Modal */}
       {selectedOrder && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="fixed inset-0 bg-black/70 backdrop-blur-md flex items-center justify-center p-4 z-50">
-          <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="bg-linear-to-br from-gray-900 to-gray-800 border border-gray-700/50 rounded-3xl p-6 w-full max-w-2xl shadow-2xl">
+          <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="bg-linear-to-br from-gray-900 to-gray-800 border border-gray-700/50 rounded-3xl p-6 w-full max-w-2xl shadow-2xl max-h-[90vh] overflow-y-auto">
             {/* Modal Header */}
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-3">
@@ -273,7 +277,7 @@ const totalPages = Math.ceil((filteredOrders?.length || 0) / itemsPerPage);
                 </div>
                 <div>
                   <h2 className="text-xl font-bold text-white">Order Details</h2>
-                  <p className="text-gray-400 text-sm">{selectedOrder.orderId || selectedOrder.id}</p>
+                  <p className="text-gray-400 text-sm font-mono">{selectedOrder.orderId || selectedOrder.id}</p>
                 </div>
               </div>
               <button onClick={() => setSelectedOrder(null)} className="p-2 hover:bg-gray-700/50 rounded-xl transition-all duration-200">
@@ -289,15 +293,29 @@ const totalPages = Math.ceil((filteredOrders?.length || 0) / itemsPerPage);
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
-                  <p className="text-gray-400 text-sm">Name</p>
-                  <p className="text-white">{getUsernameFromEmail(selectedOrder.email)}</p>
+                  <p className="text-gray-400 text-xs">Name</p>
+                  <p className="text-white text-sm">{selectedOrder.userFullName || getUsernameFromEmail(selectedOrder.email)}</p>
                 </div>
                 <div>
-                  <p className="text-gray-400 text-sm">Email</p>
-                  <p className="text-white text-sm">{selectedOrder.email}</p>
+                  <p className="text-gray-400 text-xs">Email</p>
+                  <p className="text-white text-sm break-all">{selectedOrder.email}</p>
                 </div>
                 <div>
-                  <p className="text-gray-400 text-sm">Status</p>
+                  <p className="text-gray-400 text-xs">Order Date</p>
+                  <div className="flex items-center gap-1 text-white text-sm">
+                    <Calendar className="w-3 h-3 text-gray-500" />
+                    {selectedOrder.date ? new Date(selectedOrder.date).toLocaleString() : "—"}
+                  </div>
+                </div>
+                <div>
+                  <p className="text-gray-400 text-xs">Payment Method</p>
+                  <div className="flex items-center gap-1 text-white text-sm">
+                    <CreditCard className="w-3 h-3 text-gray-500" />
+                    {selectedOrder.paymentMethod || "—"}
+                  </div>
+                </div>
+                <div>
+                  <p className="text-gray-400 text-xs">Status</p>
                   <span className={`px-3 py-1 rounded-full text-xs font-medium border ${
                     selectedOrder.status?.toLowerCase() === "delivered"
                       ? "text-green-400 border-green-500 bg-green-500/20"
@@ -311,6 +329,43 @@ const totalPages = Math.ceil((filteredOrders?.length || 0) / itemsPerPage);
               </div>
             </div>
 
+            {/* Shipping Address */}
+            {selectedOrder.shippingAddress && Object.values(selectedOrder.shippingAddress).some(Boolean) && (
+              <div className="bg-gray-800/50 rounded-2xl p-4 mb-4 border border-gray-700/50">
+                <div className="flex items-center gap-3 mb-3">
+                  <MapPin className="w-4 h-4 text-purple-400" />
+                  <h3 className="text-white font-semibold">Shipping Address</h3>
+                </div>
+                <div className="text-sm space-y-1">
+                  {selectedOrder.shippingAddress.fullName && (
+                    <p className="text-white font-medium">{selectedOrder.shippingAddress.fullName}</p>
+                  )}
+                  {selectedOrder.shippingAddress.phone && (
+                    <div className="flex items-center gap-1 text-gray-300">
+                      <Phone className="w-3 h-3 text-gray-500" />
+                      {selectedOrder.shippingAddress.phone}
+                    </div>
+                  )}
+                  <p className="text-gray-300">
+                    {[
+                      selectedOrder.shippingAddress.addressLine1,
+                      selectedOrder.shippingAddress.addressLine2,
+                    ].filter(Boolean).join(", ")}
+                  </p>
+                  <p className="text-gray-300">
+                    {[
+                      selectedOrder.shippingAddress.city,
+                      selectedOrder.shippingAddress.state,
+                      selectedOrder.shippingAddress.zipCode,
+                    ].filter(Boolean).join(", ")}
+                  </p>
+                  {selectedOrder.shippingAddress.country && (
+                    <p className="text-gray-300">{selectedOrder.shippingAddress.country}</p>
+                  )}
+                </div>
+              </div>
+            )}
+
             {/* Order Items */}
             <div className="bg-gray-800/50 rounded-2xl p-4 mb-4 border border-gray-700/50">
               <div className="flex items-center gap-3 mb-3">
@@ -320,25 +375,37 @@ const totalPages = Math.ceil((filteredOrders?.length || 0) / itemsPerPage);
               <div className="space-y-3">
                 {selectedOrder.items?.map((item, index) => (
                   <div key={index} className="flex items-center gap-4 bg-gray-700/30 p-3 rounded-xl border border-gray-600/50">
-                    <img src={item.image} alt={item.name} className="w-16 h-16 object-cover rounded-lg" onError={(e) => { e.target.src = "https://via.placeholder.com/80?text=Image+Error"; }} />
-                    <div className="flex-1">
-                      <p className="text-white font-medium text-sm">{item.name}</p>
-                      <div className="flex items-center gap-4 mt-1">
-                        <p className="text-gray-400 text-sm">Qty: {item.qty || 1}</p>
-                        <p className="text-gray-400 text-sm">•</p>
-                        <p className="text-green-400 text-sm font-medium">₹{item.price} each</p>
-                      </div>
+                    {item.image && (
+                      <img src={item.image} alt={item.name} className="w-14 h-14 object-cover rounded-lg shrink-0" onError={(e) => { e.target.style.display = "none"; }} />
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-white font-medium text-sm truncate">{item.name}</p>
+                      <p className="text-gray-400 text-xs mt-0.5">Qty: {item.qty || item.quantity || 1} × ₹{item.price.toLocaleString()}</p>
                     </div>
-                    <div className="text-white font-semibold">₹{(item.price * (item.qty || 1)).toLocaleString()}</div>
+                    <div className="text-white font-semibold text-sm shrink-0">
+                      ₹{(item.price * (item.qty || item.quantity || 1)).toLocaleString()}
+                    </div>
                   </div>
                 ))}
               </div>
             </div>
 
-            {/* Total Amount */}
-            <div className="bg-gray-800/50 rounded-2xl p-4 border border-gray-700/50">
-              <div className="flex items-center justify-between">
-                <span className="text-gray-300 font-medium">Total Amount</span>
+            {/* Price Breakdown */}
+            <div className="bg-gray-800/50 rounded-2xl p-4 border border-gray-700/50 space-y-2">
+              {selectedOrder.subtotal != null && (
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-gray-400">Subtotal</span>
+                  <span className="text-white">₹{selectedOrder.subtotal.toLocaleString()}</span>
+                </div>
+              )}
+              {selectedOrder.tax != null && selectedOrder.tax > 0 && (
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-gray-400">Tax</span>
+                  <span className="text-white">₹{selectedOrder.tax.toLocaleString()}</span>
+                </div>
+              )}
+              <div className="flex items-center justify-between pt-2 border-t border-gray-700">
+                <span className="text-gray-300 font-medium">Total</span>
                 <div className="flex items-center gap-1 text-xl font-bold text-white">
                   <IndianRupee className="w-5 h-5" />
                   {getTotalPrice(selectedOrder.items, selectedOrder.total).toLocaleString()}
