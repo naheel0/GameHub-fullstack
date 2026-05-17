@@ -57,6 +57,7 @@ public class OrderService : IOrderService
             Total = total,
             ShippingAddress = new PurchaseShippingAddress
             {
+                AddressId = address.AddressId,
                 FullName = address.FullName,
                 AddressLine1 = address.AddressLine1,
                 AddressLine2 = address.AddressLine2,
@@ -124,6 +125,7 @@ public class OrderService : IOrderService
         Total = p.Total,
         ShippingAddress = new AddressDto
         {
+            AddressId = p.ShippingAddress.AddressId,
             FullName = p.ShippingAddress.FullName,
             AddressLine1 = p.ShippingAddress.AddressLine1,
             AddressLine2 = p.ShippingAddress.AddressLine2,

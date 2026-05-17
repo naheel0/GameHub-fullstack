@@ -66,7 +66,6 @@ export const WishlistProvider = ({ children }) => {
       setLoading(true);
       const response = await authFetch(`${API_BASE}/wishlist`, {
         headers: { ...buildAuthHeaders(token) },
-        credentials: 'include',
       });
 
       if (!response.ok) {
@@ -83,7 +82,7 @@ export const WishlistProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  }, [API_BASE, mapWishlistItem, token, user]);
+  }, [API_BASE, mapWishlistItem, token, user, authFetch]);
 
   useEffect(() => {
     loadWishlist();
@@ -104,7 +103,6 @@ export const WishlistProvider = ({ children }) => {
       const response = await authFetch(`${API_BASE}/wishlist/${game.id}`, {
         method: 'POST',
         headers: { ...buildAuthHeaders(token) },
-        credentials: 'include',
       });
 
       if (!response.ok) {
@@ -129,7 +127,6 @@ export const WishlistProvider = ({ children }) => {
       const response = await authFetch(`${API_BASE}/wishlist/${gameId}`, {
         method: 'DELETE',
         headers: { ...buildAuthHeaders(token) },
-        credentials: 'include',
       });
 
       if (!response.ok) {
@@ -158,7 +155,6 @@ export const WishlistProvider = ({ children }) => {
         authFetch(`${API_BASE}/wishlist/${item.id}`, {
           method: 'DELETE',
           headers: { ...buildAuthHeaders(token) },
-          credentials: 'include',
         })
       ));
 
@@ -180,7 +176,6 @@ export const WishlistProvider = ({ children }) => {
       const response = await authFetch(`${API_BASE}/wishlist/${item.id}/move-to-cart`, {
         method: 'POST',
         headers: { ...buildAuthHeaders(token) },
-        credentials: 'include',
       });
 
       if (!response.ok) {

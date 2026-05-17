@@ -83,7 +83,6 @@ export const CartProvider = ({ children }) => {
       setLoading(true);
       const response = await authFetch(`${API_BASE}/cart`, {
         headers: { ...buildAuthHeaders(token) },
-        credentials: 'include',
       });
 
       if (!response.ok) {
@@ -100,7 +99,7 @@ export const CartProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  }, [API_BASE, mapCartItem, token, user]);
+  }, [API_BASE, authFetch, mapCartItem, token, user]);
 
   useEffect(() => {
     loadCart();
@@ -121,7 +120,6 @@ export const CartProvider = ({ children }) => {
       const response = await authFetch(`${API_BASE}/cart`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...buildAuthHeaders(token) },
-        credentials: 'include',
         body: JSON.stringify({ gameId: game.id, quantity }),
       });
 
@@ -149,7 +147,6 @@ export const CartProvider = ({ children }) => {
       const response = await authFetch(`${API_BASE}/cart/${gameId}`, {
         method: 'DELETE',
         headers: { ...buildAuthHeaders(token) },
-        credentials: 'include',
       });
 
       if (!response.ok) {
@@ -179,7 +176,6 @@ export const CartProvider = ({ children }) => {
       const response = await authFetch(`${API_BASE}/cart/${gameId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', ...buildAuthHeaders(token) },
-        credentials: 'include',
         body: JSON.stringify({ quantity: newQuantity }),
       });
 
@@ -208,7 +204,6 @@ export const CartProvider = ({ children }) => {
       const response = await authFetch(`${API_BASE}/cart`, {
         method: 'DELETE',
         headers: { ...buildAuthHeaders(token) },
-        credentials: 'include',
       });
 
       if (!response.ok) {
@@ -264,28 +259,64 @@ export const CartProvider = ({ children }) => {
       return { success: false, error: 'Cart is empty' };
     }
 
-    if (!address?.addressId && !address?.id) {
+    const resolvedAddressId =
+      typeof address === 'string'
+        ? address
+        : address?.addressId || address?.id;
+
+    if (!resolvedAddressId) {
       toast.error('Please select a shipping address.');
       return { success: false, error: 'No address selected' };
     }
 
     try {
+      // Ensure server-side cart is populated. Some flows may keep cart only client-side.
+      const serverCartResp = await authFetch(`${API_BASE}/cart`, {
+        headers: { ...buildAuthHeaders(token) },
+      });
+      if (serverCartResp.ok) {
+        const serverItems = await serverCartResp.json().catch(() => []);
+        if ((!serverItems || serverItems.length === 0) && cart.length > 0) {
+          // Sync local cart items to server
+          for (const item of cart) {
+            try {
+              await authFetch(`${API_BASE}/cart`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', ...buildAuthHeaders(token) },
+                body: JSON.stringify({ gameId: item.id, quantity: item.quantity }),
+              });
+            } catch {
+              // swallow sync errors; server may already have items
+            }
+          }
+        }
+      }
+
       const response = await authFetch(`${API_BASE}/orders`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...buildAuthHeaders(token) },
-        credentials: 'include',
         body: JSON.stringify({
-          addressId: address.addressId || address.id,
+          addressId: resolvedAddressId,
           paymentMethod: mapPaymentMethod(paymentMethod),
         }),
       });
 
       if (!response.ok) {
-        const errorPayload = await response.json().catch(() => ({}));
-        throw new Error(errorPayload?.message || 'Failed to process checkout');
+        const text = await response.text().catch(() => '');
+        let errorMessage = 'Failed to process checkout';
+        try {
+          const parsed = JSON.parse(text || '{}');
+          errorMessage = parsed?.message || parsed?.error || errorMessage;
+        } catch { /* not JSON */ }
+        throw new Error(errorMessage + (text ? ` -- ${text}` : ''));
       }
 
       const orderDto = await response.json();
+      // Defensive check: ensure the server returned a valid order id
+      if (!orderDto || !(orderDto.orderId || orderDto.id)) {
+        toast.error('Payment processed but order was not saved on server. Check server logs.');
+        return { success: false, error: 'Order not persisted' };
+      }
       const items = await Promise.all((orderDto.items || []).map(async (item) => {
         const game = await fetchGame(item.gameId);
         return {

@@ -111,7 +111,7 @@ export function AdminProvider({ children }) {
 
     const data = await response.json();
     return mapUsers(data);
-  }, [API_BASE, token]);
+  }, [API_BASE, token, authFetch]);
 
   const fetchOrders = useCallback(async (gamesById) => {
     const url = `${API_BASE}/admin/adminorders`;
@@ -189,7 +189,7 @@ export function AdminProvider({ children }) {
     );
 
     return detailedOrders.filter(Boolean);
-  }, [API_BASE, token]);
+  }, [API_BASE, token, authFetch]);
 
   const refreshAdminData = useCallback(async () => {
     if (!token) {

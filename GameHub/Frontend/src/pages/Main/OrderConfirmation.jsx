@@ -57,6 +57,7 @@ const OrderConfirmation = () => {
         status: 'completed',
         paymentMethod: orderData.paymentMethod || 'card',
         date: orderData.date || new Date().toISOString(),
+        shippingAddress: orderData.shippingAddress || null,
         type: 'instant_purchase'
       };
     }
@@ -71,7 +72,8 @@ const OrderConfirmation = () => {
       },
       status: orderData.status || 'completed',
       paymentMethod: orderData.paymentMethod || 'card',
-      date: orderData.date || new Date().toISOString()
+      date: orderData.date || new Date().toISOString(),
+      shippingAddress: orderData.shippingAddress || null
     };
   };
 
@@ -176,6 +178,7 @@ const OrderConfirmation = () => {
   const paymentMethodLabel = formatPaymentMethod(paymentMethod);
   const orderSummary = order.summary || { subtotal: '0.00', tax: '0.00', total: '0.00' };
   const orderItems = order.items || [];
+  const shippingAddress = order.shippingAddress || null;
 
   return (
     <div className="min-h-screen bg-linear-to-br from-green-900 via-gray-900 to-black py-8">
@@ -218,6 +221,33 @@ const OrderConfirmation = () => {
               </div>
             </div>
           </div>
+
+          {shippingAddress && Object.values(shippingAddress).some(Boolean) && (
+            <div className="px-6 pb-2">
+              <div className="bg-gray-700/30 rounded-lg p-4 border border-gray-600/30">
+                <h3 className="text-lg font-semibold text-white mb-3">Shipping Address</h3>
+                <div className="space-y-1 text-sm text-gray-300">
+                  {shippingAddress.addressId && (
+                    <p><span className="text-gray-400">Address ID:</span> {shippingAddress.addressId}</p>
+                  )}
+                  {shippingAddress.fullName && <p><span className="text-gray-400">Name:</span> {shippingAddress.fullName}</p>}
+                  {(shippingAddress.addressLine1 || shippingAddress.addressLine2) && (
+                    <p>
+                      <span className="text-gray-400">Address:</span> {shippingAddress.addressLine1}
+                      {shippingAddress.addressLine2 ? `, ${shippingAddress.addressLine2}` : ''}
+                    </p>
+                  )}
+                  {(shippingAddress.city || shippingAddress.state || shippingAddress.zipCode) && (
+                    <p>
+                      <span className="text-gray-400">Location:</span> {shippingAddress.city}{shippingAddress.city && shippingAddress.state ? ', ' : ''}{shippingAddress.state} {shippingAddress.zipCode}
+                    </p>
+                  )}
+                  {shippingAddress.country && <p><span className="text-gray-400">Country:</span> {shippingAddress.country}</p>}
+                  {shippingAddress.phone && <p><span className="text-gray-400">Phone:</span> {shippingAddress.phone}</p>}
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Order Content */}
           <div className="p-6">

@@ -59,8 +59,8 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // Wrapper: auto-retry once with refreshed token on 401
-  const authFetch = async (url, options = {}) => {
+  // Improved authFetch: auto-retry once with refreshed token on 401 and logout if refresh fails
+  const authFetchWithLogout = async (url, options = {}) => {
     let response = await fetch(url, { ...options, credentials: 'include' });
     if (response.status === 401) {
       const newToken = await refreshAccessToken();
@@ -70,6 +70,12 @@ export const AuthProvider = ({ children }) => {
           credentials: 'include',
           headers: { ...options.headers, Authorization: `Bearer ${newToken}` },
         });
+      } else {
+        // Refresh failed -> force logout so UI stops making authorized requests
+        console.warn('Token refresh failed; logging out user');
+        setUser(null);
+        setStoredAuth(null);
+        return response;
       }
     }
     return response;
@@ -195,7 +201,7 @@ export const AuthProvider = ({ children }) => {
     updateUser,
     updateUserPartial,
     refreshAccessToken,
-    authFetch,
+    authFetch: authFetchWithLogout,
     loading
   };
 

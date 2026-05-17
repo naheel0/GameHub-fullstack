@@ -46,7 +46,7 @@ const PaymentPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { getCartSummary, checkout, cart } = useCart();
-  const { user } = useAuth();
+  const { user, authFetch } = useAuth();
 
   const order = location.state?.order;
   const summary = order?.summary || getCartSummary();
@@ -81,11 +81,10 @@ const PaymentPage = () => {
     }
 
     try {
-      const response = await fetch(`${API_BASE}/addresses`, {
+      const response = await authFetch(`${API_BASE}/addresses`, {
         headers: {
           ...buildAuthHeaders(token),
         },
-        credentials: 'include',
       });
 
       if (!response.ok) {
@@ -102,7 +101,7 @@ const PaymentPage = () => {
       console.error('Error loading addresses:', error);
       setAddresses([]);
     }
-  }, [API_BASE, token, user]);
+  }, [API_BASE, token, user, authFetch]);
 
   useEffect(() => {
     refreshAddresses();
@@ -111,9 +110,8 @@ const PaymentPage = () => {
   const fetchSavedCards = useCallback(async () => {
     if (!user || !token) return;
     try {
-      const res = await fetch(`${API_BASE}/carddetails`, {
+      const res = await authFetch(`${API_BASE}/carddetails`, {
         headers: { ...buildAuthHeaders(token) },
-        credentials: "include",
       });
       if (res.ok) {
         const data = await res.json();
@@ -122,7 +120,7 @@ const PaymentPage = () => {
         if (def) setSelectedCardId(def.id);
       }
     } catch { /* ignore */ }
-  }, [API_BASE, token, user]);
+  }, [API_BASE, token, user, authFetch]);
 
   useEffect(() => {
     fetchSavedCards();
@@ -151,36 +149,7 @@ const PaymentPage = () => {
     setEditingAddress(null);
   }, []);
 
-  const validateAddress = () => {
-    const required = [
-      "fullName",
-      "addressLine1",
-      "city",
-      "state",
-      "zipCode",
-      "country",
-    ];
-    for (const field of required) {
-      if (!addressForm[field].trim()) {
-        toast.error(
-          `Please fill in ${field.replace(/([A-Z])/g, " $1").toLowerCase()}`
-        );
-        return false;
-      }
-    }
-
-    if (!/^[1-9][0-9]{5}$/.test(addressForm.zipCode)) {
-      toast.error("Please enter a valid ZIP code");
-      return false;
-    }
-
-    if (addressForm.phone && !/^[6-9]\d{10}$/.test(addressForm.phone)) {
-      toast.error("Please enter a valid 10-digit phone number");
-      return false;
-    }
-
-    return true;
-  };
+  // validateAddress removed — unused helper
 
   const handleSaveAddress = async () => {
     try {
@@ -204,13 +173,12 @@ const PaymentPage = () => {
       let createdId = null;
 
       if (editingAddress) {
-        const response = await fetch(`${API_BASE}/addresses/${editingAddress}`, {
+        const response = await authFetch(`${API_BASE}/addresses/${editingAddress}`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
             ...buildAuthHeaders(token),
           },
-          credentials: 'include',
           body: JSON.stringify(payload),
         });
 
@@ -218,13 +186,12 @@ const PaymentPage = () => {
           throw new Error('Failed to update address');
         }
       } else {
-        const response = await fetch(`${API_BASE}/addresses`, {
+        const response = await authFetch(`${API_BASE}/addresses`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             ...buildAuthHeaders(token),
           },
-          credentials: 'include',
           body: JSON.stringify(payload),
         });
 
@@ -277,12 +244,11 @@ const PaymentPage = () => {
         return;
       }
 
-      const response = await fetch(`${API_BASE}/addresses/${addressId}`, {
+      const response = await authFetch(`${API_BASE}/addresses/${addressId}`, {
         method: 'DELETE',
         headers: {
           ...buildAuthHeaders(token),
         },
-        credentials: 'include',
       });
 
       if (!response.ok) {
@@ -310,12 +276,11 @@ const PaymentPage = () => {
         return;
       }
 
-      const response = await fetch(`${API_BASE}/addresses/${addressId}/default`, {
+      const response = await authFetch(`${API_BASE}/addresses/${addressId}/default`, {
         method: 'PUT',
         headers: {
           ...buildAuthHeaders(token),
         },
-        credentials: 'include',
       });
 
       if (!response.ok) {
@@ -436,17 +401,16 @@ const PaymentPage = () => {
       if (order) {
         result = { success: true, order };
       } else {
-        result = await checkout(selectedMethod, selectedAddressData);
+        result = await checkout(selectedMethod, selectedAddress || selectedAddressData?.id || selectedAddressData?.addressId);
       }
 
       if (result.success) {
         // Save card if requested
         if (selectedMethod === "card" && saveCard) {
           try {
-            await fetch(`${API_BASE}/carddetails`, {
+            await authFetch(`${API_BASE}/carddetails`, {
               method: "POST",
               headers: { "Content-Type": "application/json", ...buildAuthHeaders(token) },
-              credentials: "include",
               body: JSON.stringify({
                 cardNumber: cardDetails.number.replace(/\s/g, ""),
                 expiryDate: cardDetails.expiry,
@@ -572,10 +536,9 @@ const PaymentPage = () => {
               }}
               onDeleteSavedCard={async (cardId) => {
                 try {
-                  const res = await fetch(`${API_BASE}/carddetails/${cardId}`, {
+                  const res = await authFetch(`${API_BASE}/carddetails/${cardId}`, {
                     method: "DELETE",
                     headers: { ...buildAuthHeaders(token) },
-                    credentials: "include",
                   });
                   if (res.ok) {
                     await fetchSavedCards();

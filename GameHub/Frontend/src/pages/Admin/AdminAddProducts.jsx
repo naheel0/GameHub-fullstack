@@ -93,12 +93,7 @@ export default function AdminAddProducts({ onClose, editingProduct }) {
     event.target.value = "";
   };
 
-  const clearTrailerFile = () => {
-    if (trailerFile?.preview) {
-      URL.revokeObjectURL(trailerFile.preview);
-    }
-    setTrailerFile(null);
-  };
+  // clearTrailerFile removed — not used
 
   const handleSubmit = async (e) => {
     e.preventDefault();

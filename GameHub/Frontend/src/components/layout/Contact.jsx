@@ -31,8 +31,7 @@ const Contact = () => {
 
     emailjs
       .send(serviceID, templateID, templateParams)
-      .then((res) => {
-        console.log("✅ Email sent:", res)
+      .then(() => {
         alert("Your message has been sent successfully!")
         setFormData({ name: "", email: "", message: "" })
       })
