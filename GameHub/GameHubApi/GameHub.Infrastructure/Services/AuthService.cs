@@ -1,6 +1,7 @@
 ﻿using GameHub.Application.Common.interfaces;
 using GameHub.Application.Common.Models;
 using GameHub.Application.DTOs.Auth;
+using GameHub.Application.Resources;
 using GameHub.Application.Services;
 using GameHub.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
@@ -22,9 +23,9 @@ namespace GameHub.Infrastructure.Services
         public async Task<ApiResponse<AuthResponse>> RegisterAsync(RegisterRequest request)
         {
             if (await _context.Users.AnyAsync(u => u.Email == request.Email))
-                return ApiResponse<AuthResponse>.Fail("Email already registered", 400);
+                return ApiResponse<AuthResponse>.Fail(ExceptionMessages.EmailAlreadyRegistered, 400);
             if (request.Password != request.ConfirmPassword)
-                return ApiResponse<AuthResponse>.Fail("Passwords do not match", 400);
+                return ApiResponse<AuthResponse>.Fail(ExceptionMessages.PasswordsDoNotMatch, 400);
             var user = new User
             {
                 FirstName = request.FirstName,
@@ -56,9 +57,9 @@ namespace GameHub.Infrastructure.Services
         {
             var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == request.Email);
             if (user == null || !PasswordHasher.Verify(request.Password, user.PasswordHash))
-                return ApiResponse<AuthResponse>.Fail("Invalid emai; or Password", 401);
+                return ApiResponse<AuthResponse>.Fail(ExceptionMessages.InvalidEmailOrPassword, 401);
             if (user.AccountStatus == Domain.Enums.AccountStatus.Blocked)
-                return ApiResponse<AuthResponse>.Fail("Your account has Blocked", 403);
+                return ApiResponse<AuthResponse>.Fail(ExceptionMessages.AccountBlocked, 403);
             var accessToken = _tokenService.GenerateAccessToken(user);
             string refreshTokenString = newRefreshToken as string;
             if (string.IsNullOrEmpty(refreshTokenString))
@@ -106,7 +107,7 @@ namespace GameHub.Infrastructure.Services
         {
             var user = await _context.Users.FindAsync(userId);
             if (user == null)
-                return ApiResponse<AuthResponse>.Fail("User not found", 404);
+                return ApiResponse<AuthResponse>.Fail(ExceptionMessages.UserNotFound, 404);
             var authResponse = MapToAuthResponse(user, null, null);
             return ApiResponse<AuthResponse>.Ok(authResponse, "profile retrieved");
         }
@@ -129,15 +130,15 @@ namespace GameHub.Infrastructure.Services
         public async Task<ApiResponse<AuthResponse>> RefreshTokenAsync(string refreshToken)
         {
             if (string.IsNullOrEmpty(refreshToken))
-                return ApiResponse<AuthResponse>.Fail("Refresh token is required", 400);
+                return ApiResponse<AuthResponse>.Fail(ExceptionMessages.RefreshTokenRequired, 400);
 
             var existing = await _context.RefreshTokens.FirstOrDefaultAsync(rt => rt.Token == refreshToken);
             if (existing == null || existing.Revoked || existing.Expires < DateTime.UtcNow)
-                return ApiResponse<AuthResponse>.Fail("Invalid or expired refresh token", 401);
+                return ApiResponse<AuthResponse>.Fail(ExceptionMessages.InvalidOrExpiredRefreshToken, 401);
 
             var user = await _context.Users.FindAsync(existing.UserId);
             if (user == null)
-                return ApiResponse<AuthResponse>.Fail("User not found", 404);
+                return ApiResponse<AuthResponse>.Fail(ExceptionMessages.UserNotFound, 404);
 
             // Revoke the old refresh token
             existing.Revoked = true;

@@ -1,0 +1,6 @@
+c:\Users\Dell\Desktop\New folder\project\GameHub\artifacts\tempobj\Debug\net8.0\GameHub.Domain.csproj.AssemblyReference.cache
+c:\Users\Dell\Desktop\New folder\project\GameHub\artifacts\tempobj\Debug\net8.0\GameHub.Domain.GeneratedMSBuildEditorConfig.editorconfig
+c:\Users\Dell\Desktop\New folder\project\GameHub\artifacts\tempobj\Debug\net8.0\GameHub.Domain.AssemblyInfoInputs.cache
+c:\Users\Dell\Desktop\New folder\project\GameHub\artifacts\tempobj\Debug\net8.0\GameHub.Domain.AssemblyInfo.cs
+c:\Users\Dell\Desktop\New folder\project\GameHub\artifacts\tempobj\Debug\net8.0\GameHub.Domain.csproj.CoreCompileInputs.cache
+c:\Users\Dell\Desktop\New folder\project\GameHub\artifacts\tempobj\Debug\net8.0\GameHub.Domain.sourcelink.json

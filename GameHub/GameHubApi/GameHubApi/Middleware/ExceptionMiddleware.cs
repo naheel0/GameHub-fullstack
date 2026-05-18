@@ -1,6 +1,7 @@
+using GameHub.Application.Resources;
+using Microsoft.AspNetCore.Mvc;
+using System.Diagnostics;
 using System.Text.Json;
-using GameHub.Application.Common.Exceptions;
-using System.Resources;
 
 namespace GameHubApi.Middleware;
 
@@ -8,11 +9,13 @@ public class ExceptionMiddleware
 {
     private readonly RequestDelegate _next;
     private readonly ILogger<ExceptionMiddleware> _logger;
+    private readonly IGlobalExceptionHandler _exceptionHandler;
 
-    public ExceptionMiddleware(RequestDelegate next, ILogger<ExceptionMiddleware> logger)
+    public ExceptionMiddleware(RequestDelegate next, ILogger<ExceptionMiddleware> logger, IGlobalExceptionHandler exceptionHandler)
     {
         _next = next;
         _logger = logger;
+        _exceptionHandler = exceptionHandler;
     }
 
     public async Task Invoke(HttpContext context)
@@ -20,55 +23,83 @@ public class ExceptionMiddleware
         try
         {
             await _next(context);
+            if (!context.Response.HasStarted && context.Response.StatusCode is StatusCodes.Status400BadRequest or StatusCodes.Status401Unauthorized or StatusCodes.Status403Forbidden or StatusCodes.Status404NotFound or StatusCodes.Status500InternalServerError)
+            {
+                var status = context.Response.StatusCode;
+                var detail = GetStatusMessage(status);
+                var traceId = Activity.Current?.Id ?? context.TraceIdentifier;
+                var errorCode = status switch
+                {
+                    StatusCodes.Status400BadRequest => nameof(GameHub.Application.Resources.ExceptionMessages.BadRequest),
+                    StatusCodes.Status401Unauthorized => nameof(GameHub.Application.Resources.ExceptionMessages.Unauthorized),
+                    StatusCodes.Status403Forbidden => nameof(GameHub.Application.Resources.ExceptionMessages.Forbidden),
+                    StatusCodes.Status404NotFound => nameof(GameHub.Application.Resources.ExceptionMessages.NotFound),
+                    StatusCodes.Status500InternalServerError => nameof(GameHub.Application.Resources.ExceptionMessages.InternalServerError),
+                    _ => null
+                };
+
+                await WriteProblemDetailsAsync(context, status, detail, traceId, errorCode);
+            }
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Unhandled exception");
-            context.Response.ContentType = "application/json";
-
-            string message;
-            int status;
-
-            if (ex is GameHub.Application.Common.Exceptions.NotFoundException nfEx)
-            {
-                status = StatusCodes.Status404NotFound;
-                message = ResolveMessage(nfEx.Message, nfEx.ResourceKey, nfEx.ResourceArgs);
-            }
-            else if (ex is BusinessRuleException brEx)
-            {
-                status = StatusCodes.Status400BadRequest;
-                message = ResolveMessage(brEx.Message, brEx.ResourceKey, brEx.ResourceArgs);
-            }
-            else if (ex is KeyNotFoundException)
-            {
-                status = StatusCodes.Status404NotFound;
-                message = ex.Message;
-            }
-            else
-            {
-                status = StatusCodes.Status500InternalServerError;
-                message = "An unexpected error occurred";
-            }
-
-            context.Response.StatusCode = status;
-            var payload = JsonSerializer.Serialize(new { error = message });
-            await context.Response.WriteAsync(payload);
-
-            string ResolveMessage(string fallback, string? resourceKey, object[]? args)
-            {
-                if (string.IsNullOrWhiteSpace(resourceKey)) return fallback;
-                try
-                {
-                    var rm = new ResourceManager("GameHub.Application.Resources.ExceptionMessages", typeof(GameHub.Application.Common.Exceptions.BusinessRuleException).Assembly);
-                    var res = rm.GetString(resourceKey);
-                    if (string.IsNullOrEmpty(res)) return fallback;
-                    return args != null && args.Length > 0 ? string.Format(res, args) : res;
-                }
-                catch
-                {
-                    return fallback;
-                }
-            }
+            var traceId = Activity.Current?.Id ?? context.TraceIdentifier;
+            _logger.LogError(ex, "Unhandled exception {ExceptionType} with traceId {TraceId}", ex.GetType().FullName, traceId);
+            var result = _exceptionHandler.Handle(ex);
+            await WriteProblemDetailsAsync(context, result.Status, result.Message, traceId, result.ErrorCode);
         }
     }
+
+    private static string GetStatusMessage(int status) => status switch
+    {
+        StatusCodes.Status400BadRequest => ExceptionMessages.BadRequest,
+        StatusCodes.Status401Unauthorized => ExceptionMessages.Unauthorized,
+        StatusCodes.Status403Forbidden => ExceptionMessages.Forbidden,
+        StatusCodes.Status404NotFound => ExceptionMessages.NotFound,
+        StatusCodes.Status500InternalServerError => ExceptionMessages.InternalServerError,
+        _ => ExceptionMessages.InternalServerError
+    };
+
+    private async Task WriteProblemDetailsAsync(HttpContext context, int status, string message, string? traceId = null, string? errorCode = null)
+    {
+        context.Response.StatusCode = status;
+        context.Response.ContentType = "application/problem+json";
+
+        if (status == StatusCodes.Status401Unauthorized && !context.Response.Headers.ContainsKey("WWW-Authenticate"))
+        {
+            context.Response.Headers.Append("WWW-Authenticate", "Bearer");
+        }
+
+        var problem = new ProblemDetails
+        {
+            Type = $"https://httpstatuses.com/{status}",
+            Title = GetTitleForStatus(status),
+            Detail = message,
+            Status = status,
+            Instance = context.Request.Path
+        };
+
+        if (!string.IsNullOrWhiteSpace(traceId))
+        {
+            problem.Extensions["traceId"] = traceId;
+        }
+
+        if (!string.IsNullOrWhiteSpace(errorCode))
+        {
+            problem.Extensions["errorCode"] = errorCode;
+        }
+
+        var options = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
+        await context.Response.WriteAsJsonAsync(problem, options);
+    }
+
+    private static string GetTitleForStatus(int status) => status switch
+    {
+        401 => "Unauthorized",
+        403 => "Forbidden",
+        400 => "Bad Request",
+        404 => "Not Found",
+        500 => "Internal Server Error",
+        _ => "Error"
+    };
 }

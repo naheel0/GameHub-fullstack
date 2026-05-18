@@ -1,5 +1,6 @@
 ﻿using GameHub.Application.Common.interfaces;
 using GameHub.Application.DTOs.Orders;
+using GameHub.Application.Resources;
 using GameHub.Application.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -35,7 +36,7 @@ namespace GameHubApi.Controllers
         public async Task<IActionResult> GetOrdersById(Guid orderId)
         {
             var order = await _orderService.GetOrderByIdAsync(_currentUserService.UserId!.Value, orderId);
-            if (order == null) return NotFound(new { message = "Order not found" });
+            if (order == null) return NotFound(new { message = ExceptionMessages.OrderNotFound });
             return Ok(order);
         }
     }

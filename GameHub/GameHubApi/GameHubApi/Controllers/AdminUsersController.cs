@@ -1,5 +1,6 @@
 ﻿using GameHub.Application.Common.Models;
 using GameHub.Application.DTOs.Admin;
+using GameHub.Application.Resources;
 using GameHub.Application.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -29,11 +30,11 @@ namespace GameHubApi.Controllers
         {
             if (!int.TryParse(id, out var userId))
             {
-                return BadRequest(new { message = "Invalid id. Use a numeric user id, e.g. /api/admin/AdminUsers/1" });
+                return BadRequest(new { message = ExceptionMessages.InvalidAdminUserId });
             }
 
             var user = await _adminService.GetUserDetailAsync(userId);
-            if (user == null) return NotFound(new { message = "User not found" });
+            if (user == null) return NotFound(new { message = ExceptionMessages.UserNotFound });
             return Ok(user);
         }
         [HttpPut("{id:int}/block")]

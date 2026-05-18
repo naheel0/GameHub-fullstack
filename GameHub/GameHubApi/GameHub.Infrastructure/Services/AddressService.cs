@@ -1,6 +1,7 @@
 ﻿using GameHub.Application.Common.interfaces;
 using GameHub.Application.Common.Exceptions;
 using GameHub.Application.DTOs.Address;
+using GameHub.Application.Resources;
 using GameHub.Application.Services;
 using GameHub.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
@@ -90,7 +91,7 @@ namespace GameHub.Infrastructure.Services
         {
             var address = await _context.Address
                 .FirstOrDefaultAsync(a => a.UserId == userId && a.AddressId == addressId)
-                ?? throw new NotFoundException("Address not found", "AddressNotFound");
+                ?? throw new NotFoundException(nameof(ExceptionMessages.AddressNotFound));
 
             address.FullName = request.FullName;
             address.AddressLine1 = request.AddressLine1;
@@ -151,7 +152,7 @@ namespace GameHub.Infrastructure.Services
 
             var address = await _context.Address
                 .FirstOrDefaultAsync(a => a.UserId == userId && a.AddressId == addressId)
-                ?? throw new NotFoundException("Address not found", "AddressNotFound");
+                ?? throw new NotFoundException(nameof(ExceptionMessages.AddressNotFound));
 
             address.IsDefault = true;
 

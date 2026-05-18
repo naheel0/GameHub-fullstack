@@ -1,6 +1,7 @@
 ﻿using CloudinaryDotNet;
 using CloudinaryDotNet.Actions;
 using GameHub.Application.Common.Interfaces;
+using GameHub.Application.Resources;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 
@@ -19,7 +20,7 @@ namespace GameHub.Infrastructure.Services
 
             if (string.IsNullOrWhiteSpace(cloudName) || string.IsNullOrWhiteSpace(apiKey) || string.IsNullOrWhiteSpace(apiSecret))
             {
-                throw new ArgumentException("Cloudinary configuration is missing. Please set Cloudinary:CloudName, Cloudinary:ApiKey and Cloudinary:ApiSecret (or CloudinarySettings:CloudName/ApiKey/ApiSecret) in configuration.");
+                throw new ArgumentException(ExceptionMessages.CloudinaryConfigurationMissing);
             }
 
             var account = new Account(cloudName.Trim(), apiKey.Trim(), apiSecret.Trim());
@@ -45,7 +46,7 @@ namespace GameHub.Infrastructure.Services
             };
             var result = await _cloudinary.UploadAsync(uploadParams);
             if (result.Error != null)
-                throw new Exception($"Cloudinary upload failed: {result.Error.Message}");
+                throw new Exception(string.Format(ExceptionMessages.CloudinaryUploadFailed, result.Error.Message));
             return result.SecureUrl.ToString();
         }
 
@@ -59,7 +60,7 @@ namespace GameHub.Infrastructure.Services
             };
             var result = await _cloudinary.UploadAsync(uploadParams);
             if (result.Error != null)
-                throw new Exception($"Cloudinary upload failed: {result.Error.Message}");
+                throw new Exception(string.Format(ExceptionMessages.CloudinaryUploadFailed, result.Error.Message));
             return result.SecureUrl.ToString();
         }
     }

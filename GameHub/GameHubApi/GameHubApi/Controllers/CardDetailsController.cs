@@ -1,5 +1,6 @@
 using GameHub.Application.Common.interfaces;
 using GameHub.Application.DTOs.CardDetails;
+using GameHub.Application.Resources;
 using GameHub.Application.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -31,7 +32,7 @@ namespace GameHubApi.Controllers
         public async Task<IActionResult> GetCardDetailById(int cardDetailId)
         {
             var card = await _cardDetailService.GetCardDetailByIdAsync(_currentUserService.UserId!.Value, cardDetailId);
-            if (card == null) return NotFound(new { message = "Card detail not found" });
+            if (card == null) return NotFound(new { message = ExceptionMessages.CardDetailNotFound });
             return Ok(card);
         }
 

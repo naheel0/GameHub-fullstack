@@ -1,6 +1,7 @@
 using GameHub.Application.Common.Exceptions;
 using GameHub.Application.Common.interfaces;
 using GameHub.Application.DTOs.CardDetails;
+using GameHub.Application.Resources;
 using GameHub.Application.Services;
 using GameHub.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
@@ -86,7 +87,7 @@ namespace GameHub.Infrastructure.Services
         {
             var card = await _context.CardDetails
                 .FirstOrDefaultAsync(c => c.UserId == userId && c.Id == cardDetailId)
-                ?? throw new NotFoundException("Card detail not found", "CardDetailNotFound");
+                ?? throw new NotFoundException(nameof(ExceptionMessages.CardDetailNotFound));
 
             card.CardNumber = request.CardNumber;
             card.ExpiryDate = request.ExpiryDate;

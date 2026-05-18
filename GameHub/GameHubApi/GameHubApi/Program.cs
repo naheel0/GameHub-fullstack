@@ -1,5 +1,6 @@
 using GameHub.Application;
 using GameHub.Infrastructure;
+using GameHubApi.Middleware;
 using FluentValidation;
 using FluentValidation.AspNetCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -123,6 +124,9 @@ builder.Services.AddSwaggerGen(c =>
 
 // Register application query handlers
 builder.Services.AddScoped<GameHub.Application.Queries.GetGames.IGetGamesQueryHandler, GameHub.Application.Queries.GetGames.GetGamesQueryHandler>();
+
+// Exception handler
+builder.Services.AddSingleton<IGlobalExceptionHandler, ExceptionHandler>();
 
 var app = builder.Build();
 

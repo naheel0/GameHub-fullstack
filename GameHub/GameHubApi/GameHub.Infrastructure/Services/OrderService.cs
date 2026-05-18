@@ -2,6 +2,7 @@
 using GameHub.Application.Common.interfaces;
 using GameHub.Application.DTOs.Address;
 using GameHub.Application.DTOs.Orders;
+using GameHub.Application.Resources;
 using GameHub.Application.Services;
 using GameHub.Domain.Entities;
 using GameHub.Domain.Enums;
@@ -18,18 +19,18 @@ public class OrderService : IOrderService
     public async Task<OrderDto> PlaceOrderAsync(int userId, PlaceOrderRequest request)
     {
         _ = await _context.Users.FindAsync(userId)
-            ?? throw new NotFoundException("User not found", "UserNotFound");
+            ?? throw new NotFoundException(nameof(ExceptionMessages.UserNotFound));
 
         var cartItems = await _context.CartItems
             .Where(ci => ci.UserId == userId)
             .ToListAsync();
 
         if (!cartItems.Any())
-            throw new BusinessRuleException("Cart is empty");
+            throw new BusinessRuleException(nameof(ExceptionMessages.CartEmpty));
 
         var address = await _context.Address
             .FirstOrDefaultAsync(a => a.AddressId == request.AddressId && a.UserId == userId)
-            ?? throw new NotFoundException("Address not found or does not belong to user", "AddressNotFoundOrDoesNotBelong");
+            ?? throw new NotFoundException(nameof(ExceptionMessages.AddressNotFoundOrDoesNotBelong));
 
 
         var gameIds = cartItems.Select(ci => ci.GameId).Distinct();
@@ -40,7 +41,7 @@ public class OrderService : IOrderService
         foreach (var cartItem in cartItems)
         {
             if (!games.TryGetValue(cartItem.GameId, out var game) || !game.InStock)
-                throw new BusinessRuleException($"Game '{cartItem.GameName}' is no longer available", "GameNoLongerAvailable", cartItem.GameName);
+                throw new BusinessRuleException(nameof(ExceptionMessages.GameNoLongerAvailable), cartItem.GameName);
         }
 
         decimal subtotal = cartItems.Sum(ci => ci.Price * ci.Quantity);

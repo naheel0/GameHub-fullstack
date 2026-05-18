@@ -1,6 +1,7 @@
 ﻿using GameHub.Application.Common.Exceptions;
 using GameHub.Application.Common.interfaces;
 using GameHub.Application.DTOs.Cart;
+using GameHub.Application.Resources;
 using GameHub.Application.Services;
 using GameHub.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
@@ -35,10 +36,10 @@ namespace GameHub.Infrastructure.Services
         public async Task AddToCartAsync(int userId, int gameId, int quantity)
         {
             var game = await _context.Games.FindAsync(gameId)
-                       ?? throw new NotFoundException("Game not found", "GameNotFound");
+                       ?? throw new NotFoundException(nameof(ExceptionMessages.GameNotFound));
 
             if (!game.InStock)
-                throw new BusinessRuleException("Game is out of stock", "GameOutOfStock");
+                throw new BusinessRuleException(nameof(ExceptionMessages.GameOutOfStock));
 
             var existingItem = await _context.CartItems
                 .FirstOrDefaultAsync(c => c.UserId == userId && c.GameId == gameId);
@@ -59,13 +60,13 @@ namespace GameHub.Infrastructure.Services
         public async Task UpdateQuantityAsync(int userId, int gameId, int quantity)
         {
             if (quantity <= 0)
-                throw new BusinessRuleException("Quantity must be at least 1");
+                throw new BusinessRuleException(nameof(ExceptionMessages.InvalidQuantity), 1);
 
             var game = await _context.Games.FindAsync(gameId)
-                       ?? throw new NotFoundException("Game not found", "GameNotFound");
+                       ?? throw new NotFoundException(nameof(ExceptionMessages.GameNotFound));
 
             if (!game.InStock)
-                throw new BusinessRuleException("Game is currently out of stock", "GameOutOfStock");
+                throw new BusinessRuleException(nameof(ExceptionMessages.GameOutOfStock));
 
             var existingItem = await _context.CartItems
                 .FirstOrDefaultAsync(c => c.UserId == userId && c.GameId == gameId);

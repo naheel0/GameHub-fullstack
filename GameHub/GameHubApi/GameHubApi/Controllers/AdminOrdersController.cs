@@ -1,5 +1,6 @@
 ﻿using GameHub.Application.Common.Models;
 using GameHub.Application.DTOs.Admin;
+using GameHub.Application.Resources;
 using GameHub.Application.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -28,7 +29,7 @@ namespace GameHubApi.Controllers
         public async Task<IActionResult> GetOrderDetail(Guid orderId)
         {
             var order = await _adminService.GetOrderDetailAsync(orderId);
-            if (order == null) return NotFound(new { message = "Order not found" });
+            if (order == null) return NotFound(new { message = ExceptionMessages.OrderNotFound });
             return Ok(order);
         }
         [HttpPut("{orderId:guid}/status")]

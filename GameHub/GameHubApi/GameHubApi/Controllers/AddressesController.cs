@@ -1,5 +1,6 @@
 ﻿using GameHub.Application.Common.interfaces;
 using GameHub.Application.DTOs.Address;
+using GameHub.Application.Resources;
 using GameHub.Application.Services;
 using Microsoft.AspNetCore.Mvc;
 
@@ -19,32 +20,43 @@ namespace GameHubApi.Controllers
         [HttpGet]
         public async Task<IActionResult> AddAddress()
         {
-            var addresses = await _addressService.GetAddressesAsync(_currentUserService.UserId!.Value);
+            var userId = GetCurrentUserId();
+            var addresses = await _addressService.GetAddressesAsync(userId);
             return Ok(addresses);
         }
         [HttpPost]
         public async Task<IActionResult> AddAddress(CreateAddressRequest request)
         {
-            var result = await _addressService.AddAddressAsync(_currentUserService.UserId!.Value, request);
+            var userId = GetCurrentUserId();
+            var result = await _addressService.AddAddressAsync(userId, request);
             return Ok(result);
         }
         [HttpPut("{addressId}")]
         public async Task<IActionResult> UpdateAddress(Guid addressId, UpdateAddressRequest request)
         {
-            await _addressService.UpdateAddressAsync(_currentUserService.UserId!.Value, addressId, request);
+            var userId = GetCurrentUserId();
+            await _addressService.UpdateAddressAsync(userId, addressId, request);
             return Ok(new { message = "Address updated" });
         }
         [HttpDelete("{addressId}")]
         public async Task<IActionResult> DeleteAddress(Guid addressId)
         {
-            await _addressService.DeleteAddressAsync(_currentUserService.UserId!.Value, addressId);
+            var userId = GetCurrentUserId();
+            await _addressService.DeleteAddressAsync(userId, addressId);
             return Ok(new { message = "Address delete" });
         }
         [HttpPut("{addressId}/default")]
         public async Task<IActionResult> SetDefault(Guid addressId)
         {
-            await _addressService.SetDefaultAsync(_currentUserService.UserId!.Value, addressId);
+            var userId = GetCurrentUserId();
+            await _addressService.SetDefaultAsync(userId, addressId);
             return Ok(new { message = "Default address update" });
+        }
+
+        private int GetCurrentUserId()
+        {
+            return _currentUserService.UserId
+                ?? throw new UnauthorizedAccessException(ExceptionMessages.Unauthorized);
         }
     }
 }

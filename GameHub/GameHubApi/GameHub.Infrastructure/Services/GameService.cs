@@ -1,5 +1,6 @@
 ﻿using GameHub.Application.Common.Exceptions;
 using GameHub.Application.Common.interfaces;
+using GameHub.Application.Resources;
 using GameHub.Application.Common.Models;
 using GameHub.Application.DTOs.Games;
 using GameHub.Application.Services;
@@ -118,7 +119,7 @@ namespace GameHub.Infrastructure.Services
         public async Task<GameDto> UpdateGameAsync(int id, UpdateGameRequest request)
         {
             var game = await _context.Games.FindAsync(id)
-                ?? throw new NotFoundException("Game not found");
+                ?? throw new NotFoundException(nameof(ExceptionMessages.GameNotFound));
             game.Name = request.Name;
             game.Genre = request.Genre;
             game.Platform = request.Platform;
@@ -133,7 +134,7 @@ namespace GameHub.Infrastructure.Services
         public async Task<GameDto> DeleteGameAsync(int id)
         {
             var game = await _context.Games.FindAsync(id)
-                ?? throw new NotFoundException("Game not found");
+                ?? throw new NotFoundException(nameof(ExceptionMessages.GameNotFound));
             game.IsDeleted = true;
             game.DeletedAt = DateTime.UtcNow;
             await _context.SaveChangeAsync();

@@ -61,11 +61,65 @@
   <data name="Unauthorized" xml:space="preserve">
     <value>You are not authorized to perform this action.</value>
   </data>
+  <data name="Forbidden" xml:space="preserve">
+    <value>You do not have permission to perform this action.</value>
+  </data>
+  <data name="NotFound" xml:space="preserve">
+    <value>The requested resource was not found.</value>
+  </data>
+  <data name="BadRequest" xml:space="preserve">
+    <value>The request was invalid.</value>
+  </data>
+  <data name="InternalServerError" xml:space="preserve">
+    <value>An unexpected error occurred.</value>
+  </data>
   <data name="TokenExpired" xml:space="preserve">
     <value>Your session has expired. Please login again.</value>
   </data>
   <data name="AddressNotFound" xml:space="preserve">
     <value>Address not found.</value>
+  </data>
+  <data name="CardDetailNotFound" xml:space="preserve">
+    <value>Card detail not found.</value>
+  </data>
+  <data name="OrderNotFound" xml:space="preserve">
+    <value>Order not found.</value>
+  </data>
+  <data name="EmailAlreadyRegistered" xml:space="preserve">
+    <value>Email already registered.</value>
+  </data>
+  <data name="PasswordsDoNotMatch" xml:space="preserve">
+    <value>Passwords do not match.</value>
+  </data>
+  <data name="InvalidEmailOrPassword" xml:space="preserve">
+    <value>Invalid email or password.</value>
+  </data>
+  <data name="AccountBlocked" xml:space="preserve">
+    <value>Your account has been blocked.</value>
+  </data>
+  <data name="RefreshTokenRequired" xml:space="preserve">
+    <value>Refresh token is required.</value>
+  </data>
+  <data name="InvalidOrExpiredRefreshToken" xml:space="preserve">
+    <value>Invalid or expired refresh token.</value>
+  </data>
+  <data name="InvalidRole" xml:space="preserve">
+    <value>Invalid role. Allowed values: Admin or User.</value>
+  </data>
+  <data name="InvalidOrderStatus" xml:space="preserve">
+    <value>Invalid order status. Allowed values: Pending, Placed, Processing, Shipped, Delivered, Cancelled.</value>
+  </data>
+  <data name="InvalidAdminUserId" xml:space="preserve">
+    <value>Invalid id. Use a numeric user id, e.g. /api/admin/AdminUsers/1</value>
+  </data>
+  <data name="DatabaseConnectionUnavailable" xml:space="preserve">
+    <value>Unable to access database connection.</value>
+  </data>
+  <data name="CloudinaryConfigurationMissing" xml:space="preserve">
+    <value>Cloudinary configuration is missing. Please set Cloudinary:CloudName, Cloudinary:ApiKey and Cloudinary:ApiSecret (or CloudinarySettings:CloudName/ApiKey/ApiSecret) in configuration.</value>
+  </data>
+  <data name="CloudinaryUploadFailed" xml:space="preserve">
+    <value>Cloudinary upload failed: {0}</value>
   </data>
 
 </root>

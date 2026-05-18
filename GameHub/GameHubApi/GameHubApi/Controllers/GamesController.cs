@@ -1,4 +1,5 @@
 ﻿using GameHub.Application.Common.Models;
+using GameHub.Application.Resources;
 using GameHub.Application.Services;
 using Microsoft.AspNetCore.Mvc;
 
@@ -41,7 +42,7 @@ namespace GameHubApi.Controllers
         public async Task<IActionResult> GetById(int id)
         {
             var game = await _gameService.GetByIdAsync(id);
-            if (game == null) return NotFound(new { message = "Game not found" });
+            if (game == null) return NotFound(new { message = ExceptionMessages.GameNotFound });
             return Ok(game);
         }
     }

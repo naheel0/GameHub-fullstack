@@ -1,4 +1,5 @@
 ﻿using GameHub.Application.Common.Exceptions;
+using GameHub.Application.Resources;
 using GameHub.Application.Common.interfaces;
 using GameHub.Application.Common.Models;
 using GameHub.Application.DTOs.Address;
@@ -92,7 +93,7 @@ namespace GameHub.Infrastructure.Services
         public async Task<AdminUserDetailDto?> GetUserDetailAsync(int userId)
         {
             var appDb = _context as AppDbContext;
-            if (appDb == null) throw new InvalidOperationException("Unable to access database connection.");
+            if (appDb == null) throw new InvalidOperationException(ExceptionMessages.DatabaseConnectionUnavailable);
             var results = await appDb.Database
                 .SqlQueryRaw<AdminUserDetailDto>("EXEC GetUserDetail @UserId", new SqlParameter("@UserId", userId))
                 .ToListAsync();
@@ -102,30 +103,30 @@ namespace GameHub.Infrastructure.Services
         public async Task BlockUserAsync(int userId)
         {
             var user = await _context.Users.FindAsync(userId)
-                ?? throw new NotFoundException("User not found");
+                ?? throw new NotFoundException(nameof(ExceptionMessages.UserNotFound));
             user.AccountStatus = Domain.Enums.AccountStatus.Blocked;
             await _context.SaveChangeAsync();
         }
         public async Task ActivateUserAsync(int userId)
         {
             var user = await _context.Users.FindAsync(userId)
-                ?? throw new NotFoundException("User not found");
+                ?? throw new NotFoundException(nameof(ExceptionMessages.UserNotFound));
             user.AccountStatus = Domain.Enums.AccountStatus.Active;
             await _context.SaveChangeAsync();
         }
         public async Task UpdateUserRoleAsync(int userId, string role)
         {
             var user = await _context.Users.FindAsync(userId)
-                ?? throw new NotFoundException("User not found");
+                ?? throw new NotFoundException(nameof(ExceptionMessages.UserNotFound));
             if (!Enum.TryParse<Domain.Enums.Role>(role, true, out var parsedRole))
-                throw new BusinessRuleException("Invalid role. Allowed values: Admin or User.");
+                throw new BusinessRuleException(nameof(ExceptionMessages.InvalidRole));
             user.Role = parsedRole;
             await _context.SaveChangeAsync();
         }
         public async Task DeleteUserAsync(int userId)
         {
             var user = await _context.Users.FindAsync(userId)
-                ?? throw new NotFoundException("user not found");
+                ?? throw new NotFoundException(nameof(ExceptionMessages.UserNotFound));
             user.IsDeleted = true;
             user.DeletedAt = DateTime.UtcNow;
             await _context.SaveChangeAsync();
@@ -208,10 +209,10 @@ namespace GameHub.Infrastructure.Services
         public async Task UpdateOrderStatusAsync(Guid orderId, string newStatus)
         {
             var purchase = await _context.Purchases.FirstOrDefaultAsync(p => p.OrderId == orderId)
-                ?? throw new NotFoundException("Order not found");
+                ?? throw new NotFoundException(nameof(ExceptionMessages.OrderNotFound));
 
             if (!Enum.TryParse<Domain.Enums.OrderStatus>(newStatus, true, out var parsedStatus))
-                throw new BusinessRuleException("Invalid order status. Allowed values: Pending, Placed, Processing, Shipped, Delivered, Cancelled.");
+                throw new BusinessRuleException(nameof(ExceptionMessages.InvalidOrderStatus));
 
             purchase.Status = parsedStatus;
             await _context.SaveChangeAsync();
@@ -220,7 +221,7 @@ namespace GameHub.Infrastructure.Services
         public async Task DeleteOrderAsync(Guid orderId)
         {
             var purchase = await _context.Purchases.FirstOrDefaultAsync(p => p.OrderId == orderId)
-                ?? throw new NotFoundException("Order not found");
+                ?? throw new NotFoundException(nameof(ExceptionMessages.OrderNotFound));
 
             _context.Purchases.Remove(purchase);
             await _context.SaveChangeAsync();

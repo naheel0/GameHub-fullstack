@@ -1,6 +1,7 @@
 ﻿using GameHub.Application.Common.Exceptions;
 using GameHub.Application.Common.interfaces;
 using GameHub.Application.DTOs.Wishlist;
+using GameHub.Application.Resources;
 using GameHub.Application.Services;
 using GameHub.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
@@ -34,7 +35,7 @@ namespace GameHub.Infrastructure.Services
         public async Task AddToWishlistAsync(int userId, int gameId)
         {
             var game = await _context.Games.FindAsync(gameId)
-                       ?? throw new NotFoundException("Game not found", "GameNotFound");
+                       ?? throw new NotFoundException(nameof(ExceptionMessages.GameNotFound));
 
             var alreadyExists = await _context.WishlistItems
                 .AnyAsync(w => w.UserId == userId && w.GameId == gameId);
@@ -70,13 +71,13 @@ namespace GameHub.Infrastructure.Services
         {
             var wishItem = await _context.WishlistItems
                 .FirstOrDefaultAsync(w => w.UserId == userId && w.GameId == gameId)
-                ?? throw new NotFoundException("Item not found in wishlist", "ItemNotFoundInWishlist");
+                ?? throw new NotFoundException(nameof(ExceptionMessages.ItemNotFoundInWishlist));
 
             var game = await _context.Games.FindAsync(gameId)
-                       ?? throw new NotFoundException("Game not found", "GameNotFound");
+                       ?? throw new NotFoundException(nameof(ExceptionMessages.GameNotFound));
 
             if (!game.InStock)
-                throw new BusinessRuleException("Game is out of stock", "GameOutOfStock");
+                throw new BusinessRuleException(nameof(ExceptionMessages.GameOutOfStock));
 
             var cartItem = await _context.CartItems
                 .FirstOrDefaultAsync(c => c.UserId == userId && c.GameId == gameId);
