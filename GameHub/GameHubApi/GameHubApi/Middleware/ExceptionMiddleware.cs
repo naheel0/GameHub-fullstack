@@ -26,19 +26,37 @@ public class ExceptionMiddleware
             if (!context.Response.HasStarted && context.Response.StatusCode is StatusCodes.Status400BadRequest or StatusCodes.Status401Unauthorized or StatusCodes.Status403Forbidden or StatusCodes.Status404NotFound or StatusCodes.Status500InternalServerError)
             {
                 var status = context.Response.StatusCode;
-                var detail = GetStatusMessage(status);
                 var traceId = Activity.Current?.Id ?? context.TraceIdentifier;
-                var errorCode = status switch
-                {
-                    StatusCodes.Status400BadRequest => nameof(GameHub.Application.Resources.ExceptionMessages.BadRequest),
-                    StatusCodes.Status401Unauthorized => nameof(GameHub.Application.Resources.ExceptionMessages.Unauthorized),
-                    StatusCodes.Status403Forbidden => nameof(GameHub.Application.Resources.ExceptionMessages.Forbidden),
-                    StatusCodes.Status404NotFound => nameof(GameHub.Application.Resources.ExceptionMessages.NotFound),
-                    StatusCodes.Status500InternalServerError => nameof(GameHub.Application.Resources.ExceptionMessages.InternalServerError),
-                    _ => null
-                };
 
-                await WriteProblemDetailsAsync(context, status, detail, traceId, errorCode);
+                // If ModelState errors were captured by ApiBehavior, include them in ProblemDetails
+                if (status == StatusCodes.Status400BadRequest && context.Items.TryGetValue("ModelStateErrors", out var modelStateObj) && modelStateObj is Microsoft.AspNetCore.Mvc.ModelBinding.ModelStateDictionary modelState)
+                {
+                    var errors = modelState
+                        .Where(kv => kv.Value.Errors.Count > 0)
+                        .ToDictionary(
+                            kv => kv.Key,
+                            kv => kv.Value.Errors.Select(e => string.IsNullOrEmpty(e.ErrorMessage) ? e.Exception?.Message ?? "" : e.ErrorMessage).Where(s => !string.IsNullOrEmpty(s)).ToArray()
+                        );
+
+                    var detail = GameHub.Application.Resources.ExceptionMessages.BadRequest;
+                    var errorCode = nameof(GameHub.Application.Resources.ExceptionMessages.BadRequest);
+                    await WriteProblemDetailsAsync(context, status, detail, traceId, errorCode, errors);
+                }
+                else
+                {
+                    var detail = GetStatusMessage(status);
+                    var errorCode = status switch
+                    {
+                        StatusCodes.Status400BadRequest => nameof(GameHub.Application.Resources.ExceptionMessages.BadRequest),
+                        StatusCodes.Status401Unauthorized => nameof(GameHub.Application.Resources.ExceptionMessages.Unauthorized),
+                        StatusCodes.Status403Forbidden => nameof(GameHub.Application.Resources.ExceptionMessages.Forbidden),
+                        StatusCodes.Status404NotFound => nameof(GameHub.Application.Resources.ExceptionMessages.NotFound),
+                        StatusCodes.Status500InternalServerError => nameof(GameHub.Application.Resources.ExceptionMessages.InternalServerError),
+                        _ => null
+                    };
+
+                    await WriteProblemDetailsAsync(context, status, detail, traceId, errorCode);
+                }
             }
         }
         catch (Exception ex)
@@ -60,7 +78,7 @@ public class ExceptionMiddleware
         _ => ExceptionMessages.InternalServerError
     };
 
-    private async Task WriteProblemDetailsAsync(HttpContext context, int status, string message, string? traceId = null, string? errorCode = null)
+    private async Task WriteProblemDetailsAsync(HttpContext context, int status, string message, string? traceId = null, string? errorCode = null, IDictionary<string, string[]>? errors = null)
     {
         context.Response.StatusCode = status;
         context.Response.ContentType = "application/problem+json";
@@ -87,6 +105,14 @@ public class ExceptionMiddleware
         if (!string.IsNullOrWhiteSpace(errorCode))
         {
             problem.Extensions["errorCode"] = errorCode;
+        }
+
+        if (errors != null && errors.Count > 0)
+        {
+            // Include structured field errors for clients to consume
+            problem.Extensions["errors"] = errors;
+            // Optionally set a more specific detail
+            problem.Detail = GameHub.Application.Resources.ExceptionMessages.BadRequest;
         }
 
         var options = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };

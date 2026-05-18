@@ -122,4 +122,39 @@
     <value>Cloudinary upload failed: {0}</value>
   </data>
 
+  <!-- Validation messages -->
+  <data name="Validation_PhoneInvalid" xml:space="preserve">
+    <value>Phone must be digits and may include +, spaces or dashes (7-20 chars)</value>
+  </data>
+  <data name="Validation_PasswordLowercase" xml:space="preserve">
+    <value>Password must contain at least one lowercase letter</value>
+  </data>
+  <data name="Validation_PasswordUppercase" xml:space="preserve">
+    <value>Password must contain at least one uppercase letter</value>
+  </data>
+  <data name="Validation_PasswordDigit" xml:space="preserve">
+    <value>Password must contain at least one digit</value>
+  </data>
+  <data name="Validation_PasswordSpecial" xml:space="preserve">
+    <value>Password must contain at least one special character</value>
+  </data>
+  <data name="Validation_PasswordMinLength" xml:space="preserve">
+    <value>Password must be at least {0} characters long</value>
+  </data>
+  <data name="Validation_CardNumberInvalid" xml:space="preserve">
+    <value>Card number is invalid</value>
+  </data>
+  <data name="Validation_CardNumberLength" xml:space="preserve">
+    <value>Card number must be 13 to 19 digits</value>
+  </data>
+  <data name="Validation_ExpiryInvalid" xml:space="preserve">
+    <value>Expiry date must be in MM/YY or MM/YYYY format and not expired</value>
+  </data>
+  <data name="Validation_CvvInvalid" xml:space="preserve">
+    <value>CVV must be 3 or 4 digits</value>
+  </data>
+  <data name="Validation_FieldRequired" xml:space="preserve">
+    <value>{0} is required</value>
+  </data>
+
 </root>

@@ -125,9 +125,52 @@ export const AuthProvider = ({ children }) => {
         }),
       });
 
-      const payload = await createResponse.json();
+      const responseText = await createResponse.text();
+      let payload = {};
+      if (responseText) {
+        try {
+          payload = JSON.parse(responseText);
+        } catch {
+          payload = { message: responseText };
+        }
+      }
+
       if (!createResponse.ok || !payload?.success) {
-        return { success: false, error: payload?.message || 'Signup failed. Please try again.' };
+        // If API returned ProblemDetails with structured validation errors, surface them
+        const errors = payload?.errors || payload?.Errors || payload?.extensions?.errors;
+        if (errors && typeof errors === 'object') {
+            // Normalize error keys to canonical form used by the forms (camelCase)
+            const canonicalMap = {
+              firstname: 'firstName',
+              lastname: 'lastName',
+              email: 'email',
+              phone: 'phone',
+              password: 'password',
+              confirmpassword: 'confirmPassword',
+              role: 'role',
+              status: 'status'
+            };
+
+            const mapped = {};
+            Object.keys(errors).forEach((rawKey) => {
+              try {
+                // take last segment after '.' and strip array indices like [0]
+                let key = rawKey.split('.').pop();
+                key = key.replace(/\[\d+\]/g, '');
+                const lower = key.toLowerCase();
+                const target = canonicalMap[lower] || key;
+                const values = Array.isArray(errors[rawKey]) ? errors[rawKey] : [errors[rawKey]];
+                mapped[target] = (mapped[target] || []).concat(values.map(v => typeof v === 'string' ? v : String(v)));
+              } catch {
+                // fallback: include raw
+                mapped[rawKey] = mapped[rawKey] || [];
+              }
+            });
+
+            return { success: false, error: payload?.detail || payload?.message || 'Please fix the highlighted fields and try again.', fieldErrors: mapped };
+          }
+
+        return { success: false, error: payload?.message || payload?.detail || 'Signup failed. Please try again.' };
       }
 
       const createdUser = normalizeUser(payload.data, payload.data?.accessToken);

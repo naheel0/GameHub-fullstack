@@ -30,6 +30,28 @@ builder.Services.AddControllers().AddJsonOptions(opts =>
 builder.Services.AddFluentValidationAutoValidation();
 builder.Services.AddValidatorsFromAssemblyContaining<GameHub.Application.Validators.QueryParametersValidator>();
 
+// Configure API behavior: capture ModelState errors into HttpContext.Items for centralized formatting
+builder.Services.Configure<Microsoft.AspNetCore.Mvc.ApiBehaviorOptions>(options =>
+{
+    options.InvalidModelStateResponseFactory = context =>
+    {
+        var traceId = System.Diagnostics.Activity.Current?.Id ?? context.HttpContext.TraceIdentifier;
+        var problem = new Microsoft.AspNetCore.Mvc.ValidationProblemDetails(context.ModelState)
+        {
+            Status = StatusCodes.Status400BadRequest,
+            Title = "Bad Request",
+            Detail = GameHub.Application.Resources.ExceptionMessages.BadRequest,
+            Instance = context.HttpContext.Request.Path,
+            Type = "https://httpstatuses.com/400"
+        };
+
+        problem.Extensions["traceId"] = traceId;
+        problem.Extensions["errorCode"] = nameof(GameHub.Application.Resources.ExceptionMessages.BadRequest);
+
+        return new Microsoft.AspNetCore.Mvc.BadRequestObjectResult(problem);
+    };
+});
+
 // 4. CORS
 builder.Services.AddCors(options =>
 {

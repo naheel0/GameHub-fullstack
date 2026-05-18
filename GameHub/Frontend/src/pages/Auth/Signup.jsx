@@ -4,6 +4,22 @@ import { useAuth } from "../../contexts/AuthContext";
 import { EyeIcon, EyeSlashIcon } from "@heroicons/react/24/outline";
 import Logo from "../../components/common/Logo";
 
+const FieldErrors = ({ errors, prefix }) => {
+  if (!errors?.length) {
+    return null;
+  }
+
+  return (
+    <div className="mt-2 space-y-1">
+      {errors.map((message, index) => (
+        <p key={`${prefix}-${index}`} className="text-sm text-red-300">
+          {message}
+        </p>
+      ))}
+    </div>
+  );
+};
+
 const Signup = () => {
   const [formData, setFormData] = useState({
     firstName: "",
@@ -18,6 +34,7 @@ const Signup = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState({});
   const [loading, setLoading] = useState(false);
 
   const { signup } = useAuth();
@@ -29,24 +46,13 @@ const Signup = () => {
       [e.target.name]: e.target.value,
     });
     setError("");
+    setFieldErrors({});
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError("");
-
-    if (formData.password !== formData.confirmPassword) {
-      setError("Passwords do not match");
-      setLoading(false);
-      return;
-    }
-
-    if (formData.password.length < 6) {
-      setError("Password must be at least 6 characters long");
-      setLoading(false);
-      return;
-    }
 
     const userData = {
       firstName: formData.firstName,
@@ -67,7 +73,13 @@ const Signup = () => {
         navigate("/");
       }
     } else {
-      setError(result.error);
+      // Prefer structured field errors if provided
+      if (result.fieldErrors && typeof result.fieldErrors === "object") {
+        setFieldErrors(result.fieldErrors);
+        setError(result.error || "Please fix the highlighted fields and try again.");
+      } else {
+        setError(result.error);
+      }
     }
 
     setLoading(false);
@@ -125,6 +137,7 @@ const Signup = () => {
                   className="w-full px-3 py-3 bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent text-white placeholder-gray-400"
                   placeholder="First name"
                 />
+                <FieldErrors errors={fieldErrors.firstName || fieldErrors.FirstName} prefix="first" />
               </div>
 
               <div>
@@ -144,6 +157,7 @@ const Signup = () => {
                   className="w-full px-3 py-3 bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent text-white placeholder-gray-400"
                   placeholder="Last name"
                 />
+                <FieldErrors errors={fieldErrors.lastName || fieldErrors.LastName} prefix="last" />
               </div>
             </div>
 
@@ -165,6 +179,7 @@ const Signup = () => {
                 className="w-full px-3 py-3 bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent text-white placeholder-gray-400"
                 placeholder="Enter your email"
               />
+              <FieldErrors errors={fieldErrors.email || fieldErrors.Email} prefix="email" />
             </div>
 
             <div>
@@ -182,8 +197,9 @@ const Signup = () => {
                 value={formData.phone}
                 onChange={handleChange}
                 className="w-full px-3 py-3 bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent text-white placeholder-gray-400"
-                placeholder="+1 (555) 123-4567"
+                placeholder="+91 98765 43210"
               />
+              <FieldErrors errors={fieldErrors.phone || fieldErrors.Phone} prefix="phone" />
             </div>
 
             <div>
@@ -203,7 +219,7 @@ const Signup = () => {
                   value={formData.password}
                   onChange={handleChange}
                   className="w-full px-3 py-3 bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent text-white placeholder-gray-400 pr-10"
-                  placeholder="At least 6 characters"
+                  placeholder="Create a password"
                 />
                 <button
                   type="button"
@@ -217,6 +233,17 @@ const Signup = () => {
                   )}
                 </button>
               </div>
+                <div className="mt-2 text-sm text-gray-400">
+                  <p className="font-medium text-gray-300 mb-1">Password requirements:</p>
+                  <ul className="space-y-1 list-disc list-inside">
+                    <li>Minimum 8 characters</li>
+                    <li>Lowercase letter</li>
+                    <li>Uppercase letter</li>
+                    <li>Number</li>
+                    <li>Special character</li>
+                  </ul>
+                </div>
+                <FieldErrors errors={fieldErrors.password || fieldErrors.Password} prefix="password" />
             </div>
 
             <div>

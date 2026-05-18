@@ -42,6 +42,8 @@ const PaymentPage = () => {
     phone: "",
     isDefault: false,
   });
+  const [addressSubmitError, setAddressSubmitError] = useState("");
+  const [addressFieldErrors, setAddressFieldErrors] = useState({});
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -132,6 +134,13 @@ const PaymentPage = () => {
       ...prev,
       [field]: value,
     }));
+    setAddressSubmitError("");
+    setAddressFieldErrors((prev) => {
+      if (!prev[field]) return prev;
+      const next = { ...prev };
+      delete next[field];
+      return next;
+    });
   };
 
   const resetAddressForm = useCallback(() => {
@@ -147,12 +156,40 @@ const PaymentPage = () => {
       isDefault: false,
     });
     setEditingAddress(null);
+    setAddressSubmitError("");
+    setAddressFieldErrors({});
   }, []);
+
+  const mapProblemDetailsErrors = (errors) => {
+    const canonicalMap = {
+      fullname: "fullName",
+      addressline1: "addressLine1",
+      addressline2: "addressLine2",
+      city: "city",
+      state: "state",
+      zipcode: "zipCode",
+      country: "country",
+      phone: "phone",
+      isdefault: "isDefault",
+    };
+
+    const mapped = {};
+    Object.entries(errors || {}).forEach(([rawKey, rawValue]) => {
+      const keyPart = String(rawKey).split(".").pop().replace(/\[\d+\]/g, "");
+      const target = canonicalMap[keyPart.toLowerCase()] || keyPart;
+      const values = Array.isArray(rawValue) ? rawValue : [rawValue];
+      mapped[target] = (mapped[target] || []).concat(values.map((value) => String(value)));
+    });
+    return mapped;
+  };
 
   // validateAddress removed — unused helper
 
   const handleSaveAddress = async () => {
     try {
+      setAddressSubmitError("");
+      setAddressFieldErrors({});
+
       if (!user || !token) {
         toast.warning('Please log in to manage addresses.');
         return;
@@ -164,9 +201,9 @@ const PaymentPage = () => {
         addressLine2: addressForm.addressLine2,
         city: addressForm.city,
         state: addressForm.state,
-        zipCode: addressForm.zipCode.replace(/\D/g, ""),
+        zipCode: addressForm.zipCode,
         country: addressForm.country,
-        phone: addressForm.phone.replace(/\D/g, ""),
+        phone: addressForm.phone,
         isDefault: addressForm.isDefault,
       };
 
@@ -183,7 +220,14 @@ const PaymentPage = () => {
         });
 
         if (!response.ok) {
-          throw new Error('Failed to update address');
+          const payload = await response.json().catch(() => null);
+          if (payload?.errors) {
+            setAddressFieldErrors(mapProblemDetailsErrors(payload.errors));
+          }
+          const message = payload?.detail || payload?.message || 'Failed to update address';
+          setAddressSubmitError(message);
+          toast.error(message);
+          return;
         }
       } else {
         const response = await authFetch(`${API_BASE}/addresses`, {
@@ -196,7 +240,14 @@ const PaymentPage = () => {
         });
 
         if (!response.ok) {
-          throw new Error('Failed to add address');
+          const payload = await response.json().catch(() => null);
+          if (payload?.errors) {
+            setAddressFieldErrors(mapProblemDetailsErrors(payload.errors));
+          }
+          const message = payload?.detail || payload?.message || 'Failed to add address';
+          setAddressSubmitError(message);
+          toast.error(message);
+          return;
         }
 
         const created = await response.json();
@@ -212,11 +263,15 @@ const PaymentPage = () => {
       }
     } catch (error) {
       console.error("Error saving address:", error);
-      toast.error("Failed to save address. Please try again.");
+      const message = error?.message || "Failed to save address. Please try again.";
+      setAddressSubmitError(message);
+      toast.error(message);
     }
   };
 
   const handleEditAddress = (address) => {
+    setAddressSubmitError("");
+    setAddressFieldErrors({});
     setAddressForm({
       fullName: address.fullName,
       addressLine1: address.addressLine1,
@@ -509,6 +564,8 @@ const PaymentPage = () => {
               handleSetDefaultAddress={handleSetDefaultAddress}
               editingAddress={editingAddress}
               resetAddressForm={resetAddressForm}
+              submitError={addressSubmitError}
+              serverErrors={addressFieldErrors}
             />
 
             {/* Payment Methods Section */}
