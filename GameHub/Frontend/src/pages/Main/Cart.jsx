@@ -51,7 +51,7 @@ const CartPage = () => {
 
     if (cart.some((item) => !item.inStock)) {
       toast.error(
-        "Please remove out-of-stock items before proceeding to payment."
+        "Remove out-of-stock items before continuing to payment."
       );
       return;
     }
@@ -66,7 +66,7 @@ const CartPage = () => {
       });
     } catch (error) {
       console.error("Navigation error:", error);
-      toast.error("Failed to proceed to payment.");
+      toast.error("Could not open the payment page. Please try again.");
     } finally {
       setIsCheckingOut(false);
     }

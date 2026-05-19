@@ -79,9 +79,6 @@
   <data name="AddressNotFound" xml:space="preserve">
     <value>Address not found.</value>
   </data>
-  <data name="CardDetailNotFound" xml:space="preserve">
-    <value>Card detail not found.</value>
-  </data>
   <data name="OrderNotFound" xml:space="preserve">
     <value>Order not found.</value>
   </data>

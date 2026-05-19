@@ -48,42 +48,54 @@ public class OrderService : IOrderService
         decimal tax = Math.Round(subtotal * 0.1m, 2);
         decimal total = subtotal + tax;
 
-        var purchase = new Purchase
+        await using var transaction = await _context.Database.BeginTransactionAsync();
+
+        try
         {
-            UserId = userId,
-            PaymentMethod = request.PaymentMethod,
-            Status = OrderStatus.Pending,
-            SubTotal = subtotal,
-            Tax = tax,
-            Total = total,
-            ShippingAddress = new PurchaseShippingAddress
+            var purchase = new Purchase
             {
-                AddressId = address.AddressId,
-                FullName = address.FullName,
-                AddressLine1 = address.AddressLine1,
-                AddressLine2 = address.AddressLine2,
-                City = address.City,
-                State = address.State,
-                ZipCode = address.ZipCode,
-                Country = address.Country,
-                Phone = address.Phone
-            }
-        };
+                UserId = userId,
+                // Enforce Razorpay as the only supported payment method server-side
+                PaymentMethod = GameHub.Domain.Enums.PaymentMethod.Razorpay,
+                Status = OrderStatus.Pending,
+                SubTotal = subtotal,
+                Tax = tax,
+                Total = total,
+                ShippingAddress = new PurchaseShippingAddress
+                {
+                    AddressId = address.AddressId,
+                    FullName = address.FullName,
+                    AddressLine1 = address.AddressLine1,
+                    AddressLine2 = address.AddressLine2,
+                    City = address.City,
+                    State = address.State,
+                    ZipCode = address.ZipCode,
+                    Country = address.Country,
+                    Phone = address.Phone
+                }
+            };
 
-        purchase.Items = cartItems.Select(ci => new OrderItem
+            purchase.Items = cartItems.Select(ci => new OrderItem
+            {
+                GameId = ci.GameId,
+                GameName = ci.GameName,
+                Price = ci.Price,
+                Quantity = ci.Quantity
+            }).ToList();
+
+            _context.Purchases.Add(purchase);
+            _context.CartItems.RemoveRange(cartItems);
+
+            await _context.SaveChangeAsync();
+            await transaction.CommitAsync();
+
+            return MapOrderToDto(purchase);
+        }
+        catch
         {
-            GameId = ci.GameId,
-            GameName = ci.GameName,
-            Price = ci.Price,
-            Quantity = ci.Quantity
-        }).ToList();
-
-        _context.Purchases.Add(purchase);
-        _context.CartItems.RemoveRange(cartItems);
-
-        await _context.SaveChangeAsync();
-
-        return MapOrderToDto(purchase);
+            await transaction.RollbackAsync();
+            throw;
+        }
     }
 
     public async Task<List<OrderDto>> GetOrderHistoryAsync(int userId)

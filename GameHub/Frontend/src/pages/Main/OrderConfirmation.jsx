@@ -2,13 +2,13 @@ import React, { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useCart } from '../../contexts/CartContext';
 import { useAuth } from '../../contexts/AuthContext';
+import { BaseUrl, buildAuthHeaders } from '../../Services/api';
 import { 
   CheckBadgeIcon,
   ShoppingBagIcon,
   HomeIcon,
   UserIcon,
   CalendarIcon,
-  CreditCardIcon,
   EnvelopeIcon
 } from '@heroicons/react/24/outline';
 import { 
@@ -19,12 +19,26 @@ import {
 const OrderConfirmation = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { clearCart } = useCart();
-  const { user } = useAuth();
+  const { clearCart, refreshCart } = useCart();
+  const { user, loading: authLoading } = useAuth();
   
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
   const [countdown, setCountdown] = useState(5);
+
+  const clearPendingPaymentDraft = () => {
+    try {
+      localStorage.removeItem('pendingRazorpayOrder');
+    } catch (error) {
+      console.debug('Failed to remove pendingRazorpayOrder', error);
+    }
+  };
+
+  const extractPurchaseIdFromReference = (value) => {
+    if (!value) return null;
+    const match = /^purchase-(\d+)-/i.exec(value);
+    return match ? Number(match[1]) : null;
+  };
 
   useEffect(() => {
     const orderData = location.state?.order || JSON.parse(localStorage.getItem('lastOrder') || 'null');
@@ -38,11 +52,164 @@ const OrderConfirmation = () => {
         clearCart();
       }
     } else {
+      clearPendingPaymentDraft();
       navigate('/');
     }
     
     setLoading(false);
   }, [location, navigate, clearCart]);
+
+  const handlePaidPaymentLink = async () => {
+    try {
+      setLoading(true);
+      const pendingOrder = (() => {
+        try {
+          return JSON.parse(localStorage.getItem('pendingRazorpayOrder') || 'null');
+        } catch (error) {
+          console.debug('Failed to read pendingRazorpayOrder', error);
+          return null;
+        }
+      })();
+
+      if (pendingOrder) {
+        const processed = processOrderData(pendingOrder);
+        setOrder(processed);
+        localStorage.setItem('lastOrder', JSON.stringify(processed));
+      }
+
+      try { localStorage.removeItem('pendingPurchase'); } catch (error) { console.debug('Failed to remove pendingPurchase', error); }
+      clearPendingPaymentDraft();
+      await refreshCart();
+    } catch (err) {
+      console.error('Finalize paid payment link error:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleFailedPaymentLink = async (user, referenceId) => {
+    try {
+      setLoading(true);
+      if (referenceId) {
+        const purchaseId = extractPurchaseIdFromReference(referenceId);
+        if (purchaseId) {
+          const resp = await fetch(`${BaseUrl}/payments/restore/${purchaseId}`, {
+            method: 'POST',
+            headers: { ...buildAuthHeaders(user.accessToken) },
+          });
+          if (resp.ok) {
+            await refreshCart();
+            try { localStorage.removeItem('pendingPurchase'); } catch (e) { console.debug('Failed to remove pendingPurchase', e); }
+            clearPendingPaymentDraft();
+          }
+        } else {
+          await refreshCart();
+          clearPendingPaymentDraft();
+        }
+      } else {
+        await refreshCart();
+        clearPendingPaymentDraft();
+      }
+    } catch (err) {
+      console.error('Restore cart error:', err);
+    } finally {
+      setLoading(false);
+      navigate('/cart');
+    }
+  };
+
+  const handleRazorpayVerification = async (user, razorpayOrderId, razorpayPaymentId, razorpaySignature) => {
+    try {
+      setLoading(true);
+      const resp = await fetch(`${BaseUrl}/payments/verify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...buildAuthHeaders(user.accessToken) },
+        body: JSON.stringify({
+          RazorpayOrderId: razorpayOrderId,
+          RazorpayPaymentId: razorpayPaymentId,
+          RazorpaySignature: razorpaySignature,
+        }),
+      });
+
+      if (!resp.ok) {
+        await refreshCart();
+        navigate('/cart');
+        return;
+      }
+
+      const verification = await resp.json();
+      if (verification?.success) {
+        const orderResp = await fetch(`${BaseUrl}/orders/${verification.orderId}`, {
+          headers: { ...buildAuthHeaders(user.accessToken) },
+        });
+        if (orderResp.ok) {
+          const orderData = await orderResp.json();
+          const processed = processOrderData(orderData);
+          setOrder(processed);
+          localStorage.setItem('lastOrder', JSON.stringify(processed));
+          try { localStorage.removeItem('pendingPurchase'); } catch (e) { console.debug('Failed to remove pendingPurchase', e); }
+          clearPendingPaymentDraft();
+          await refreshCart();
+        }
+      } else {
+        await refreshCart();
+        clearPendingPaymentDraft();
+        navigate('/cart');
+      }
+    } catch (err) {
+      console.error('Payment verification error:', err);
+      await refreshCart();
+      clearPendingPaymentDraft();
+      navigate('/cart');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Handle Razorpay callback query parameters (redirects back to frontend)
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const razorpayOrderId = params.get('razorpay_order_id');
+    const razorpayPaymentId = params.get('razorpay_payment_id');
+    const razorpaySignature = params.get('razorpay_signature');
+    const paymentLinkId = params.get('payment_link_id') || params.get('payment_link');
+    const referenceId = params.get('reference_id') || params.get('reference');
+    const status = params.get('status');
+
+    const runVerification = async () => {
+      // wait for auth initialization to avoid false negatives
+      if (authLoading) return;
+
+      // Handle payment link callback
+      if (paymentLinkId) {
+        if (!user?.accessToken) {
+          navigate('/login');
+          return;
+        }
+
+        const isPaid = status && status.toLowerCase() === 'paid';
+        if (isPaid) {
+          await handlePaidPaymentLink();
+        } else {
+          await handleFailedPaymentLink(user, referenceId);
+        }
+        return;
+      }
+
+      // Handle Razorpay direct verification
+      if (razorpayOrderId && razorpayPaymentId && razorpaySignature) {
+        if (!user?.accessToken) {
+          navigate('/login');
+          return;
+        }
+        await handleRazorpayVerification(user, razorpayOrderId, razorpayPaymentId, razorpaySignature);
+        return;
+      }
+    };
+
+    runVerification();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.search, user, navigate, authLoading]);
 
   const processOrderData = (orderData) => {
     if (orderData.type === 'instant_purchase') {
@@ -55,7 +222,7 @@ const OrderConfirmation = () => {
           total: '0.00'
         },
         status: 'completed',
-        paymentMethod: orderData.paymentMethod || 'card',
+        paymentMethod: orderData.paymentMethod || 'Razorpay',
         date: orderData.date || new Date().toISOString(),
         shippingAddress: orderData.shippingAddress || null,
         type: 'instant_purchase'
@@ -71,7 +238,7 @@ const OrderConfirmation = () => {
         total: '0.00'
       },
       status: orderData.status || 'completed',
-      paymentMethod: orderData.paymentMethod || 'card',
+      paymentMethod: orderData.paymentMethod || 'Razorpay',
       date: orderData.date || new Date().toISOString(),
       shippingAddress: orderData.shippingAddress || null
     };
@@ -93,50 +260,30 @@ const OrderConfirmation = () => {
     }
   }, [order]);
 
+  const renderShippingAddressField = (label, value, showComma = false) => {
+    if (!value) return null;
+    return (
+      <p>
+        <span className="text-gray-400">{label}:</span> {value}
+        {showComma ? ', ' : ''}
+      </p>
+    );
+  };
+
+  const hasShippingAddress = (address) => {
+    return address && Object.values(address).some(Boolean);
+  };
+
   const formatDate = (dateString) => {
-  const options = {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit'
-  };
-
-  const date = new Date(dateString);
-  return isNaN(date) ? new Date().toLocaleString('en-US', options) : date.toLocaleString('en-US', options);
-};
-
-  const getPaymentMethodIcon = (method) => {
-    if (!method) return <CreditCardIcon className="h-5 w-5" />;
-    
-    switch (method.toLowerCase()) {
-      case 'card':
-        return <CreditCardIcon className="h-5 w-5" />;
-      case 'paypal':
-        return 'PP';
-      case 'crypto':
-        return '₿';
-      default:
-        return <CreditCardIcon className="h-5 w-5" />;
-    }
-  };
-
-  const formatPaymentMethod = (method) => {
-    const normalized = (method || '').toLowerCase();
-    switch (normalized) {
-      case 'creditdebitcard':
-        return 'Credit/Debit Card';
-      case 'paypal':
-        return 'PayPal';
-      case 'applepay':
-        return 'Apple Pay';
-      case 'googlepay':
-        return 'Google Pay';
-      case 'card':
-        return 'Card';
-      default:
-        return method || 'Card';
-    }
+    const options = {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    };
+    const date = new Date(dateString);
+    return isNaN(date) ? new Date().toLocaleString('en-US', options) : date.toLocaleString('en-US', options);
   };
 
   if (loading) {
@@ -174,8 +321,6 @@ const OrderConfirmation = () => {
   const orderId = order.id || 'Unknown Order';
   const orderDate = order.date || new Date().toISOString();
   const orderStatus = order.status || 'completed';
-  const paymentMethod = order.paymentMethod || 'card';
-  const paymentMethodLabel = formatPaymentMethod(paymentMethod);
   const orderSummary = order.summary || { subtotal: '0.00', tax: '0.00', total: '0.00' };
   const orderItems = order.items || [];
   const shippingAddress = order.shippingAddress || null;
@@ -222,28 +367,23 @@ const OrderConfirmation = () => {
             </div>
           </div>
 
-          {shippingAddress && Object.values(shippingAddress).some(Boolean) && (
+          {hasShippingAddress(shippingAddress) && (
             <div className="px-6 pb-2">
               <div className="bg-gray-700/30 rounded-lg p-4 border border-gray-600/30">
                 <h3 className="text-lg font-semibold text-white mb-3">Shipping Address</h3>
                 <div className="space-y-1 text-sm text-gray-300">
-                  {shippingAddress.addressId && (
-                    <p><span className="text-gray-400">Address ID:</span> {shippingAddress.addressId}</p>
+                  {renderShippingAddressField('Address ID', shippingAddress.addressId)}
+                  {renderShippingAddressField('Name', shippingAddress.fullName)}
+                  {(shippingAddress.addressLine1 || shippingAddress.addressLine2) && renderShippingAddressField(
+                    'Address',
+                    `${shippingAddress.addressLine1}${shippingAddress.addressLine2 ? `, ${shippingAddress.addressLine2}` : ''}`
                   )}
-                  {shippingAddress.fullName && <p><span className="text-gray-400">Name:</span> {shippingAddress.fullName}</p>}
-                  {(shippingAddress.addressLine1 || shippingAddress.addressLine2) && (
-                    <p>
-                      <span className="text-gray-400">Address:</span> {shippingAddress.addressLine1}
-                      {shippingAddress.addressLine2 ? `, ${shippingAddress.addressLine2}` : ''}
-                    </p>
+                  {(shippingAddress.city || shippingAddress.state || shippingAddress.zipCode) && renderShippingAddressField(
+                    'Location',
+                    `${shippingAddress.city}${shippingAddress.city && shippingAddress.state ? ', ' : ''}${shippingAddress.state} ${shippingAddress.zipCode}`
                   )}
-                  {(shippingAddress.city || shippingAddress.state || shippingAddress.zipCode) && (
-                    <p>
-                      <span className="text-gray-400">Location:</span> {shippingAddress.city}{shippingAddress.city && shippingAddress.state ? ', ' : ''}{shippingAddress.state} {shippingAddress.zipCode}
-                    </p>
-                  )}
-                  {shippingAddress.country && <p><span className="text-gray-400">Country:</span> {shippingAddress.country}</p>}
-                  {shippingAddress.phone && <p><span className="text-gray-400">Phone:</span> {shippingAddress.phone}</p>}
+                  {renderShippingAddressField('Country', shippingAddress.country)}
+                  {renderShippingAddressField('Phone', shippingAddress.phone)}
                 </div>
               </div>
             </div>
@@ -304,15 +444,6 @@ const OrderConfirmation = () => {
                     <span className="text-gray-400">Status</span>
                     <span className="bg-green-500 text-white px-3 py-1 rounded-full text-sm font-semibold">
                       {orderStatus}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center p-3 bg-gray-700/30 rounded-lg">
-                    <span className="text-gray-400 flex items-center">
-                      {getPaymentMethodIcon(paymentMethod)}
-                      <span className="ml-2">Payment Method</span>
-                    </span>
-                    <span className="text-white font-semibold capitalize">
-                      {paymentMethodLabel}
                     </span>
                   </div>
                   <div className="flex justify-between items-center p-3 bg-gray-700/30 rounded-lg">

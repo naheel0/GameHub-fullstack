@@ -23,11 +23,11 @@ public class TokenService : ITokenService
         var credentials = new SigningCredentials(secertKey, SecurityAlgorithms.HmacSha256);
         var claim = new[]
         {
-            new Claim(JwtRegisteredClaimNames.Sub,user.Id.ToString()),
-            new Claim(JwtRegisteredClaimNames.Email,user.Email),
-            new Claim("role",user.Role.ToString()),
-            new Claim("status",user.AccountStatus.ToString()),
-            new Claim(JwtRegisteredClaimNames.Jti,Guid.NewGuid().ToString())
+            new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
+            new Claim(JwtRegisteredClaimNames.Email, user.Email),
+            new Claim(System.Security.Claims.ClaimTypes.Role, user.Role.ToString()),
+            new Claim("status", user.AccountStatus.ToString()),
+            new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
         };
         var token = new JwtSecurityToken(
             issuer: JwtSettings["Issuer"],

@@ -10,7 +10,6 @@ import {
   CalendarIcon,
   ShoppingBagIcon,
   HeartIcon,
-  CreditCardIcon,
   MapPinIcon,
   PencilIcon,
   CheckIcon,
@@ -22,7 +21,7 @@ import {
   HeartIcon as HeartSolid
 } from '@heroicons/react/24/solid';
 import { BaseUrl, buildAuthHeaders, normalizeGame } from '../../Services/api';
-import { toast } from 'react-toastify';
+
 
 const Profile = () => {
   const { user, updateUser, authFetch } = useAuth();
@@ -43,8 +42,6 @@ const Profile = () => {
   const [orderCount, setOrderCount] = useState(0);
   const [addresses, setAddresses] = useState([]);
   const [addressesLoading, setAddressesLoading] = useState(false);
-  const [savedCards, setSavedCards] = useState([]);
-  const [savedCardsLoading, setSavedCardsLoading] = useState(false);
 
   const API_BASE = BaseUrl;
   const token = user?.accessToken;
@@ -188,25 +185,6 @@ const Profile = () => {
     }
   }, [API_BASE, token, user, authFetch]);
 
-  const fetchSavedCards = useCallback(async () => {
-    if (!user || !token) return;
-
-    try {
-      setSavedCardsLoading(true);
-      const res = await authFetch(`${API_BASE}/carddetails`, {
-        headers: { ...buildAuthHeaders(token) },
-      });
-      if (!res.ok) throw new Error('Failed to fetch saved cards');
-      const data = await res.json();
-      setSavedCards(data || []);
-    } catch (error) {
-      console.error('Error fetching saved cards:', error);
-      setSavedCards([]);
-    } finally {
-      setSavedCardsLoading(false);
-    }
-  }, [API_BASE, token, user, authFetch]);
-
   const handleInputChange = useCallback((e) => {
     const { name, value } = e.target;
     setFormData(prev => ({
@@ -289,12 +267,6 @@ const Profile = () => {
     }
   }, [activeTab, user, fetchAddresses]);
 
-  useEffect(() => {
-    if (activeTab === 'payment' && user) {
-      fetchSavedCards();
-    }
-  }, [activeTab, user, fetchSavedCards]);
-
   const cartSummary = getCartSummary();
   const wishlistCount = getWishlistCount();
 
@@ -351,8 +323,7 @@ const Profile = () => {
                   { id: 'overview', name: 'Overview', icon: UserIcon },
                   { id: 'orders', name: 'Order History', icon: ShoppingBagIcon },
                   { id: 'wishlist', name: 'Wishlist', icon: HeartIcon },
-                  { id: 'addresses', name: 'Addresses', icon: MapPinIcon },
-                  { id: 'payment', name: 'Payment Methods', icon: CreditCardIcon }
+                  { id: 'addresses', name: 'Addresses', icon: MapPinIcon }
                 ].map((item) => (
                   <button
                     key={item.id}
@@ -556,7 +527,7 @@ const Profile = () => {
                   </div>
 
                   <div className="bg-gray-900 rounded-xl p-6 border border-gray-800 text-center hover:border-red-500 transition duration-300">
-                    <CreditCardIcon className="h-12 w-12 text-red-500 mx-auto mb-4" />
+                    <CalendarIcon className="h-12 w-12 text-red-500 mx-auto mb-4" />
                     <h3 className="text-xl font-semibold text-white mb-2">Order History</h3>
                     <p className="text-gray-400 mb-4">
                       {orderCount} total orders
@@ -768,75 +739,6 @@ const Profile = () => {
               </div>
             )}
 
-            {/* Payment Methods Tab */}
-            {activeTab === 'payment' && (
-              <div className="bg-gray-900 rounded-xl p-6 border border-gray-800">
-                <h2 className="text-2xl font-bold text-white mb-6">Payment Methods</h2>
-
-                {savedCardsLoading ? (
-                  <div className="text-center py-12">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600 mx-auto mb-4"></div>
-                    <p className="text-white text-lg">Loading your saved cards...</p>
-                  </div>
-                ) : savedCards.length > 0 ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {savedCards.map((card, idx) => {
-                      const raw = (card.cardNumber || '').replace(/\D/g, '');
-                      const last4 = raw.slice(-4);
-                      const masked = `**** **** **** ${last4}`;
-                      return (
-                        <div key={card.id || idx} className="bg-gray-800 rounded-lg p-6 border border-gray-700">
-                          <div className="flex items-start justify-between mb-4">
-                            <div>
-                              <h3 className="text-lg font-semibold text-white">{card.cardholderName || 'Card'}</h3>
-                              {card.isDefault && (
-                                <span className="bg-red-500 text-white px-2 py-1 rounded text-xs">Default</span>
-                              )}
-                            </div>
-                            <div className="text-right text-gray-300">
-                              <p className="text-xl font-bold">{masked}</p>
-                              <p className="text-sm">Expires {card.expiryDate || card.expiry}</p>
-                            </div>
-                          </div>
-                          <div className="flex justify-end space-x-2">
-                            <button
-                                onClick={async () => {
-                                try {
-                                  const res = await authFetch(`${API_BASE}/carddetails/${card.id}`, {
-                                    method: 'DELETE',
-                                    headers: { ...buildAuthHeaders(token) },
-                                  });
-                                  if (!res.ok) throw new Error('Delete failed');
-                                  toast.success('Card removed');
-                                  await fetchSavedCards();
-                                } catch (err) {
-                                  console.error(err);
-                                  toast.error('Failed to remove card');
-                                }
-                              }}
-                              className="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg"
-                            >
-                              Remove
-                            </button>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <div className="text-center py-12">
-                    <CreditCardIcon className="h-24 w-24 text-gray-600 mx-auto mb-4" />
-                    <h3 className="text-xl font-semibold text-white mb-2">No Saved Payment Methods</h3>
-                    <p className="text-gray-400 mb-6">
-                      You currently have no saved cards. Add a card during checkout to save it here.
-                    </p>
-                    <p className="text-gray-500 text-sm">
-                      Your payment methods are processed securely.
-                    </p>
-                  </div>
-                )}
-              </div>
-            )}
           </div>
         </div>
       </div>

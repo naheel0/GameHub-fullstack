@@ -17,7 +17,6 @@ namespace GameHub.Infrastructure.Data
         public DbSet<CartItem> CartItems { get; set; }
         public DbSet<WishlistItem> WishlistItems { get; set; }
         public DbSet<Payment> Payments { get; set; }
-        public DbSet<CardDetail> CardDetails { get; set; }
         // Keyless DbQuery for mapping stored-proc result
         public DbSet<AdminUserDetailDto> AdminUserDetails { get; set; }
         public DbSet<OrderItem> OrderItems { get; set; }
@@ -79,19 +78,6 @@ namespace GameHub.Infrastructure.Data
                 entity.HasOne(a => a.User)
                       .WithMany(u => u.Addresses)
                       .HasForeignKey(a => a.UserId)
-                      .OnDelete(DeleteBehavior.Cascade);
-            });
-            modelBuilder.Entity<CardDetail>(entity =>
-            {
-                entity.HasKey(c => c.Id);
-                entity.Property(c => c.CardNumber).HasMaxLength(25).IsRequired();
-                entity.Property(c => c.ExpiryDate).HasMaxLength(10).IsRequired();
-                entity.Property(c => c.Cvv).HasMaxLength(4).IsRequired();
-                entity.Property(c => c.CardholderName).HasMaxLength(100).IsRequired();
-
-                entity.HasOne(c => c.User)
-                      .WithMany(u => u.CardDetails)
-                      .HasForeignKey(c => c.UserId)
                       .OnDelete(DeleteBehavior.Cascade);
             });
             //-------------PURCHASE---------------

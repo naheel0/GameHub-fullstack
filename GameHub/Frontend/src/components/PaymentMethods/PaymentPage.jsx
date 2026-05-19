@@ -4,32 +4,22 @@ import { useCart } from "../../contexts/CartContext";
 import { useAuth } from "../../contexts/AuthContext";
 import { BaseUrl, buildAuthHeaders } from "../../Services/api";
 import { toast } from "react-toastify";
-import AddressSection from '../PaymentMethods/AddressSection'; // New Component
-import PaymentFormSection from "../PaymentMethods/PaymentFormSection"; // New Component
+import AddressSection from "../PaymentMethods/AddressSection"; // New Component
 import OrderSummary from "../PaymentMethods/OrderSummary"; // New Component
 import {
-  FaLock, 
-  FaShieldAlt, 
-  FaCheckCircle, 
-   FaArrowLeft 
+  FaLock,
+  FaShieldAlt,
+  FaCheckCircle,
+  FaArrowLeft,
 } from "react-icons/fa";
 
 const PaymentPage = () => {
-  const [selectedMethod, setSelectedMethod] = useState("card");
-  const [saveCard, setSaveCard] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [showAddressForm, setShowAddressForm] = useState(false);
   const [editingAddress, setEditingAddress] = useState(null);
   const [selectedAddress, setSelectedAddress] = useState(null);
-  const [savedCards, setSavedCards] = useState([]);
-  const [selectedCardId, setSelectedCardId] = useState(null);
-
-  const [cardDetails, setCardDetails] = useState({
-    number: "",
-    expiry: "",
-    cvv: "",
-    name: "",
-  });
+  const [paymentOrder, setPaymentOrder] = useState(null);
+  const [isResumedPayment, setIsResumedPayment] = useState(false);
 
   const [addressForm, setAddressForm] = useState({
     fullName: "",
@@ -42,31 +32,89 @@ const PaymentPage = () => {
     phone: "",
     isDefault: false,
   });
-  const [addressSubmitError, setAddressSubmitError] = useState("");
-  const [addressFieldErrors, setAddressFieldErrors] = useState({});
 
   const navigate = useNavigate();
   const location = useLocation();
   const { getCartSummary, checkout, cart } = useCart();
-  const { user, authFetch } = useAuth();
+  const { user, loading: authLoading, authFetch } = useAuth();
 
-  const order = location.state?.order;
+  const order = paymentOrder;
   const summary = order?.summary || getCartSummary();
   const [addresses, setAddresses] = useState([]);
   const userAddresses = useMemo(() => addresses, [addresses]);
   const API_BASE = BaseUrl;
   const token = user?.accessToken;
 
+  const savePendingOrderDraft = useCallback((draftOrder) => {
+    if (!draftOrder) return;
+
+    try {
+      localStorage.setItem('pendingRazorpayOrder', JSON.stringify(draftOrder));
+    } catch (error) {
+      console.debug('Failed to persist pendingRazorpayOrder', error);
+    }
+  }, []);
+
+  const redirectToLogin = useCallback(() => {
+    navigate("/login", {
+      replace: true,
+      state: { from: location.pathname },
+    });
+  }, [location.pathname, navigate]);
+
+  const requireAuthenticatedUser = useCallback(() => {
+    if (authLoading) {
+      return false;
+    }
+
+    if (!user?.accessToken) {
+      redirectToLogin();
+      return false;
+    }
+
+    return true;
+  }, [authLoading, redirectToLogin, user?.accessToken]);
+
   useEffect(() => {
-    if (!user) {
-      toast.warning("Please log in to proceed with payment.");
-      navigate("/login");
+    const storedOrder = (() => {
+      try {
+        const raw = localStorage.getItem('pendingRazorpayOrder');
+        return raw ? JSON.parse(raw) : null;
+      } catch (error) {
+        console.debug('Failed to read pendingRazorpayOrder', error);
+        return null;
+      }
+    })();
+
+    if (location.state?.order) {
+      setPaymentOrder(location.state.order);
+      setIsResumedPayment(false);
+      savePendingOrderDraft(location.state.order);
+      return;
+    }
+
+    if (storedOrder) {
+      setPaymentOrder(storedOrder);
+      setIsResumedPayment(true);
+      return;
+    }
+
+    setPaymentOrder(null);
+    setIsResumedPayment(false);
+  }, [location.state?.order, savePendingOrderDraft]);
+
+  useEffect(() => {
+    if (authLoading) {
+      return;
+    }
+
+    if (!user?.accessToken) {
+      redirectToLogin();
       return;
     }
 
     if (!order && cart.length === 0) {
-      toast.warning("Your cart is empty.");
-      navigate("/cart");
+      navigate("/cart", { replace: true });
     }
 
     if (userAddresses.length > 0 && !selectedAddress) {
@@ -74,7 +122,7 @@ const PaymentPage = () => {
         userAddresses.find((addr) => addr.isDefault) || userAddresses[0];
       setSelectedAddress(defaultAddress.id);
     }
-  }, [user, order, cart, navigate, userAddresses, selectedAddress]);
+  }, [authLoading, cart.length, navigate, order, redirectToLogin, selectedAddress, user?.accessToken, userAddresses]);
 
   const refreshAddresses = useCallback(async () => {
     if (!user || !token) {
@@ -90,7 +138,7 @@ const PaymentPage = () => {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to fetch addresses');
+        throw new Error("Failed to fetch addresses");
       }
 
       const data = await response.json();
@@ -100,7 +148,7 @@ const PaymentPage = () => {
       }));
       setAddresses(mapped);
     } catch (error) {
-      console.error('Error loading addresses:', error);
+      console.error("Error loading addresses:", error);
       setAddresses([]);
     }
   }, [API_BASE, token, user, authFetch]);
@@ -109,38 +157,13 @@ const PaymentPage = () => {
     refreshAddresses();
   }, [refreshAddresses]);
 
-  const fetchSavedCards = useCallback(async () => {
-    if (!user || !token) return;
-    try {
-      const res = await authFetch(`${API_BASE}/carddetails`, {
-        headers: { ...buildAuthHeaders(token) },
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setSavedCards(data || []);
-        const def = (data || []).find((c) => c.isDefault) || data?.[0];
-        if (def) setSelectedCardId(def.id);
-      }
-    } catch { /* ignore */ }
-  }, [API_BASE, token, user, authFetch]);
-
-  useEffect(() => {
-    fetchSavedCards();
-  }, [fetchSavedCards]);
-
+  // saved-cards removed
 
   const handleAddressInputChange = (field, value) => {
     setAddressForm((prev) => ({
       ...prev,
       [field]: value,
     }));
-    setAddressSubmitError("");
-    setAddressFieldErrors((prev) => {
-      if (!prev[field]) return prev;
-      const next = { ...prev };
-      delete next[field];
-      return next;
-    });
   };
 
   const resetAddressForm = useCallback(() => {
@@ -156,42 +179,11 @@ const PaymentPage = () => {
       isDefault: false,
     });
     setEditingAddress(null);
-    setAddressSubmitError("");
-    setAddressFieldErrors({});
   }, []);
-
-  const mapProblemDetailsErrors = (errors) => {
-    const canonicalMap = {
-      fullname: "fullName",
-      addressline1: "addressLine1",
-      addressline2: "addressLine2",
-      city: "city",
-      state: "state",
-      zipcode: "zipCode",
-      country: "country",
-      phone: "phone",
-      isdefault: "isDefault",
-    };
-
-    const mapped = {};
-    Object.entries(errors || {}).forEach(([rawKey, rawValue]) => {
-      const keyPart = String(rawKey).split(".").pop().replace(/\[\d+\]/g, "");
-      const target = canonicalMap[keyPart.toLowerCase()] || keyPart;
-      const values = Array.isArray(rawValue) ? rawValue : [rawValue];
-      mapped[target] = (mapped[target] || []).concat(values.map((value) => String(value)));
-    });
-    return mapped;
-  };
-
-  // validateAddress removed — unused helper
 
   const handleSaveAddress = async () => {
     try {
-      setAddressSubmitError("");
-      setAddressFieldErrors({});
-
-      if (!user || !token) {
-        toast.warning('Please log in to manage addresses.');
+      if (!requireAuthenticatedUser()) {
         return;
       }
 
@@ -210,43 +202,36 @@ const PaymentPage = () => {
       let createdId = null;
 
       if (editingAddress) {
-        const response = await authFetch(`${API_BASE}/addresses/${editingAddress}`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            ...buildAuthHeaders(token),
+        const response = await authFetch(
+          `${API_BASE}/addresses/${editingAddress}`,
+          {
+            method: "PUT",
+            headers: {
+              "Content-Type": "application/json",
+              ...buildAuthHeaders(token),
+            },
+            body: JSON.stringify(payload),
           },
-          body: JSON.stringify(payload),
-        });
+        );
 
         if (!response.ok) {
-          const payload = await response.json().catch(() => null);
-          if (payload?.errors) {
-            setAddressFieldErrors(mapProblemDetailsErrors(payload.errors));
-          }
-          const message = payload?.detail || payload?.message || 'Failed to update address';
-          setAddressSubmitError(message);
-          toast.error(message);
+          const message = await response.text().catch(() => "Failed to update address");
+          toast.error(message || "Could not update the address. Please try again.");
           return;
         }
       } else {
         const response = await authFetch(`${API_BASE}/addresses`, {
-          method: 'POST',
+          method: "POST",
           headers: {
-            'Content-Type': 'application/json',
+            "Content-Type": "application/json",
             ...buildAuthHeaders(token),
           },
           body: JSON.stringify(payload),
         });
 
         if (!response.ok) {
-          const payload = await response.json().catch(() => null);
-          if (payload?.errors) {
-            setAddressFieldErrors(mapProblemDetailsErrors(payload.errors));
-          }
-          const message = payload?.detail || payload?.message || 'Failed to add address';
-          setAddressSubmitError(message);
-          toast.error(message);
+          const message = await response.text().catch(() => "Failed to add address");
+          toast.error(message || "Could not save the address. Please try again.");
           return;
         }
 
@@ -255,7 +240,9 @@ const PaymentPage = () => {
       }
 
       await refreshAddresses();
-      toast.success(`Address ${editingAddress ? "updated" : "saved"} successfully!`);
+      toast.success(
+        `Address ${editingAddress ? "updated" : "saved"} successfully!`,
+      );
       setShowAddressForm(false);
       resetAddressForm();
       if (createdId) {
@@ -263,15 +250,13 @@ const PaymentPage = () => {
       }
     } catch (error) {
       console.error("Error saving address:", error);
-      const message = error?.message || "Failed to save address. Please try again.";
-      setAddressSubmitError(message);
+      const message =
+        error?.message || "Failed to save address. Please try again.";
       toast.error(message);
     }
   };
 
   const handleEditAddress = (address) => {
-    setAddressSubmitError("");
-    setAddressFieldErrors({});
     setAddressForm({
       fullName: address.fullName,
       addressLine1: address.addressLine1,
@@ -289,25 +274,24 @@ const PaymentPage = () => {
 
   const handleDeleteAddress = async (addressId) => {
     if (userAddresses.length <= 1) {
-      toast.error("You must have at least one address");
+      toast.info("Keep at least one saved address before deleting it.");
       return;
     }
 
     try {
-      if (!user || !token) {
-        toast.warning('Please log in to manage addresses.');
+      if (!requireAuthenticatedUser()) {
         return;
       }
 
       const response = await authFetch(`${API_BASE}/addresses/${addressId}`, {
-        method: 'DELETE',
+        method: "DELETE",
         headers: {
           ...buildAuthHeaders(token),
         },
       });
 
       if (!response.ok) {
-        throw new Error('Failed to delete address');
+        throw new Error("Failed to delete address");
       }
 
       await refreshAddresses();
@@ -317,7 +301,7 @@ const PaymentPage = () => {
         setSelectedAddress(fallback[0]?.id || null);
       }
 
-      toast.success('Address deleted successfully!');
+      toast.success("Address deleted successfully!");
     } catch (error) {
       console.error("Error deleting address:", error);
       toast.error("Failed to delete address. Please try again.");
@@ -326,208 +310,70 @@ const PaymentPage = () => {
 
   const handleSetDefaultAddress = async (addressId) => {
     try {
-      if (!user || !token) {
-        toast.warning('Please log in to manage addresses.');
+      if (!requireAuthenticatedUser()) {
         return;
       }
 
-      const response = await authFetch(`${API_BASE}/addresses/${addressId}/default`, {
-        method: 'PUT',
-        headers: {
-          ...buildAuthHeaders(token),
+      const response = await authFetch(
+        `${API_BASE}/addresses/${addressId}/default`,
+        {
+          method: "PUT",
+          headers: {
+            ...buildAuthHeaders(token),
+          },
         },
-      });
+      );
 
       if (!response.ok) {
-        throw new Error('Failed to update default address');
+        throw new Error("Failed to update default address");
       }
 
       await refreshAddresses();
-      toast.success('Default address updated!');
+      toast.success("Default address updated!");
     } catch (error) {
       console.error("Error setting default address:", error);
       toast.error("Failed to update default address.");
     }
   };
 
-
-
-  const handleCardInputChange = (field, value) => {
-    let formattedValue = value;
-
-    if (field === "number") {
-      formattedValue = value
-        .replace(/\s/g, "")
-        .replace(/(\d{4})/g, "$1 ")
-        .trim();
-      if (formattedValue.length > 19)
-        formattedValue = formattedValue.slice(0, 19);
-    } else if (field === "expiry") {
-      formattedValue = value.replace(/\D/g, "").replace(/(\d{2})(\d)/, "$1/$2");
-      if (formattedValue.length > 5)
-        formattedValue = formattedValue.slice(0, 5);
-    } else if (field === "cvv") {
-      formattedValue = value.replace(/\D/g, "").slice(0, 3);
-    }
-
-    setCardDetails((prev) => ({
-      ...prev,
-      [field]: formattedValue,
-    }));
-  };
-
-  const validateCardDetails = () => {
-    if (cardDetails.number.replace(/\s/g, "").length !== 16) {
-      toast.error("Please enter a valid 16-digit card number");
-      return false;
-    }
-
-    if (!cardDetails.expiry.match(/^\d{2}\/\d{2}$/)) {
-      toast.error("Please enter a valid expiry date (MM/YY)");
-      return false;
-    }
-
-    if (cardDetails.expiry.match(/^\d{2}\/\d{2}$/)) {
-      const [month, year] = cardDetails.expiry.split("/").map(Number);
-      const currentYear = new Date().getFullYear() % 100;
-      const currentMonth = new Date().getMonth() + 1;
-
-      if (month < 1 || month > 12) {
-        toast.error("Please enter a valid month (01-12)");
-        return false;
-      }
-
-      if (
-        year < currentYear ||
-        (year === currentYear && month < currentMonth)
-      ) {
-        toast.error("Card has expired");
-        return false;
-      }
-    }
-
-    if (cardDetails.cvv.length !== 3) {
-      toast.error("Please enter a valid 3-digit CVV");
-      return false;
-    }
-    if (cardDetails.name.trim().length < 2) {
-      toast.error("Please enter cardholder name");
-      return false;
-    }
-    return true;
-  };
-
-  const validatePayment = () => {
-    if (!selectedAddress) {
-      toast.error("Please select a shipping address");
-      return false;
-    }
-
-    if (selectedMethod === "card" && !validateCardDetails()) {
-      return false;
-    }
-
-    return true;
-  };
-
-  const handlePaymentSubmit = async (e) => {
-    e.preventDefault();
-
-    if (!user) {
-      toast.warning("Please log in to complete payment.");
-      navigate("/login");
-      return;
-    }
-
-    if (!validatePayment()) {
-      return;
-    }
-
-    setIsProcessing(true);
-
-    try {
-      const selectedAddressData = userAddresses.find(
-        (addr) => addr.id === selectedAddress
-      );
-
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-
-      let result;
-      if (order) {
-        result = { success: true, order };
-      } else {
-        result = await checkout(selectedMethod, selectedAddress || selectedAddressData?.id || selectedAddressData?.addressId);
-      }
-
-      if (result.success) {
-        // Save card if requested
-        if (selectedMethod === "card" && saveCard) {
-          try {
-            await authFetch(`${API_BASE}/carddetails`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json", ...buildAuthHeaders(token) },
-              body: JSON.stringify({
-                cardNumber: cardDetails.number.replace(/\s/g, ""),
-                expiryDate: cardDetails.expiry,
-                cvv: cardDetails.cvv,
-                cardholderName: cardDetails.name,
-                isDefault: savedCards.length === 0,
-              }),
-            });
-          } catch { /* non-critical */ }
-        }
-
-        toast.success("Payment processed successfully!");
-
-        navigate("/order-confirmation", {
-          state: {
-            order: result.order,
-            paymentMethod: selectedMethod,
-            shippingAddress: selectedAddressData,
-          },
-        });
-      } else {
-        toast.error(result.error || "Payment failed. Please try again.");
-      }
-    } catch (error) {
-      console.error("Payment error:", error);
-      toast.error("Payment processing failed. Please try again.");
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
   const handleRazorpayCheckout = async () => {
-    if (!validatePayment()) {
-      return;
-    }
-
     setIsProcessing(true);
 
     try {
+      if (!requireAuthenticatedUser()) {
+        return;
+      }
+
       let paymentOrder = order;
 
       if (!paymentOrder?.purchaseId) {
         const checkoutResult = await checkout("razorpay", selectedAddress);
 
         if (!checkoutResult.success) {
-          toast.error(checkoutResult.error || "Failed to create Razorpay order.");
+          toast.error(
+            checkoutResult.error || "Could not create the Razorpay order.",
+          );
           return;
         }
 
         paymentOrder = checkoutResult.order;
+        setPaymentOrder(paymentOrder);
+        savePendingOrderDraft(paymentOrder);
       }
 
       const purchaseId = paymentOrder?.purchaseId;
       if (!purchaseId) {
-        toast.error("Razorpay redirect requires a persisted purchase.");
+        toast.error("A saved purchase is required before redirecting to Razorpay.");
         return;
       }
 
-      const response = await authFetch(`${API_BASE}/payments/create-link/${purchaseId}`, {
-        method: "POST",
-        headers: { ...buildAuthHeaders(token) },
-      });
+      const response = await authFetch(
+        `${API_BASE}/payments/create-link/${purchaseId}`,
+        {
+          method: "POST",
+          headers: { ...buildAuthHeaders(token) },
+        },
+      );
 
       if (!response.ok) {
         const text = await response.text().catch(() => "");
@@ -538,14 +384,15 @@ const PaymentPage = () => {
       const shortUrl = link.shortUrl || link.short_url;
 
       if (!shortUrl) {
-        throw new Error("Razorpay payment link response was missing the redirect URL");
+        throw new Error(
+          "Razorpay payment link response was missing the redirect URL",
+        );
       }
 
-      toast.info("Redirecting to Razorpay...");
       window.location.href = shortUrl;
     } catch (error) {
       console.error("Razorpay redirect error:", error);
-      toast.error(error?.message || "Failed to redirect to Razorpay");
+      toast.error(error?.message || "Could not open Razorpay. Please try again.");
     } finally {
       setIsProcessing(false);
     }
@@ -569,7 +416,7 @@ const PaymentPage = () => {
 
   const orderItems = getOrderItems();
   const selectedAddressDataForSummary = userAddresses.find(
-    (addr) => addr.id === selectedAddress
+    (addr) => addr.id === selectedAddress,
   );
 
   return (
@@ -589,7 +436,7 @@ const PaymentPage = () => {
               Complete Your Purchase
             </h1>
             <p className="text-lg text-gray-300 mt-2">
-              Choose your preferred payment method
+              Review your order and continue to payment
             </p>
           </div>
           <div className="text-right">
@@ -618,51 +465,37 @@ const PaymentPage = () => {
               handleSetDefaultAddress={handleSetDefaultAddress}
               editingAddress={editingAddress}
               resetAddressForm={resetAddressForm}
-              submitError={addressSubmitError}
-              serverErrors={addressFieldErrors}
             />
 
-            {/* Payment Methods Section */}
-            <PaymentFormSection
-              selectedMethod={selectedMethod}
-              setSelectedMethod={setSelectedMethod}
-              cardDetails={cardDetails}
-              handleCardInputChange={handleCardInputChange}
-              saveCard={saveCard}
-              setSaveCard={setSaveCard}
-              handlePaymentSubmit={handlePaymentSubmit}
-              isProcessing={isProcessing}
-              summary={summary}
-              selectedAddress={selectedAddress}
-              savedCards={savedCards}
-              selectedCardId={selectedCardId}
-              onSelectSavedCard={(card) => {
-                setSelectedCardId(card.id);
-                setCardDetails({
-                  number: card.cardNumber.replace(/(\d{4})(?=\d)/g, "$1 "),
-                  expiry: card.expiryDate,
-                  cvv: card.cvv,
-                  name: card.cardholderName,
-                });
-              }}
-              onDeleteSavedCard={async (cardId) => {
-                try {
-                  const res = await authFetch(`${API_BASE}/carddetails/${cardId}`, {
-                    method: "DELETE",
-                    headers: { ...buildAuthHeaders(token) },
-                  });
-                  if (res.ok) {
-                    await fetchSavedCards();
-                    if (selectedCardId === cardId) {
-                      setSelectedCardId(null);
-                      setCardDetails({ number: "", expiry: "", cvv: "", name: "" });
-                    }
-                    toast.success("Card removed");
-                  }
-                } catch { toast.error("Failed to remove card"); }
-              }}
-              onRazorpayCheckout={handleRazorpayCheckout}
-            />
+            <div className="bg-gray-900/80 backdrop-blur-sm rounded-xl shadow-2xl p-6 border border-gray-700/50">
+              <h2 className="text-2xl font-bold text-white mb-4">Continue to Payment</h2>
+
+              {isResumedPayment && order && (
+                <p></p>
+              )}
+
+              <button
+                type="button"
+                onClick={handleRazorpayCheckout}
+                disabled={isProcessing || !selectedAddress}
+                className="w-full bg-linear-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 disabled:from-gray-600 disabled:to-gray-700 text-white py-4 px-6 rounded-lg transition duration-300 font-semibold flex items-center justify-center space-x-2 border border-red-600 disabled:border-gray-600"
+              >
+                {isProcessing ? (
+                  <>
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+                    Redirecting...
+                  </>
+                ) : (
+                  <>
+                    <span>Continue with Razorpay</span>
+                  </>
+                )}
+              </button>
+
+              
+            </div>
+
+            
 
             {/* Security Features (Can be a standalone component too, but keeping inline for simplicity) */}
             <div className="bg-gray-900/80 backdrop-blur-sm rounded-xl shadow-2xl p-6 border border-gray-700/50">
@@ -685,8 +518,7 @@ const PaymentPage = () => {
                   {
                     icon: <FaCheckCircle className="text-xl" />,
                     title: "3D Secure",
-                    description:
-                      "Additional security layer for card payments",
+                    description: "Additional security layer for card payments",
                   },
                 ].map((feature, index) => (
                   <div

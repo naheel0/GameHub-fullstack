@@ -19,7 +19,7 @@ namespace GameHub.Domain.Entities
         public decimal Tax { get; set; }
         public decimal Total { get; set; }
         public PurchaseShippingAddress ShippingAddress { get; set; } = new();
-        public PaymentMethod PaymentMethod { get; set; } = PaymentMethod.GooglePay;
+        public PaymentMethod PaymentMethod { get; set; } = PaymentMethod.Razorpay;
         public OrderStatus Status { get; set; } = OrderStatus.Pending;
         public Payment? Payment { get; set; }
     }

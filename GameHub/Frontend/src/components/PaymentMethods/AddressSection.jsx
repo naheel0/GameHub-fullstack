@@ -1,27 +1,14 @@
 import React, { useEffect } from "react";
 import { FaMapMarkerAlt, FaPlus, FaEdit, FaTrash } from "react-icons/fa";
 
-const Field = ({ label, required, error, children, className = "" }) => {
-  const messages = Array.isArray(error) ? error.filter(Boolean) : error ? [error] : [];
-
-  return (
-    <div className={className}>
-      <label className="block text-sm font-medium text-gray-300 mb-2">
-        {label} {required && <span className="text-red-400">*</span>}
-      </label>
-      {children}
-      {messages.length > 0 && (
-        <div className="mt-1 space-y-1">
-          {messages.map((message, index) => (
-            <p key={index} className="text-xs text-red-400">
-              {message}
-            </p>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-};
+const Field = ({ label, children, className = "" }) => (
+  <div className={className}>
+    <label className="block text-sm font-medium text-gray-300 mb-2">
+      {label}
+    </label>
+    {children}
+  </div>
+);
 
 const AddressSection = ({
   userAddresses = [],
@@ -37,8 +24,6 @@ const AddressSection = ({
   handleSetDefaultAddress,
   editingAddress,
   resetAddressForm,
-  submitError,
-  serverErrors = {},
 }) => {
   useEffect(() => {
     if (userAddresses.length > 0 && !selectedAddress) {
@@ -51,16 +36,8 @@ const AddressSection = ({
     handleAddressInputChange(field, value);
   };
 
-  const fieldMessages = (field) => {
-    const variants = [field, field.charAt(0).toUpperCase() + field.slice(1)];
-    const messages = variants.flatMap((variant) => serverErrors[variant] || []);
-    return [...new Set(messages.filter(Boolean))];
-  };
-
-  const inputClass = (field) =>
-    `w-full px-4 py-3 bg-gray-800 border rounded-lg text-white focus:ring-2 focus:ring-red-500 focus:border-transparent ${
-      fieldMessages(field).length > 0 ? "border-red-500" : "border-gray-600"
-    }`;
+  const inputClass =
+    "w-full px-4 py-3 bg-gray-800 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-red-500 focus:border-transparent";
 
   return (
     <div className="bg-gray-900/80 backdrop-blur-sm rounded-xl shadow-2xl p-6 border border-gray-700/50">
@@ -83,14 +60,8 @@ const AddressSection = ({
 
       {showAddressForm ? (
         <div className="space-y-4">
-          {submitError && (
-            <div className="rounded-lg border border-red-700 bg-red-900/80 px-4 py-3 text-sm text-red-200">
-              {submitError}
-            </div>
-          )}
-
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Field label="Full Name" required error={fieldMessages("fullName")} className="md:col-span-2">
+            <Field label="Full Name" className="md:col-span-2">
               <input
                 type="text"
                 value={addressForm.fullName}
@@ -101,7 +72,7 @@ const AddressSection = ({
             </Field>
 
             <div className="md:col-span-2">
-              <Field label="Address Line 1" required error={fieldMessages("addressLine1")}>
+              <Field label="Address Line 1">
                 <input
                   type="text"
                   value={addressForm.addressLine1}
@@ -124,7 +95,7 @@ const AddressSection = ({
               </Field>
             </div>
 
-            <Field label="City" required error={fieldMessages("city")}>
+              <Field label="City">
               <input
                 type="text"
                 value={addressForm.city}
@@ -134,7 +105,7 @@ const AddressSection = ({
               />
             </Field>
 
-            <Field label="State" required error={fieldMessages("state")}>
+              <Field label="State">
               <input
                 type="text"
                 value={addressForm.state}
@@ -144,7 +115,7 @@ const AddressSection = ({
               />
             </Field>
 
-            <Field label="ZIP Code" required error={fieldMessages("zipCode")}>
+              <Field label="ZIP Code">
               <input
                 type="text"
                 value={addressForm.zipCode}
@@ -154,7 +125,7 @@ const AddressSection = ({
               />
             </Field>
 
-            <Field label="Country" required error={fieldMessages("country")}>
+              <Field label="Country">
               <input
                 type="text"
                 value={addressForm.country}
@@ -165,7 +136,7 @@ const AddressSection = ({
             </Field>
 
             <div className="md:col-span-2">
-              <Field label="Phone Number" error={fieldMessages("phone")}>
+              <Field label="Phone Number">
                 <input
                   type="tel"
                   value={addressForm.phone}

@@ -1,5 +1,5 @@
 import React, { useState, useEffect,useCallback } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useLocation, useParams, Link, useNavigate } from 'react-router-dom';
 import { StarIcon, ShoppingCartIcon, HeartIcon, XMarkIcon, ChevronLeftIcon, ChevronRightIcon } from '@heroicons/react/24/solid';
 import { StarIcon as StarOutline, HeartIcon as HeartOutline } from '@heroicons/react/24/outline';
 import { useCart } from '../../contexts/CartContext';
@@ -13,6 +13,7 @@ import { BaseUrl, normalizeGame } from '../../Services/api';
 const ProductDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const [game, setGame] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -149,8 +150,7 @@ const ProductDetails = () => {
 
   const buyNow = () => {
     if (!user) {
-      toast.warning('Please login to make a purchase');
-      navigate('/login', { state: { from: `/product/${game.id}` } });
+      navigate('/login', { state: { from: location.pathname } });
       return;
     }
 

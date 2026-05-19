@@ -159,14 +159,6 @@ namespace GameHub.Application.Resources {
             }
         }
 
-        /// <summary>
-        ///   Looks up a localized string similar to Card detail not found..
-        /// </summary>
-        public static string CardDetailNotFound {
-            get {
-                return ResourceManager.GetString("CardDetailNotFound", resourceCulture);
-            }
-        }
 
         /// <summary>
         ///   Looks up a localized string similar to Phone must be digits and may include +, spaces or dashes (7-20 chars).
@@ -222,41 +214,7 @@ namespace GameHub.Application.Resources {
             }
         }
 
-        /// <summary>
-        ///   Looks up a localized string similar to Card number is invalid.
-        /// </summary>
-        public static string Validation_CardNumberInvalid {
-            get {
-                return ResourceManager.GetString("Validation_CardNumberInvalid", resourceCulture);
-            }
-        }
-
-        /// <summary>
-        ///   Looks up a localized string similar to Card number must be 13 to 19 digits.
-        /// </summary>
-        public static string Validation_CardNumberLength {
-            get {
-                return ResourceManager.GetString("Validation_CardNumberLength", resourceCulture);
-            }
-        }
-
-        /// <summary>
-        ///   Looks up a localized string similar to Expiry date must be in MM/YY or MM/YYYY format and not expired.
-        /// </summary>
-        public static string Validation_ExpiryInvalid {
-            get {
-                return ResourceManager.GetString("Validation_ExpiryInvalid", resourceCulture);
-            }
-        }
-
-        /// <summary>
-        ///   Looks up a localized string similar to CVV must be 3 or 4 digits.
-        /// </summary>
-        public static string Validation_CvvInvalid {
-            get {
-                return ResourceManager.GetString("Validation_CvvInvalid", resourceCulture);
-            }
-        }
+        
 
         /// <summary>
         ///   Looks up a localized string similar to {0} is required.

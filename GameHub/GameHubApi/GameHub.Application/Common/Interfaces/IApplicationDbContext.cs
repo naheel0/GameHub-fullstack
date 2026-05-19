@@ -1,5 +1,6 @@
 using GameHub.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 namespace GameHub.Application.Common.interfaces;
 
 public interface IApplicationDbContext
@@ -12,7 +13,7 @@ public interface IApplicationDbContext
     DbSet<BlacklistedToken> BlacklistedTokens { get; }
     DbSet<CartItem> CartItems { get; }
     DbSet<WishlistItem> WishlistItems { get; }
-    DbSet<CardDetail> CardDetails { get; }
     DbSet<Payment> Payments { get; }
+    DatabaseFacade Database { get; }
     Task<int> SaveChangeAsync(CancellationToken cancellationToken = default);
 }

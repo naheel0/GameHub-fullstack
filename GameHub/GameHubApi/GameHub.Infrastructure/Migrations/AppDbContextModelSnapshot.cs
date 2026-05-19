@@ -145,46 +145,7 @@ namespace GameHub.Infrastructure.Migrations
                     b.ToTable("BlacklistedTokens");
                 });
 
-            modelBuilder.Entity("GameHub.Domain.Entities.CardDetail", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("CardNumber")
-                        .IsRequired()
-                        .HasMaxLength(25)
-                        .HasColumnType("nvarchar(25)");
-
-                    b.Property<string>("CardholderName")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.Property<string>("Cvv")
-                        .IsRequired()
-                        .HasMaxLength(4)
-                        .HasColumnType("nvarchar(4)");
-
-                    b.Property<string>("ExpiryDate")
-                        .IsRequired()
-                        .HasMaxLength(10)
-                        .HasColumnType("nvarchar(10)");
-
-                    b.Property<bool>("IsDefault")
-                        .HasColumnType("bit");
-
-                    b.Property<int>("UserId")
-                        .HasColumnType("int");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("UserId");
-
-                    b.ToTable("CardDetails");
-                });
+            // CardDetail entity removed from model snapshot
 
             modelBuilder.Entity("GameHub.Domain.Entities.CartItem", b =>
                 {
@@ -487,17 +448,6 @@ namespace GameHub.Infrastructure.Migrations
                     b.Navigation("User");
                 });
 
-            modelBuilder.Entity("GameHub.Domain.Entities.CardDetail", b =>
-                {
-                    b.HasOne("GameHub.Domain.Entities.User", "User")
-                        .WithMany("CardDetails")
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("User");
-                });
-
             modelBuilder.Entity("GameHub.Domain.Entities.CartItem", b =>
                 {
                     b.HasOne("GameHub.Domain.Entities.User", "User")
@@ -618,7 +568,7 @@ namespace GameHub.Infrastructure.Migrations
                 {
                     b.Navigation("Addresses");
 
-                    b.Navigation("CardDetails");
+                    // CardDetails navigation removed
 
                     b.Navigation("CartItems");
 

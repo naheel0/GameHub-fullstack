@@ -11,6 +11,7 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using System.Security.Cryptography;
 using System.Text;
+using GameHub.Domain.Entities;
 
 namespace GameHub.Infrastructure.Services;
 
@@ -92,13 +93,15 @@ public class RazorpayPaymentService : IPaymentService
 
         int amountInPaise = (int)Math.Round(purchase.Total * 100, MidpointRounding.AwayFromZero);
         var callbackUrl = $"{_frontendBaseUrl.TrimEnd('/')}/order-confirmation";
+        var referenceToken = Guid.NewGuid().ToString("N")[..8];
+        var referenceId = $"purchase-{purchase.Id}-{referenceToken}";
 
         var payload = new Dictionary<string, object>
         {
             { "amount", amountInPaise },
             { "currency", "INR" },
             { "description", $"GameHub order {purchase.OrderId}" },
-            { "reference_id", purchase.OrderId.ToString() },
+            { "reference_id", referenceId },
             { "callback_url", callbackUrl },
             { "callback_method", "get" },
             { "notes", new Dictionary<string, object>
@@ -142,6 +145,7 @@ public class RazorpayPaymentService : IPaymentService
     {
         var payment = await _context.Payments
             .Include(p => p.Purchase)
+                .ThenInclude(pu => pu.Items)
             .FirstOrDefaultAsync(p => p.RazorpayOrderId == request.RazorpayOrderId
                                    && p.Purchase.UserId == userId)
             ?? throw new NotFoundException("Payment record not found");
@@ -164,22 +168,68 @@ public class RazorpayPaymentService : IPaymentService
 
         if (!isValid)
         {
-            payment.Status = PaymentStatus.Failed;
-            await _context.SaveChangeAsync();
+            await using var failedTransaction = await _context.Database.BeginTransactionAsync();
+
+            try
+            {
+                payment.Status = PaymentStatus.Failed;
+
+                // restore cart items from the purchase so the user can retry
+                var purchase = payment.Purchase;
+                if (purchase?.Items != null && purchase.Items.Any())
+                {
+                    foreach (var item in purchase.Items)
+                    {
+                        var cartItem = new CartItem
+                        {
+                            UserId = userId,
+                            GameId = item.GameId,
+                            GameName = item.GameName,
+                            Price = item.Price,
+                            Quantity = item.Quantity,
+                            Image = new List<string>(),
+                            AddedAt = DateTime.UtcNow,
+                            UpdatedAt = DateTime.UtcNow
+                        };
+
+                        _context.CartItems.Add(cartItem);
+                    }
+                }
+
+                await _context.SaveChangeAsync();
+                await failedTransaction.CommitAsync();
+            }
+            catch
+            {
+                await failedTransaction.RollbackAsync();
+                throw;
+            }
+
             throw new BusinessRuleException("Payment signature verification failed");
         }
 
-        payment.RazorpayPaymentId = request.RazorpayPaymentId;
-        payment.RazorpaySignature = request.RazorpaySignature;
-        payment.Status = PaymentStatus.Success;
-        payment.PaidAt = DateTime.UtcNow;
-        payment.Purchase.Status = OrderStatus.Confirmed;
+        await using var transaction = await _context.Database.BeginTransactionAsync();
 
-        var user = await _context.Users.FindAsync(userId);
-        if (user != null)
-            user.CartItems.Clear();
+        try
+        {
+            payment.RazorpayPaymentId = request.RazorpayPaymentId;
+            payment.RazorpaySignature = request.RazorpaySignature;
+            payment.Status = PaymentStatus.Success;
+            payment.PaidAt = DateTime.UtcNow;
+            payment.Purchase.Status = OrderStatus.Confirmed;
 
-        await _context.SaveChangeAsync();
+            var user = await _context.Users.FindAsync(userId);
+            if (user != null)
+                user.CartItems.Clear();
+
+            await _context.SaveChangeAsync();
+            await transaction.CommitAsync();
+        }
+        catch
+        {
+            await transaction.RollbackAsync();
+            throw;
+        }
 
         return new PaymentVerificationDto
         {
@@ -197,5 +247,83 @@ public class RazorpayPaymentService : IPaymentService
         byte[] hash = hmac.ComputeHash(Encoding.UTF8.GetBytes(payload));
         string computedSignature = BitConverter.ToString(hash).Replace("-", "").ToLower();
         return computedSignature == signature.ToLower();
+    }
+
+    public async Task RestoreCartFromPurchaseAsync(int purchaseId, int userId)
+    {
+        var purchase = await _context.Purchases
+            .Include(p => p.Items)
+            .FirstOrDefaultAsync(p => p.Id == purchaseId && p.UserId == userId);
+
+        if (purchase == null || purchase.Items == null || !purchase.Items.Any())
+            return;
+
+        await using var transaction = await _context.Database.BeginTransactionAsync();
+        try
+        {
+            foreach (var item in purchase.Items)
+            {
+                var cartItem = new CartItem
+                {
+                    UserId = userId,
+                    GameId = item.GameId,
+                    GameName = item.GameName,
+                    Price = item.Price,
+                    Quantity = item.Quantity,
+                    Image = new List<string>(),
+                    AddedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow
+                };
+
+                _context.CartItems.Add(cartItem);
+            }
+
+            await _context.SaveChangeAsync();
+            await transaction.CommitAsync();
+        }
+        catch
+        {
+            await transaction.RollbackAsync();
+            throw;
+        }
+    }
+
+    public async Task RestoreCartFromOrderAsync(Guid orderId, int userId)
+    {
+        var purchase = await _context.Purchases
+            .Include(p => p.Items)
+            .FirstOrDefaultAsync(p => p.OrderId == orderId && p.UserId == userId);
+
+        if (purchase == null || purchase.Items == null || !purchase.Items.Any())
+            return;
+
+        await using var transaction = await _context.Database.BeginTransactionAsync();
+        try
+        {
+            foreach (var item in purchase.Items)
+            {
+                var cartItem = new CartItem
+                {
+                    UserId = userId,
+                    GameId = item.GameId,
+                    GameName = item.GameName,
+                    Price = item.Price,
+                    Quantity = item.Quantity,
+                    Image = new List<string>(),
+                    AddedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow
+                };
+
+                _context.CartItems.Add(cartItem);
+            }
+
+            await _context.SaveChangeAsync();
+            await transaction.CommitAsync();
+        }
+        catch
+        {
+            await transaction.RollbackAsync();
+            throw;
+        }
     }
 }

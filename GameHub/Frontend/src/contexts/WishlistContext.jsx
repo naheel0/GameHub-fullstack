@@ -77,7 +77,7 @@ export const WishlistProvider = ({ children }) => {
       setWishlist(mapped.filter(Boolean));
     } catch (error) {
       console.error('Error loading wishlist:', error);
-      toast.error('Failed to load wishlist');
+      toast.error('We could not load your wishlist. Please try again.');
       setWishlist([]);
     } finally {
       setLoading(false);
@@ -90,7 +90,7 @@ export const WishlistProvider = ({ children }) => {
 
   const addToWishlist = async (game) => {
     if (!user || !token) {
-      toast.warning('Please log in to manage your wishlist.');
+      toast.warning('Sign in to manage your wishlist.', { toastId: 'wishlist-auth-required' });
       return;
     }
 
@@ -113,13 +113,13 @@ export const WishlistProvider = ({ children }) => {
       toast.success(`${game.name} added to wishlist!`);
     } catch (error) {
       console.error('Error adding to wishlist:', error);
-      toast.error('Failed to add to wishlist');
+      toast.error('Could not add that game to your wishlist.');
     }
   };
 
   const removeFromWishlist = async (gameId) => {
     if (!user || !token) {
-      toast.warning('Please log in to manage your wishlist.');
+      toast.warning('Sign in to manage your wishlist.', { toastId: 'wishlist-auth-required' });
       return;
     }
 
@@ -136,7 +136,7 @@ export const WishlistProvider = ({ children }) => {
       setWishlist((prev) => prev.filter((item) => item.id !== gameId));
     } catch (error) {
       console.error('Error removing from wishlist:', error);
-      toast.error('Failed to remove from wishlist');
+      toast.error('Could not remove that item from your wishlist.');
     }
   };
 
@@ -146,7 +146,7 @@ export const WishlistProvider = ({ children }) => {
 
   const clearWishlist = async () => {
     if (!user || !token) {
-      toast.warning('Please log in to manage your wishlist.');
+      toast.warning('Sign in to manage your wishlist.', { toastId: 'wishlist-auth-required' });
       return;
     }
 
@@ -159,16 +159,16 @@ export const WishlistProvider = ({ children }) => {
       ));
 
       setWishlist([]);
-      toast.info('Wishlist cleared');
+      toast.info('Wishlist cleared.');
     } catch (error) {
       console.error('Error clearing wishlist:', error);
-      toast.error('Failed to clear wishlist');
+      toast.error('Could not clear your wishlist. Please try again.');
     }
   };
 
   const moveToCart = async (item, onCartUpdated) => {
     if (!user || !token) {
-      toast.warning('Please log in to manage your wishlist.');
+      toast.warning('Sign in to manage your wishlist.', { toastId: 'wishlist-auth-required' });
       return;
     }
 
@@ -190,7 +190,7 @@ export const WishlistProvider = ({ children }) => {
       toast.success(`${item.name} moved to cart!`);
     } catch (error) {
       console.error('Error moving to cart:', error);
-      toast.error('Failed to move item to cart');
+      toast.error('Could not move that item to your cart.');
     }
   };
 

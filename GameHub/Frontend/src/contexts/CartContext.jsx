@@ -14,27 +14,11 @@ export const useCart = () => {
   return context;
 };
 
-const mapPaymentMethod = (method) => {
-  switch ((method || '').toLowerCase()) {
-    case 'card':
-      return 'CreditDebitCard';
-    case 'paypal':
-      return 'PayPal';
-    case 'apple':
-      return 'ApplePay';
-    case 'google':
-      return 'GooglePay';
-    case 'razorpay':
-      return 'Razorpay';
-    default:
-      return 'CreditDebitCard';
-  }
-};
 
 export const CartProvider = ({ children }) => {
   const [cart, setCart] = useState([]);
   const [loading, setLoading] = useState(true);
-  const { user, authFetch } = useAuth();
+  const { user, authFetch, loading: authLoading } = useAuth();
 
   const API_BASE = BaseUrl;
   const token = user?.accessToken;
@@ -75,6 +59,9 @@ export const CartProvider = ({ children }) => {
   }, [fetchGame]);
 
   const loadCart = useCallback(async () => {
+    // Wait until auth provider finishes loading so we don't clear the cart
+    if (authLoading) return;
+
     if (!user || !token) {
       setCart([]);
       setLoading(false);
@@ -92,16 +79,47 @@ export const CartProvider = ({ children }) => {
       }
 
       const items = await response.json();
+      // If server cart is empty but we have a pending purchase, try restoring it
+      if ((!items || items.length === 0) && typeof window !== 'undefined') {
+        try {
+          const pending = localStorage.getItem('pendingPurchase');
+          if (pending) {
+            const pid = Number(pending);
+            if (!Number.isNaN(pid)) {
+              const restoreResp = await authFetch(`${API_BASE}/payments/restore/${pid}`, {
+                method: 'POST',
+                headers: { ...buildAuthHeaders(token) },
+              });
+              if (restoreResp && restoreResp.ok) {
+                localStorage.removeItem('pendingPurchase');
+                // re-fetch cart items from server
+                const reResp = await authFetch(`${API_BASE}/cart`, {
+                  headers: { ...buildAuthHeaders(token) },
+                });
+                if (reResp.ok) {
+                  const reItems = await reResp.json();
+                  const mappedRe = await Promise.all((reItems || []).map(mapCartItem));
+                  setCart(mappedRe.filter(Boolean));
+                  setLoading(false);
+                  return;
+                }
+              }
+            }
+          }
+        } catch (restoreErr) {
+          console.error('Error attempting to restore pending purchase cart:', restoreErr);
+        }
+      }
       const mapped = await Promise.all((items || []).map(mapCartItem));
       setCart(mapped.filter(Boolean));
     } catch (error) {
       console.error('Error loading cart:', error);
-      toast.error('Failed to load cart');
+      toast.error('We could not load your cart. Please try again.');
       setCart([]);
     } finally {
       setLoading(false);
     }
-  }, [API_BASE, authFetch, mapCartItem, token, user]);
+  }, [API_BASE, authFetch, authLoading, mapCartItem, token, user]);
 
   useEffect(() => {
     loadCart();
@@ -109,12 +127,12 @@ export const CartProvider = ({ children }) => {
 
   const addToCart = async (game, quantity = 1) => {
     if (!user || !token) {
-      toast.warning('Please log in to add items to your cart.');
+      toast.warning('Sign in to add items to your cart.');
       return false;
     }
 
     if (!game.inStock) {
-      toast.error('Sorry, this game is out of stock!');
+      toast.error('This game is currently out of stock.');
       return false;
     }
 
@@ -134,14 +152,14 @@ export const CartProvider = ({ children }) => {
       return true;
     } catch (error) {
       console.error('Error adding to cart:', error);
-      toast.error('Failed to add to cart');
+      toast.error('Could not add that game to your cart.');
       return false;
     }
   };
 
   const removeFromCart = async (gameId) => {
     if (!user || !token) {
-      toast.warning('Please log in to manage your cart.');
+      toast.warning('Sign in to manage your cart.');
       return false;
     }
 
@@ -159,14 +177,14 @@ export const CartProvider = ({ children }) => {
       return true;
     } catch (error) {
       console.error('Error removing from cart:', error);
-      toast.error('Failed to remove from cart');
+      toast.error('Could not remove that item from your cart.');
       return false;
     }
   };
 
   const updateQuantity = async (gameId, newQuantity) => {
     if (!user || !token) {
-      toast.warning('Please log in to manage your cart.');
+      toast.warning('Sign in to manage your cart.');
       return false;
     }
 
@@ -191,14 +209,14 @@ export const CartProvider = ({ children }) => {
       return true;
     } catch (error) {
       console.error('Error updating quantity:', error);
-      toast.error('Failed to update quantity');
+      toast.error('Could not update the item quantity.');
       return false;
     }
   };
 
   const clearCart = async () => {
     if (!user || !token) {
-      toast.warning('Please log in to manage your cart.');
+      toast.warning('Sign in to manage your cart.');
       return false;
     }
 
@@ -213,11 +231,11 @@ export const CartProvider = ({ children }) => {
       }
 
       setCart([]);
-      toast.info('Cart cleared successfully');
+      toast.info('Cart cleared.');
       return true;
     } catch (error) {
       console.error('Error clearing cart:', error);
-      toast.error('Failed to clear cart');
+      toast.error('Could not clear your cart. Please try again.');
       return false;
     }
   };
@@ -252,7 +270,7 @@ export const CartProvider = ({ children }) => {
 
   const checkout = async (paymentMethod, address) => {
     if (!user || !token) {
-      toast.warning('Please log in to checkout.');
+      toast.warning('Sign in to continue to checkout.');
       return { success: false, error: 'User not logged in' };
     }
 
@@ -267,7 +285,7 @@ export const CartProvider = ({ children }) => {
         : address?.addressId || address?.id;
 
     if (!resolvedAddressId) {
-      toast.error('Please select a shipping address.');
+      toast.error('Please choose a shipping address.');
       return { success: false, error: 'No address selected' };
     }
 
@@ -289,6 +307,8 @@ export const CartProvider = ({ children }) => {
               });
             } catch {
               // swallow sync errors; server may already have items
+              // Log debug info to avoid empty block warnings
+              console.debug('Failed to sync local cart item to server', item);
             }
           }
         }
@@ -297,9 +317,10 @@ export const CartProvider = ({ children }) => {
       const response = await authFetch(`${API_BASE}/orders`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...buildAuthHeaders(token) },
+        // Force Razorpay as the only supported payment method
         body: JSON.stringify({
           addressId: resolvedAddressId,
-          paymentMethod: mapPaymentMethod(paymentMethod),
+          paymentMethod: 'Razorpay',
         }),
       });
 
@@ -316,7 +337,7 @@ export const CartProvider = ({ children }) => {
       const orderDto = await response.json();
       // Defensive check: ensure the server returned a valid order id
       if (!orderDto || !(orderDto.orderId || orderDto.id)) {
-        toast.error('Payment processed but order was not saved on server. Check server logs.');
+        toast.error('Payment went through, but the order could not be saved. Please contact support.');
         return { success: false, error: 'Order not persisted' };
       }
       const items = await Promise.all((orderDto.items || []).map(async (item) => {
@@ -346,13 +367,21 @@ export const CartProvider = ({ children }) => {
         date: orderDto.orderDate,
         shippingAddress: orderDto.shippingAddress || address,
       };
+      // Persist pending purchase id so we can restore the cart if the user navigates back without paying
+      try {
+        const pid = order.purchaseId;
+        if (pid) localStorage.setItem('pendingPurchase', String(pid));
+      } catch (e) {
+        console.debug('Failed to persist pendingPurchase', e);
+      }
 
-      setCart([]);
-      toast.success('Order placed successfully! Thank you for your purchase.');
+      // Do NOT clear client cart here — the server removes cart items when a purchase is created.
+      // Keep the client cart until payment is verified or the server restores it on failure.
+      toast.success('Order created. Complete payment to confirm it.');
       return { success: true, order };
     } catch (error) {
       console.error('Error during checkout:', error);
-      toast.error(error.message || 'Failed to process checkout');
+      toast.error(error.message || 'Could not process checkout.');
       return { success: false, error: error.message };
     }
   };

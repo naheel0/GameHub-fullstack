@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   StarIcon,
   ShoppingCartIcon,
@@ -27,6 +27,7 @@ const Products = () => {
   const [error, setError] = useState(null);
 
   const navigate = useNavigate();
+  const location = useLocation();
 
   const { addToCart } = useCart();
 
@@ -134,8 +135,7 @@ const Products = () => {
 
   const handleWishlist = (game) => {
     if (!user) {
-      toast.warning("Please log in to manage your wishlist.");
-      setTimeout(() => navigate("/login"), 1000);
+      navigate("/login", { state: { from: location.pathname } });
       return;
     }
 
@@ -148,8 +148,7 @@ const Products = () => {
 
   const handleAddToCart = (game) => {
     if (!user) {
-      toast.warning("Please log in before adding items to your cart.");
-      setTimeout(() => navigate("/login"), 1000);
+      navigate("/login", { state: { from: location.pathname } });
       return;
     }
 

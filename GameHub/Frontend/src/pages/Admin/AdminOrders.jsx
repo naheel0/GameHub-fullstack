@@ -1,4 +1,4 @@
-import { Eye, Trash2, Package, X, Users, IndianRupee, MapPin, CreditCard, Calendar, Phone } from "lucide-react";
+import { Eye, Trash2, Package, X, Users, IndianRupee, MapPin, Calendar, Phone } from "lucide-react";
 import { useAdmin } from "./contexts/AdminContext";
 // eslint-disable-next-line no-unused-vars
 import { motion } from "framer-motion";
@@ -305,13 +305,6 @@ const totalPages = Math.ceil((filteredOrders?.length || 0) / itemsPerPage);
                   <div className="flex items-center gap-1 text-white text-sm">
                     <Calendar className="w-3 h-3 text-gray-500" />
                     {selectedOrder.date ? new Date(selectedOrder.date).toLocaleString() : "—"}
-                  </div>
-                </div>
-                <div>
-                  <p className="text-gray-400 text-xs">Payment Method</p>
-                  <div className="flex items-center gap-1 text-white text-sm">
-                    <CreditCard className="w-3 h-3 text-gray-500" />
-                    {selectedOrder.paymentMethod || "—"}
                   </div>
                 </div>
                 <div>

@@ -8,6 +8,7 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Text;
 using System.Text.Json.Serialization;
+using System.Security.Claims;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -82,6 +83,7 @@ builder.Services.AddAuthentication(options =>
         ValidIssuer = jwtSettings["Issuer"],
         ValidAudience = jwtSettings["Audience"],
         IssuerSigningKey = new SymmetricSecurityKey(secretKey),
+        RoleClaimType = ClaimTypes.Role,
         ClockSkew = TimeSpan.Zero
     };
     options.RequireHttpsMetadata = !builder.Environment.IsDevelopment();

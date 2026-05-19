@@ -5,6 +5,6 @@
     public class PlaceOrderRequest
     {
         public Guid AddressId { get; set; }
-        public PaymentMethod PaymentMethod { get; set; } = PaymentMethod.GooglePay;
+        public PaymentMethod PaymentMethod { get; set; } = PaymentMethod.Razorpay;
     }
 }

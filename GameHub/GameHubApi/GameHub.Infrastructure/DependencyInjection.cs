@@ -24,7 +24,6 @@ namespace GameHub.Infrastructure
             services.AddScoped<ICartService, CartService>();
             services.AddScoped<IWishlistService, WishlistService>();
             services.AddScoped<IAddressService, AddressService>();
-            services.AddScoped<ICardDetailService, CardDetailService>();
             services.AddScoped<IOrderService, OrderService>();
             services.AddScoped<IAdminService, AdminService>();
             services.AddScoped<IFileStorageService, CloudinaryStorageService>();

@@ -17,7 +17,6 @@ namespace GameHub.Domain.Entities
         public List<RefreshToken> RefreshTokens { get; set; }
         public List<CartItem> CartItems { get; set; } = new();
         public List<WishlistItem> WishlistItems { get; set; } = new();
-        public List<CardDetail> CardDetails { get; set; } = new();
         public ICollection<Address> Addresses { get; set; } = new List<Address>();
         public IList<Purchase> PurchaseHistory { get; set; } = new List<Purchase>();
         public bool IsDeleted { get; set; } = false;
