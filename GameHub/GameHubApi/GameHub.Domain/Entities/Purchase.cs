@@ -21,5 +21,6 @@ namespace GameHub.Domain.Entities
         public PurchaseShippingAddress ShippingAddress { get; set; } = new();
         public PaymentMethod PaymentMethod { get; set; } = PaymentMethod.GooglePay;
         public OrderStatus Status { get; set; } = OrderStatus.Pending;
+        public Payment? Payment { get; set; }
     }
 }

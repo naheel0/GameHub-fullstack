@@ -9,6 +9,7 @@ namespace GameHub.Application.DTOs.Orders
 {
     public class OrderDto
     {
+        public int PurchaseId { get; set; }
         public Guid OrderId { get; set; }
         public DateTime OrderDate { get; set; }
         public List<OrderItemDto> Items { get; set; } = new();

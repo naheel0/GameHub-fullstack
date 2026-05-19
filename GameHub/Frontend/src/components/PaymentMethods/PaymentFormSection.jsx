@@ -4,6 +4,7 @@ import {
   FaPaypal,
   FaApple,
   FaGoogle,
+  FaRupeeSign,
   FaRegCreditCard,
   FaTrash,
 } from "react-icons/fa";
@@ -33,6 +34,12 @@ const paymentMethods = [
     name: "Google Pay",
     icon: <FaGoogle className="text-2xl text-green-400" />,
     description: "Secure payment with Google Pay",
+  },
+  {
+    id: "razorpay",
+    name: "Razorpay",
+    icon: <FaRupeeSign className="text-2xl text-indigo-300" />,
+    description: "Pay securely using Razorpay checkout",
   },
 ];
 
@@ -197,6 +204,7 @@ const CardPaymentForm = ({
 
 const OtherPaymentButton = ({
   handlePaymentSubmit,
+  onClick,
   isProcessing,
   icon,
   label,
@@ -207,7 +215,8 @@ const OtherPaymentButton = ({
 }) => (
   <div className="text-center">
     <button
-      onClick={handlePaymentSubmit}
+      type="button"
+      onClick={onClick || handlePaymentSubmit}
       disabled={isProcessing || !selectedAddress}
       className={`w-full bg-linear-to-r ${colorClass} disabled:from-gray-600 disabled:to-gray-700 text-white py-4 px-6 rounded-lg transition duration-300 font-semibold flex items-center justify-center space-x-2 border border-red-600 disabled:border-gray-600`}
     >
@@ -242,6 +251,7 @@ const PaymentFormSection = ({
   selectedCardId,
   onSelectSavedCard,
   onDeleteSavedCard,
+  onRazorpayCheckout,
 }) => {
   return (
     <div className="bg-gray-900/80 backdrop-blur-sm rounded-xl shadow-2xl p-6 border border-gray-700/50">
@@ -345,6 +355,19 @@ const PaymentFormSection = ({
             selectedAddress={selectedAddress}
             colorClass="from-gray-800 to-gray-900 hover:from-gray-700 hover:to-gray-800"
             redirectText="Processing..."
+          />
+        )}
+
+        {selectedMethod === "razorpay" && (
+          <OtherPaymentButton
+            onClick={onRazorpayCheckout}
+            isProcessing={isProcessing}
+            icon={<FaRupeeSign className="text-xl text-indigo-300" />}
+            label="Pay with Razorpay"
+            message="You will be redirected to Razorpay's hosted payment page."
+            selectedAddress={selectedAddress}
+            colorClass="from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800"
+            redirectText="Redirecting..."
           />
         )}
       </div>

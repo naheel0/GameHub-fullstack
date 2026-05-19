@@ -16,6 +16,7 @@ namespace GameHub.Infrastructure.Data
         public DbSet<Purchase> Purchases { get; set; }
         public DbSet<CartItem> CartItems { get; set; }
         public DbSet<WishlistItem> WishlistItems { get; set; }
+        public DbSet<Payment> Payments { get; set; }
         public DbSet<CardDetail> CardDetails { get; set; }
         // Keyless DbQuery for mapping stored-proc result
         public DbSet<AdminUserDetailDto> AdminUserDetails { get; set; }
@@ -172,10 +173,26 @@ namespace GameHub.Infrastructure.Data
                 eb.HasNoKey();
                 eb.ToView(null);
             });
+
+                //-----------------------Razorpay-----------------------------------//
+                modelBuilder.Entity<Payment>(entity =>
+                {
+                    entity.ToTable("Payments");
+                    entity.HasKey(p => p.Id);
+                    entity.Property(p => p.RazorpayOrderId).HasMaxLength(50).IsRequired();
+                    entity.Property(p => p.RazorpayPaymentId).HasMaxLength(50);
+                    entity.Property(p => p.RazorpaySignature).HasMaxLength(200);
+                    entity.Property(p => p.Currency).HasMaxLength(3);
+                    entity.Property(p => p.Amount).HasColumnType("decimal(10,2)");
+
+                                        entity.HasOne(p => p.Purchase)
+                                            .WithOne(p => p.Payment)
+                                            .HasForeignKey<Payment>(p => p.PurchaseId)
+                      .OnDelete(DeleteBehavior.Cascade);
+                });
             });
 
         }
-
 
         public Task<int> SaveChangeAsync(CancellationToken cancellationToken = default)
         {

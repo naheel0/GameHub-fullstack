@@ -497,6 +497,60 @@ const PaymentPage = () => {
     }
   };
 
+  const handleRazorpayCheckout = async () => {
+    if (!validatePayment()) {
+      return;
+    }
+
+    setIsProcessing(true);
+
+    try {
+      let paymentOrder = order;
+
+      if (!paymentOrder?.purchaseId) {
+        const checkoutResult = await checkout("razorpay", selectedAddress);
+
+        if (!checkoutResult.success) {
+          toast.error(checkoutResult.error || "Failed to create Razorpay order.");
+          return;
+        }
+
+        paymentOrder = checkoutResult.order;
+      }
+
+      const purchaseId = paymentOrder?.purchaseId;
+      if (!purchaseId) {
+        toast.error("Razorpay redirect requires a persisted purchase.");
+        return;
+      }
+
+      const response = await authFetch(`${API_BASE}/payments/create-link/${purchaseId}`, {
+        method: "POST",
+        headers: { ...buildAuthHeaders(token) },
+      });
+
+      if (!response.ok) {
+        const text = await response.text().catch(() => "");
+        throw new Error(text || "Failed to create Razorpay payment link");
+      }
+
+      const link = await response.json();
+      const shortUrl = link.shortUrl || link.short_url;
+
+      if (!shortUrl) {
+        throw new Error("Razorpay payment link response was missing the redirect URL");
+      }
+
+      toast.info("Redirecting to Razorpay...");
+      window.location.href = shortUrl;
+    } catch (error) {
+      console.error("Razorpay redirect error:", error);
+      toast.error(error?.message || "Failed to redirect to Razorpay");
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   const handleBackToCart = () => {
     navigate("/cart");
   };
@@ -607,6 +661,7 @@ const PaymentPage = () => {
                   }
                 } catch { toast.error("Failed to remove card"); }
               }}
+              onRazorpayCheckout={handleRazorpayCheckout}
             />
 
             {/* Security Features (Can be a standalone component too, but keeping inline for simplicity) */}

@@ -13,5 +13,6 @@ public interface IApplicationDbContext
     DbSet<CartItem> CartItems { get; }
     DbSet<WishlistItem> WishlistItems { get; }
     DbSet<CardDetail> CardDetails { get; }
+    DbSet<Payment> Payments { get; }
     Task<int> SaveChangeAsync(CancellationToken cancellationToken = default);
 }

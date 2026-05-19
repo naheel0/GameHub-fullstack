@@ -24,6 +24,8 @@ const mapPaymentMethod = (method) => {
       return 'ApplePay';
     case 'google':
       return 'GooglePay';
+    case 'razorpay':
+      return 'Razorpay';
     default:
       return 'CreditDebitCard';
   }
@@ -332,6 +334,7 @@ export const CartProvider = ({ children }) => {
 
       const order = {
         id: orderDto.orderId,
+        purchaseId: orderDto.purchaseId ?? orderDto.PurchaseId,
         items,
         summary: {
           subtotal: Number(orderDto.subTotal || 0).toFixed(2),

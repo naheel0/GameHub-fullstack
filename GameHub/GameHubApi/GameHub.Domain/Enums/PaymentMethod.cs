@@ -14,6 +14,9 @@
         ApplePay,
 
         [Display(Name = "Google Pay")]
-        GooglePay
+        GooglePay,
+
+        [Display(Name = "Razorpay")]
+        Razorpay
     }
 }

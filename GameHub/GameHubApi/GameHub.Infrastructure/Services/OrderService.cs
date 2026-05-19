@@ -112,6 +112,7 @@ public class OrderService : IOrderService
 
     private static OrderDto MapOrderToDto(Purchase p) => new()
     {
+        PurchaseId = p.Id,
         OrderId = p.OrderId,
         OrderDate = p.OrderDate,
         Items = p.Items.Select(i => new OrderItemDto

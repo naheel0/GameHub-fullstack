@@ -28,6 +28,7 @@ namespace GameHub.Infrastructure
             services.AddScoped<IOrderService, OrderService>();
             services.AddScoped<IAdminService, AdminService>();
             services.AddScoped<IFileStorageService, CloudinaryStorageService>();
+            services.AddScoped<IPaymentService, RazorpayPaymentService>();
             return services;
         }
     }
