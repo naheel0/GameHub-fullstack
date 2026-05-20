@@ -1,6 +1,5 @@
 ﻿using GameHub.Application.Services;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
 namespace GameHubApi.Controllers

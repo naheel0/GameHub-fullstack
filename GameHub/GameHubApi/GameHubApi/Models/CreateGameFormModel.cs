@@ -1,6 +1,3 @@
-using Microsoft.AspNetCore.Http;
-using System.Collections.Generic;
-
 namespace GameHub.Api.Models
 {
     public class CreateGameFormModel

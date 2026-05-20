@@ -1,5 +1,4 @@
-﻿using GameHub.Application.DTOs.Admin;
-using GameHub.Application.DTOs.Orders;
+﻿using GameHub.Application.DTOs.Orders;
 
 namespace GameHub.Application.DTOs.Admin
 {

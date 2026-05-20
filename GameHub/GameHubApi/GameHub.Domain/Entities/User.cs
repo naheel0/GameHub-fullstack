@@ -1,5 +1,4 @@
-﻿using System;
-using GameHub.Domain.Enums;
+﻿using GameHub.Domain.Enums;
 
 namespace GameHub.Domain.Entities
 {

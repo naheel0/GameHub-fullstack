@@ -1,5 +1,5 @@
-﻿using GameHub.Application.Common.interfaces;
-using GameHub.Application.Common.Exceptions;
+﻿using GameHub.Application.Common.Exceptions;
+using GameHub.Application.Common.interfaces;
 using GameHub.Application.DTOs.Payments;
 using GameHub.Application.Services;
 using Microsoft.AspNetCore.Authorization;
@@ -19,13 +19,6 @@ namespace GameHubApi.Controllers
         {
             _paymentService = paymentService;
             _currentUser = currentUser;
-        }
-
-        [HttpPost("create-order/{purchaseId:int}")]
-        public async Task<IActionResult> CreateOrder(int purchaseId)
-        {
-            var result = await _paymentService.CreateOrderAsync(purchaseId, _currentUser.UserId!.Value);
-            return Ok(result);
         }
 
         [HttpPost("create-link/{purchaseId:int}")]
@@ -57,18 +50,29 @@ namespace GameHubApi.Controllers
             return Ok(new { restored = true });
         }
 
-        [HttpPost("restore-by-order/{orderId:guid}")]
-        public async Task<IActionResult> RestorePurchaseByOrder(Guid orderId)
-        {
-            await _paymentService.RestoreCartFromOrderAsync(orderId, _currentUser.UserId!.Value);
-            return Ok(new { restored = true });
-        }
-
         [HttpPost("verify")]
         public async Task<IActionResult> VerifyPayment([FromBody] PaymentVerifyRequest request)
         {
             var result = await _paymentService.VerifyPaymentAsync(request, _currentUser.UserId!.Value);
             return Ok(result);
+        }
+
+        [HttpPost("confirm-link")]
+        public async Task<IActionResult> ConfirmPaymentLink([FromBody] PaymentLinkConfirmRequest request)
+        {
+            try
+            {
+                var result = await _paymentService.ConfirmPaymentLinkAsync(request, _currentUser.UserId!.Value);
+                return Ok(result);
+            }
+            catch (NotFoundException nf)
+            {
+                return NotFound(new { message = nf.Message, error = nameof(NotFoundException) });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = "Failed to confirm payment", error = ex.Message });
+            }
         }
 
     }

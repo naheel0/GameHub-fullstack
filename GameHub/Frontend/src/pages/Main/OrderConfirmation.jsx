@@ -41,27 +41,54 @@ const OrderConfirmation = () => {
   };
 
   useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const hasRazorpayCallback = Boolean(
+      params.get('razorpay_order_id') ||
+        params.get('razorpay_payment_id') ||
+        params.get('razorpay_payment_link_id') ||
+        params.get('payment_link_id') ||
+        params.get('payment_link') ||
+        params.get('razorpay_payment_link_status') ||
+        params.get('status'),
+    );
+
     const orderData = location.state?.order || JSON.parse(localStorage.getItem('lastOrder') || 'null');
-    
+
     if (orderData) {
       const processedOrder = processOrderData(orderData);
       setOrder(processedOrder);
       localStorage.setItem('lastOrder', JSON.stringify(processedOrder));
-      
+
       if (location.state?.fromCart) {
         clearCart();
       }
-    } else {
-      clearPendingPaymentDraft();
-      navigate('/');
+
+      setLoading(false);
+      return;
     }
-    
+
+    if (hasRazorpayCallback) {
+      // Prevent CartProvider's loadCart auto-restore from racing with handlePaidPaymentLink
+      try { localStorage.removeItem('pendingPurchase'); } catch (error) { console.debug('Failed to remove pendingPurchase', error); }
+      clearPendingPaymentDraft();
+      setLoading(true);
+      return;
+    }
+
+    clearPendingPaymentDraft();
     setLoading(false);
+    navigate('/');
   }, [location, navigate, clearCart]);
 
-  const handlePaidPaymentLink = async () => {
+  const handlePaidPaymentLink = async (user, paymentLinkId, razorpayPaymentId) => {
+    // Remove pendingPurchase synchronously BEFORE any await to prevent
+    // loadCart() auto-restore logic from winning the race and restoring cart items
+    try { localStorage.removeItem('pendingPurchase'); } catch (error) { console.debug('Failed to remove pendingPurchase', error); }
+    clearPendingPaymentDraft();
+
     try {
       setLoading(true);
+
       const pendingOrder = (() => {
         try {
           return JSON.parse(localStorage.getItem('pendingRazorpayOrder') || 'null');
@@ -71,14 +98,43 @@ const OrderConfirmation = () => {
         }
       })();
 
-      if (pendingOrder) {
+      const purchaseId = pendingOrder?.purchaseId;
+      let confirmed = false;
+
+      if (purchaseId && user?.accessToken) {
+        const confirmResp = await fetch(`${BaseUrl}/payments/confirm-link`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...buildAuthHeaders(user.accessToken) },
+          body: JSON.stringify({
+            purchaseId,
+            razorpayPaymentLinkId: paymentLinkId || '',
+            razorpayPaymentId: razorpayPaymentId || '',
+          }),
+        });
+
+        if (confirmResp.ok) {
+          const confirmation = await confirmResp.json();
+          if (confirmation?.success && confirmation?.orderId) {
+            confirmed = true;
+            const orderResp = await fetch(`${BaseUrl}/orders/${confirmation.orderId}`, {
+              headers: { ...buildAuthHeaders(user.accessToken) },
+            });
+            if (orderResp.ok) {
+              const orderData = await orderResp.json();
+              const processed = processOrderData(orderData);
+              setOrder(processed);
+              localStorage.setItem('lastOrder', JSON.stringify(processed));
+            }
+          }
+        }
+      }
+
+      if (!confirmed && pendingOrder) {
         const processed = processOrderData(pendingOrder);
         setOrder(processed);
         localStorage.setItem('lastOrder', JSON.stringify(processed));
       }
 
-      try { localStorage.removeItem('pendingPurchase'); } catch (error) { console.debug('Failed to remove pendingPurchase', error); }
-      clearPendingPaymentDraft();
       await refreshCart();
     } catch (err) {
       console.error('Finalize paid payment link error:', err);
@@ -90,20 +146,19 @@ const OrderConfirmation = () => {
   const handleFailedPaymentLink = async (user, referenceId) => {
     try {
       setLoading(true);
-      if (referenceId) {
-        const purchaseId = extractPurchaseIdFromReference(referenceId);
-        if (purchaseId) {
-          const resp = await fetch(`${BaseUrl}/payments/restore/${purchaseId}`, {
-            method: 'POST',
-            headers: { ...buildAuthHeaders(user.accessToken) },
-          });
-          if (resp.ok) {
-            await refreshCart();
-            try { localStorage.removeItem('pendingPurchase'); } catch (e) { console.debug('Failed to remove pendingPurchase', e); }
-            clearPendingPaymentDraft();
-          }
-        } else {
+      const purchaseFromReference = extractPurchaseIdFromReference(referenceId);
+      const pendingRaw = localStorage.getItem('pendingPurchase');
+      const pendingParsed = pendingRaw ? Number(pendingRaw) : null;
+      const purchaseId = purchaseFromReference || (Number.isFinite(pendingParsed) ? pendingParsed : null);
+
+      if (purchaseId) {
+        const resp = await fetch(`${BaseUrl}/payments/restore/${purchaseId}`, {
+          method: 'POST',
+          headers: { ...buildAuthHeaders(user.accessToken) },
+        });
+        if (resp.ok) {
           await refreshCart();
+          try { localStorage.removeItem('pendingPurchase'); } catch (e) { console.debug('Failed to remove pendingPurchase', e); }
           clearPendingPaymentDraft();
         }
       } else {
@@ -172,9 +227,17 @@ const OrderConfirmation = () => {
     const razorpayOrderId = params.get('razorpay_order_id');
     const razorpayPaymentId = params.get('razorpay_payment_id');
     const razorpaySignature = params.get('razorpay_signature');
-    const paymentLinkId = params.get('payment_link_id') || params.get('payment_link');
-    const referenceId = params.get('reference_id') || params.get('reference');
-    const status = params.get('status');
+    const paymentLinkId =
+      params.get('razorpay_payment_link_id') ||
+      params.get('payment_link_id') ||
+      params.get('payment_link');
+    const referenceId =
+      params.get('razorpay_payment_link_reference_id') ||
+      params.get('reference_id') ||
+      params.get('reference');
+    const paymentLinkStatus =
+      params.get('razorpay_payment_link_status') ||
+      params.get('status');
 
     const runVerification = async () => {
       // wait for auth initialization to avoid false negatives
@@ -187,9 +250,11 @@ const OrderConfirmation = () => {
           return;
         }
 
-        const isPaid = status && status.toLowerCase() === 'paid';
+        const isPaid =
+          (paymentLinkStatus && paymentLinkStatus.toLowerCase() === 'paid') ||
+          (!paymentLinkStatus && Boolean(razorpayPaymentId));
         if (isPaid) {
-          await handlePaidPaymentLink();
+          await handlePaidPaymentLink(user, paymentLinkId, razorpayPaymentId);
         } else {
           await handleFailedPaymentLink(user, referenceId);
         }

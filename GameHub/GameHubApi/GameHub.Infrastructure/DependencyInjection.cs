@@ -3,7 +3,6 @@ using GameHub.Application.Common.Interfaces;
 using GameHub.Application.Services;
 using GameHub.Infrastructure.Data;
 using GameHub.Infrastructure.Services;
-using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;

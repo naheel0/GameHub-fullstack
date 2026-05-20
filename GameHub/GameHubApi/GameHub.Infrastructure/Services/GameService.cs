@@ -1,8 +1,8 @@
 ﻿using GameHub.Application.Common.Exceptions;
 using GameHub.Application.Common.interfaces;
-using GameHub.Application.Resources;
 using GameHub.Application.Common.Models;
 using GameHub.Application.DTOs.Games;
+using GameHub.Application.Resources;
 using GameHub.Application.Services;
 using GameHub.Domain.Entities;
 using GameHub.Infrastructure.Extensions;

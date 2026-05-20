@@ -2,16 +2,15 @@
 using GameHub.Application.Common.interfaces;
 using GameHub.Application.DTOs.Payments;
 using GameHub.Application.Services;
+using GameHub.Domain.Entities;
 using GameHub.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
-using Razorpay.Api;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
-using System.Text.Json;
 using System.Security.Cryptography;
 using System.Text;
-using GameHub.Domain.Entities;
+using System.Text.Json;
 
 namespace GameHub.Infrastructure.Services;
 
@@ -29,56 +28,6 @@ public class RazorpayPaymentService : IPaymentService
         _keyId = config["Razorpay:KeyId"]!;
         _keySecret = config["Razorpay:KeySecret"]!;
         _frontendBaseUrl = config["Frontend:BaseUrl"] ?? "http://localhost:5173";
-    }
-
-    public async Task<PaymentInitiateDto> CreateOrderAsync(int purchaseId, int userId)
-    {
-        var purchase = await _context.Purchases
-            .FirstOrDefaultAsync(p => p.Id == purchaseId && p.UserId == userId)
-            ?? throw new NotFoundException("Order not found");
-
-        if (purchase.Status == OrderStatus.Confirmed)
-            throw new BusinessRuleException("Order already confirmed");
-
-        int amountInPaise = (int)Math.Round(purchase.Total * 100, MidpointRounding.AwayFromZero);
-
-        var client = new RazorpayClient(_keyId, _keySecret);
-        var options = new Dictionary<string, object>
-        {
-            { "amount", amountInPaise },
-            { "currency", "INR" },
-            { "receipt", purchase.OrderId },
-            { "notes", new Dictionary<string, object>
-                {
-                    { "purchase_id", purchase.Id.ToString() },
-                    { "user_id", userId.ToString() }
-                }
-            }
-        };
-
-        Order razorpayOrder = client.Order.Create(options);
-        string razorpayOrderId = razorpayOrder["id"].ToString()!;
-
-        var payment = new GameHub.Domain.Entities.Payment
-        {
-            PurchaseId = purchase.Id,
-            RazorpayOrderId = razorpayOrderId,
-            Amount = purchase.Total,
-            Currency = "INR",
-            Status = PaymentStatus.pending
-        };
-
-        _context.Payments.Add(payment);
-        await _context.SaveChangeAsync();
-
-        return new PaymentInitiateDto
-        {
-            RazorpayOrderId = razorpayOrderId,
-            PurchaseId = purchase.Id,
-            OrderId = purchase.OrderId,
-            Amount = purchase.Total,
-            Currency = "INR"
-        };
     }
 
     public async Task<PaymentLinkInitiateDto> CreatePaymentLinkAsync(int purchaseId, int userId)
@@ -218,10 +167,6 @@ public class RazorpayPaymentService : IPaymentService
             payment.PaidAt = DateTime.UtcNow;
             payment.Purchase.Status = OrderStatus.Confirmed;
 
-            var user = await _context.Users.FindAsync(userId);
-            if (user != null)
-                user.CartItems.Clear();
-
             await _context.SaveChangeAsync();
             await transaction.CommitAsync();
         }
@@ -240,6 +185,60 @@ public class RazorpayPaymentService : IPaymentService
         };
     }
 
+    public async Task<PaymentVerificationDto> ConfirmPaymentLinkAsync(PaymentLinkConfirmRequest request, int userId)
+    {
+        var purchase = await _context.Purchases
+            .Include(p => p.Items)
+            .FirstOrDefaultAsync(p => p.Id == request.PurchaseId && p.UserId == userId)
+            ?? throw new NotFoundException("Order not found");
+
+        if (purchase.Status == OrderStatus.Confirmed)
+        {
+            return new PaymentVerificationDto
+            {
+                Success = true,
+                Message = "Order already confirmed",
+                PurchaseId = purchase.Id,
+                OrderId = purchase.OrderId
+            };
+        }
+
+        await using var transaction = await _context.Database.BeginTransactionAsync();
+
+        try
+        {
+            var payment = new GameHub.Domain.Entities.Payment
+            {
+                PurchaseId = purchase.Id,
+                RazorpayPaymentId = request.RazorpayPaymentId,
+                RazorpayOrderId = request.RazorpayPaymentLinkId,
+                Amount = purchase.Total,
+                Currency = "INR",
+                Status = PaymentStatus.Success,
+                PaidAt = DateTime.UtcNow
+            };
+
+            _context.Payments.Add(payment);
+            purchase.Status = OrderStatus.Confirmed;
+
+            await _context.SaveChangeAsync();
+            await transaction.CommitAsync();
+        }
+        catch
+        {
+            await transaction.RollbackAsync();
+            throw;
+        }
+
+        return new PaymentVerificationDto
+        {
+            Success = true,
+            Message = "Payment confirmed successfully",
+            PurchaseId = purchase.Id,
+            OrderId = purchase.OrderId
+        };
+    }
+
     private bool VerifySignature(string orderId, string paymentId, string signature)
     {
         string payload = $"{orderId}|{paymentId}";
@@ -255,29 +254,13 @@ public class RazorpayPaymentService : IPaymentService
             .Include(p => p.Items)
             .FirstOrDefaultAsync(p => p.Id == purchaseId && p.UserId == userId);
 
-        if (purchase == null || purchase.Items == null || !purchase.Items.Any())
+        if (purchase?.Items == null || !purchase.Items.Any())
             return;
 
         await using var transaction = await _context.Database.BeginTransactionAsync();
         try
         {
-            foreach (var item in purchase.Items)
-            {
-                var cartItem = new CartItem
-                {
-                    UserId = userId,
-                    GameId = item.GameId,
-                    GameName = item.GameName,
-                    Price = item.Price,
-                    Quantity = item.Quantity,
-                    Image = new List<string>(),
-                    AddedAt = DateTime.UtcNow,
-                    UpdatedAt = DateTime.UtcNow
-                };
-
-                _context.CartItems.Add(cartItem);
-            }
-
+            AddPurchaseItemsToCart(purchase.Items, userId);
             await _context.SaveChangeAsync();
             await transaction.CommitAsync();
         }
@@ -288,42 +271,21 @@ public class RazorpayPaymentService : IPaymentService
         }
     }
 
-    public async Task RestoreCartFromOrderAsync(Guid orderId, int userId)
+    private void AddPurchaseItemsToCart(ICollection<OrderItem> items, int userId)
     {
-        var purchase = await _context.Purchases
-            .Include(p => p.Items)
-            .FirstOrDefaultAsync(p => p.OrderId == orderId && p.UserId == userId);
-
-        if (purchase == null || purchase.Items == null || !purchase.Items.Any())
-            return;
-
-        await using var transaction = await _context.Database.BeginTransactionAsync();
-        try
+        foreach (var item in items)
         {
-            foreach (var item in purchase.Items)
+            _context.CartItems.Add(new CartItem
             {
-                var cartItem = new CartItem
-                {
-                    UserId = userId,
-                    GameId = item.GameId,
-                    GameName = item.GameName,
-                    Price = item.Price,
-                    Quantity = item.Quantity,
-                    Image = new List<string>(),
-                    AddedAt = DateTime.UtcNow,
-                    UpdatedAt = DateTime.UtcNow
-                };
-
-                _context.CartItems.Add(cartItem);
-            }
-
-            await _context.SaveChangeAsync();
-            await transaction.CommitAsync();
-        }
-        catch
-        {
-            await transaction.RollbackAsync();
-            throw;
+                UserId = userId,
+                GameId = item.GameId,
+                GameName = item.GameName,
+                Price = item.Price,
+                Quantity = item.Quantity,
+                Image = new List<string>(),
+                AddedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            });
         }
     }
 }

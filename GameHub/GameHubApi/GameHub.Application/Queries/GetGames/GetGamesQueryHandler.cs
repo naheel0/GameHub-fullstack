@@ -1,11 +1,7 @@
-using System.Linq;
-using System.Threading.Tasks;
 using GameHub.Application.Common.interfaces;
 using GameHub.Application.Common.Models;
 using GameHub.Application.DTOs.Games;
-using GameHub.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
-using System;
 
 namespace GameHub.Application.Queries.GetGames
 {

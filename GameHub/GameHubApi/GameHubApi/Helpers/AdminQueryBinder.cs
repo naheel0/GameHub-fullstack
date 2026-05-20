@@ -1,5 +1,4 @@
 using GameHub.Application.Common.Models;
-using Microsoft.AspNetCore.Http;
 
 namespace GameHubApi.Helpers
 {

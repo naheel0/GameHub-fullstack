@@ -1,6 +1,6 @@
-﻿using GameHub.Application.Common.Interfaces;
+﻿using GameHub.Api.Models;
+using GameHub.Application.Common.Interfaces;
 using GameHub.Application.DTOs.Games;
-using GameHub.Api.Models;
 using GameHub.Application.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;

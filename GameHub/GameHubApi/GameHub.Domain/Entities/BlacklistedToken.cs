@@ -1,5 +1,3 @@
-using System;
-
 namespace GameHub.Domain.Entities
 {
     public class BlacklistedToken

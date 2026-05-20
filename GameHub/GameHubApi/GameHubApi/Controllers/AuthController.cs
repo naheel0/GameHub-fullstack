@@ -34,7 +34,7 @@ namespace GameHubApi.Controllers
             return StatusCode(failStatus, result);
         }
 
-[HttpPost("login")]
+        [HttpPost("login")]
         public async Task<IActionResult> Login(LoginRequest request)
         {
             var result = await _authService.LoginAsync(request, string.Empty);

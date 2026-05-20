@@ -1,6 +1,4 @@
 using GameHub.Application.Common.Exceptions;
-using System.Resources;
-using Microsoft.Extensions.Logging;
 using GameHub.Application.Resources;
 
 namespace GameHubApi.Middleware;

@@ -1,14 +1,14 @@
+using FluentValidation;
+using FluentValidation.AspNetCore;
 using GameHub.Application;
 using GameHub.Infrastructure;
 using GameHubApi.Middleware;
-using FluentValidation;
-using FluentValidation.AspNetCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using System.Security.Claims;
 using System.Text;
 using System.Text.Json.Serialization;
-using System.Security.Claims;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -58,11 +58,11 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("DefaultCors", policy =>
     {
-          policy.WithOrigins("http://localhost:5173", "http://localhost:5175", "http://localhost:5176")
-              .AllowAnyHeader()
-              .AllowAnyMethod()
-              .WithExposedHeaders("X-Total-Count")
-              .AllowCredentials();
+        policy.WithOrigins("http://localhost:5173", "http://localhost:5175", "http://localhost:5176")
+            .AllowAnyHeader()
+            .AllowAnyMethod()
+            .WithExposedHeaders("X-Total-Count")
+            .AllowCredentials();
     });
 });
 

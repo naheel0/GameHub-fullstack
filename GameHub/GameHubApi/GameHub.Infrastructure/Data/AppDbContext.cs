@@ -153,12 +153,12 @@ namespace GameHub.Infrastructure.Data
                     entity.Property(b => b.Expires).IsRequired();
                 });
 
-            // Keyless mapping for AdminUserDetailDto used by FromSqlRaw
-            modelBuilder.Entity<AdminUserDetailDto>(eb =>
-            {
-                eb.HasNoKey();
-                eb.ToView(null);
-            });
+                // Keyless mapping for AdminUserDetailDto used by FromSqlRaw
+                modelBuilder.Entity<AdminUserDetailDto>(eb =>
+                {
+                    eb.HasNoKey();
+                    eb.ToView(null);
+                });
 
                 //-----------------------Razorpay-----------------------------------//
                 modelBuilder.Entity<Payment>(entity =>
@@ -171,10 +171,10 @@ namespace GameHub.Infrastructure.Data
                     entity.Property(p => p.Currency).HasMaxLength(3);
                     entity.Property(p => p.Amount).HasColumnType("decimal(10,2)");
 
-                                        entity.HasOne(p => p.Purchase)
-                                            .WithOne(p => p.Payment)
-                                            .HasForeignKey<Payment>(p => p.PurchaseId)
-                      .OnDelete(DeleteBehavior.Cascade);
+                    entity.HasOne(p => p.Purchase)
+                        .WithOne(p => p.Payment)
+                        .HasForeignKey<Payment>(p => p.PurchaseId)
+  .OnDelete(DeleteBehavior.Cascade);
                 });
             });
 
