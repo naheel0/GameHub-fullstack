@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useAdmin } from "./contexts/AdminContext";
 // eslint-disable-next-line no-unused-vars
 import { motion } from 'framer-motion';
+import { toast } from "react-toastify";
 import { Plus, Trash2, X, Image, Video, GamepadIcon, Edit3, Shield } from "lucide-react";
 
 export default function AdminAddProducts({ onClose, editingProduct }) {
@@ -121,10 +122,16 @@ export default function AdminAddProducts({ onClose, editingProduct }) {
       trailerFile: trailerFile?.file || null
     };
 
+    let result;
     if (editingProduct) {
-      await editProduct(editingProduct.id, productData);
+      result = await editProduct(editingProduct.id, productData);
     } else {
-      await addProduct(productData);
+      result = await addProduct(productData);
+    }
+
+    if (!result?.success) {
+      toast.error(result?.error || "Failed to save product");
+      return;
     }
 
     onClose();

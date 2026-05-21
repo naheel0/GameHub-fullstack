@@ -26,17 +26,14 @@ namespace GameHub.Api.Controllers
         [Consumes("multipart/form-data")]
         public async Task<IActionResult> CreateGame([FromForm] CreateGameFormModel model)
         {
-            // Upload images
             List<string> imageUrls = new();
-            if (model.ImageFiles != null)
+            if (model.ImageFiles != null && model.ImageFiles.Count > 0)
             {
                 try
                 {
-                    foreach (var file in model.ImageFiles)
-                    {
-                        var url = await _storage.UploadImageAsync(file);
-                        imageUrls.Add(url);
-                    }
+                    var uploadTasks = model.ImageFiles.Select(f => _storage.UploadImageAsync(f));
+                    var results = await Task.WhenAll(uploadTasks);
+                    imageUrls.AddRange(results);
                 }
                 catch (Exception ex)
                 {
@@ -78,16 +75,22 @@ namespace GameHub.Api.Controllers
         [Consumes("multipart/form-data")]
         public async Task<IActionResult> UpdateGame(int id, [FromForm] CreateGameFormModel model)
         {
-            List<string> imageUrls = new();
-            if (model.ImageFiles != null)
+            var imageUrls = new List<string>();
+
+            // Keep existing images that weren't replaced
+            if (model.ExistingImages != null)
+            {
+                imageUrls.AddRange(model.ExistingImages);
+            }
+
+            // Upload new images in parallel
+            if (model.ImageFiles != null && model.ImageFiles.Count > 0)
             {
                 try
                 {
-                    foreach (var file in model.ImageFiles)
-                    {
-                        var url = await _storage.UploadImageAsync(file);
-                        imageUrls.Add(url);
-                    }
+                    var uploadTasks = model.ImageFiles.Select(f => _storage.UploadImageAsync(f));
+                    var results = await Task.WhenAll(uploadTasks);
+                    imageUrls.AddRange(results);
                 }
                 catch (Exception ex)
                 {
@@ -95,7 +98,8 @@ namespace GameHub.Api.Controllers
                 }
             }
 
-            string trailer = "";
+            // Use existing trailer URL if no new file was uploaded
+            string trailer = model.ExistingTrailer ?? "";
             if (model.TrailerFile != null)
             {
                 try

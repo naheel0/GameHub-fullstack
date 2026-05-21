@@ -39,6 +39,7 @@ namespace GameHub.Infrastructure.Data
             //-------------USER-----------
             modelBuilder.Entity<User>(entity =>
             {
+                entity.ToTable(tb => tb.UseSqlOutputClause(false));
                 entity.Property(u => u.FirstName).HasMaxLength(50);
                 entity.Property(u => u.LastName).HasMaxLength(50);
                 entity.Property(u => u.Phone).HasMaxLength(15);
@@ -48,6 +49,7 @@ namespace GameHub.Infrastructure.Data
             //-----------GAMES--------------
             modelBuilder.Entity<Game>(entity =>
             {
+                entity.ToTable(tb => tb.UseSqlOutputClause(false));
                 entity.Property(g => g.Name).HasMaxLength(200).IsRequired();
                 entity.Property(g => g.Genre).HasMaxLength(100);
                 entity.Property(g => g.Platform).HasMaxLength(100);

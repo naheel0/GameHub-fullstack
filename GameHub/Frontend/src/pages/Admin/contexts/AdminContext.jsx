@@ -23,7 +23,7 @@ const mapUsers = (items) => {
   });
 };
 
-const buildGameFormData = async (productData) => {
+const buildGameFormData = (productData) => {
   const formData = new FormData();
 
   formData.append("Name", productData.name);
@@ -38,41 +38,15 @@ const buildGameFormData = async (productData) => {
   const newImageFiles = (productData.imageFiles || []).filter(Boolean);
   newImageFiles.forEach((file) => formData.append("ImageFiles", file));
 
-  // Re-fetch existing image URLs only if no new files provided
-  if (newImageFiles.length === 0) {
-    const existingUrls = (productData.images || []).filter(Boolean);
-    const refetched = await Promise.all(
-      existingUrls.map(async (url, index) => {
-        try {
-          const res = await fetch(url);
-          if (!res.ok) return null;
-          const blob = await res.blob();
-          const ext = blob.type.split("/")[1] || "jpg";
-          return new File([blob], `image-${index}.${ext}`, { type: blob.type });
-        } catch {
-          return null;
-        }
-      })
-    );
-    refetched.filter(Boolean).forEach((file) => formData.append("ImageFiles", file));
-  }
+  // Pass existing image URLs directly — no re-fetching
+  const existingUrls = (productData.images || []).filter(Boolean);
+  existingUrls.forEach((url) => formData.append("ExistingImages", url));
 
-  // Use new trailer File if provided, otherwise re-fetch existing URL
+  // Use new trailer File if provided, otherwise pass existing URL
   if (productData.trailerFile) {
     formData.append("TrailerFile", productData.trailerFile);
   } else if (productData.trailer) {
-    try {
-      const res = await fetch(productData.trailer);
-      if (res.ok) {
-        const blob = await res.blob();
-        if (blob.type.startsWith("video/")) {
-          const ext = blob.type.split("/")[1] || "mp4";
-          formData.append("TrailerFile", new File([blob], `trailer.${ext}`, { type: blob.type }));
-        }
-      }
-    } catch {
-      // trailer re-fetch failed, skip
-    }
+    formData.append("ExistingTrailer", productData.trailer);
   }
 
   return formData;
@@ -229,7 +203,7 @@ export function AdminProvider({ children }) {
 
   const addProduct = async (productData) => {
     try {
-      const formData = await buildGameFormData(productData);
+      const formData = buildGameFormData(productData);
       const response = await authFetch(`${API_BASE}/admin/games`, {
         method: "POST",
         headers: {
@@ -239,7 +213,10 @@ export function AdminProvider({ children }) {
         body: formData,
       });
 
-      if (!response.ok) throw new Error("Failed to add product");
+      if (!response.ok) {
+        const text = await response.text().catch(() => "");
+        throw new Error(`Failed to add product (${response.status})${text ? ": " + text : ""}`);
+      }
 
       const savedProduct = normalizeGame(await response.json());
       setProducts((prev) => [...prev, savedProduct]);
@@ -252,7 +229,7 @@ export function AdminProvider({ children }) {
 
   const editProduct = async (id, productData) => {
     try {
-      const formData = await buildGameFormData(productData);
+      const formData = buildGameFormData(productData);
       const response = await authFetch(`${API_BASE}/admin/games/${id}`, {
         method: "PUT",
         headers: {
@@ -262,7 +239,10 @@ export function AdminProvider({ children }) {
         body: formData,
       });
 
-      if (!response.ok) throw new Error("Failed to update product");
+      if (!response.ok) {
+        const text = await response.text().catch(() => "");
+        throw new Error(`Failed to update product (${response.status})${text ? ": " + text : ""}`);
+      }
 
       const savedProduct = normalizeGame(await response.json());
       setProducts((prev) => prev.map((p) => (p.id === id ? savedProduct : p)));

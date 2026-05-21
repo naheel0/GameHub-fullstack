@@ -123,6 +123,7 @@ namespace GameHub.Infrastructure.Services
             game.Name = request.Name;
             game.Genre = request.Genre;
             game.Platform = request.Platform;
+            game.Rating = (decimal)request.Rating;
             game.InStock = request.InStock;
             game.Price = request.Price;
             game.Trailer = request.Trailer;
