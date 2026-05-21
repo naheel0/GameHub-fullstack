@@ -56,7 +56,7 @@ public class OrderService : IOrderService
             {
                 UserId = userId,
                 // Enforce Razorpay as the only supported payment method server-side
-                PaymentMethod = GameHub.Domain.Enums.PaymentMethod.Razorpay,
+                PaymentMethod = PaymentMethod.Razorpay,
                 Status = OrderStatus.Pending,
                 SubTotal = subtotal,
                 Tax = tax,

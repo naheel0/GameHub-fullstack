@@ -207,7 +207,7 @@ public class RazorpayPaymentService : IPaymentService
 
         try
         {
-            var payment = new GameHub.Domain.Entities.Payment
+            var payment = new Payment
             {
                 PurchaseId = purchase.Id,
                 RazorpayPaymentId = request.RazorpayPaymentId,

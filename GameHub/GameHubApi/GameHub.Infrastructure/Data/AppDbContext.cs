@@ -3,6 +3,7 @@ using GameHub.Application.DTOs.Admin;
 using GameHub.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 namespace GameHub.Infrastructure.Data
 {
@@ -92,7 +93,9 @@ namespace GameHub.Infrastructure.Data
                     .HasConversion<string>()
                     .HasMaxLength(20);
                 entity.Property(p => p.PaymentMethod)
-                    .HasConversion<string>()
+                    .HasConversion(new ValueConverter<Domain.Enums.PaymentMethod, string>(
+                        value => value.ToString(),
+                        value => Enum.Parse<Domain.Enums.PaymentMethod>(value, true)))
                     .HasMaxLength(20);
                 entity.Property(p => p.SubTotal).HasColumnType("decimal(10,2)");
                 entity.Property(p => p.Tax).HasColumnType("decimal(10,2)");

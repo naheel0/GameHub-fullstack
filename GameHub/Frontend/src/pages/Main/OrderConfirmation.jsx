@@ -135,7 +135,7 @@ const OrderConfirmation = () => {
         localStorage.setItem('lastOrder', JSON.stringify(processed));
       }
 
-      await refreshCart();
+      await clearCart();
     } catch (err) {
       console.error('Finalize paid payment link error:', err);
     } finally {
@@ -204,7 +204,7 @@ const OrderConfirmation = () => {
           localStorage.setItem('lastOrder', JSON.stringify(processed));
           try { localStorage.removeItem('pendingPurchase'); } catch (e) { console.debug('Failed to remove pendingPurchase', e); }
           clearPendingPaymentDraft();
-          await refreshCart();
+          await clearCart();
         }
       } else {
         await refreshCart();
