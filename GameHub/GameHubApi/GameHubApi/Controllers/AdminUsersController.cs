@@ -20,7 +20,7 @@ namespace GameHubApi.Controllers
         [HttpGet]
         public async Task<IActionResult> GetUser([FromQuery] AdminQueryParameters queryParams)
         {
-            var q = GameHubApi.Helpers.AdminQueryBinder.FromRequest(Request, queryParams);
+            var q = Helpers.AdminQueryBinder.FromRequest(Request, queryParams);
             var result = await _adminService.GetUsersAsync(q);
             Response.Headers["X-Total-Count"] = result.TotalCount.ToString();
             return Ok(result.Items);

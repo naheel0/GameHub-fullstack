@@ -101,14 +101,14 @@ namespace GameHub.Infrastructure.Services
         public async Task BlockUserAsync(int userId)
         {
             var user = await _context.Users.FindAsync(userId)
-                ?? throw new NotFoundException(nameof(ExceptionMessages.UserNotFound));
-            user.AccountStatus = Domain.Enums.AccountStatus.Blocked;
-            await _context.SaveChangeAsync();
+                 ?? throw new NotFoundException(nameof(ExceptionMessages.UserNotFound));
+            await _context.Database.ExecuteSqlInterpolatedAsync(
+                $"EXEC BlockUser @UserId={userId}");
         }
         public async Task ActivateUserAsync(int userId)
         {
             var user = await _context.Users.FindAsync(userId)
-                ?? throw new NotFoundException(nameof(ExceptionMessages.UserNotFound));
+                ?? throw new NotFoundException(ExceptionMessages.UserNotFound);
             user.AccountStatus = Domain.Enums.AccountStatus.Active;
             await _context.SaveChangeAsync();
         }
