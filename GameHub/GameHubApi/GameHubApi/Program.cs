@@ -4,6 +4,7 @@ using GameHub.Application;
 using GameHub.Infrastructure;
 using GameHubApi.Middleware;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Security.Claims;
@@ -54,11 +55,12 @@ builder.Services.Configure<Microsoft.AspNetCore.Mvc.ApiBehaviorOptions>(options 
 });
 
 // 4. CORS
+var allowedOrigins = builder.Configuration.GetValue<string>("AllowedOrigins") ?? "http://localhost:5173";
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("DefaultCors", policy =>
     {
-        policy.WithOrigins("http://localhost:5173", "http://localhost:5175", "http://localhost:5176")
+        policy.WithOrigins(allowedOrigins.Split(','))
             .AllowAnyHeader()
             .AllowAnyMethod()
             .WithExposedHeaders("X-Total-Count")
@@ -103,7 +105,7 @@ builder.Services.AddAuthentication(options =>
             if (string.IsNullOrEmpty(jti)) return;
             var db = context.HttpContext.RequestServices.GetRequiredService<GameHub.Application.Common.interfaces.IApplicationDbContext>();
             // check blacklist
-            var isBlacklisted = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.AnyAsync(db.BlacklistedTokens, b => b.Jti == jti);
+            var isBlacklisted = await EntityFrameworkQueryableExtensions.AnyAsync(db.BlacklistedTokens, b => b.Jti == jti);
             if (isBlacklisted)
             {
                 context.Fail("Token revoked");
@@ -155,7 +157,14 @@ builder.Services.AddSingleton<IGlobalExceptionHandler, ExceptionHandler>();
 var app = builder.Build();
 
 // 8. Pipeline
-app.UseMiddleware<GameHubApi.Middleware.ExceptionMiddleware>();
+app.UseMiddleware<ExceptionMiddleware>();
+// Run database migrations and seed
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<GameHub.Infrastructure.Data.AppDbContext>();
+    db.Database.Migrate();
+    
+}
 
 if (app.Environment.IsDevelopment())
 {
