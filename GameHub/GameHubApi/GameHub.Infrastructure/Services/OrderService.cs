@@ -89,7 +89,14 @@ public class OrderService : IOrderService
             await _context.SaveChangeAsync();
             await transaction.CommitAsync();
 
-            return MapOrderToDto(purchase);
+            var savedPurchase = await _context.Purchases
+                .Include(p => p.Items)
+                .Include(p => p.ShippingAddress)
+                .AsNoTracking()
+                .FirstOrDefaultAsync(p => p.Id == purchase.Id && p.UserId == userId)
+                ?? throw new NotFoundException(nameof(ExceptionMessages.OrderNotFound));
+
+            return MapOrderToDto(savedPurchase);
         }
         catch
         {

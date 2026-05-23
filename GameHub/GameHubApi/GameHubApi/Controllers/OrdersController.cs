@@ -23,21 +23,30 @@ namespace GameHubApi.Controllers
         [HttpPost]
         public async Task<IActionResult> PlaceOrder([FromBody] PlaceOrderRequest request)
         {
-            var order = await _orderService.PlaceOrderAsync(_currentUserService.UserId!.Value, request);
+            var userId = GetCurrentUserId();
+            var order = await _orderService.PlaceOrderAsync(userId, request);
             return Ok(order);
         }
         [HttpGet]
         public async Task<IActionResult> GetOrderHistory()
         {
-            var order = await _orderService.GetOrderHistoryAsync(_currentUserService.UserId!.Value);
+            var userId = GetCurrentUserId();
+            var order = await _orderService.GetOrderHistoryAsync(userId);
             return Ok(order);
         }
         [HttpGet("{orderId}")]
         public async Task<IActionResult> GetOrdersById(Guid orderId)
         {
-            var order = await _orderService.GetOrderByIdAsync(_currentUserService.UserId!.Value, orderId);
+            var userId = GetCurrentUserId();
+            var order = await _orderService.GetOrderByIdAsync(userId, orderId);
             if (order == null) return NotFound(new { message = ExceptionMessages.OrderNotFound });
             return Ok(order);
+        }
+
+        private int GetCurrentUserId()
+        {
+            return _currentUserService.UserId
+                ?? throw new UnauthorizedAccessException(ExceptionMessages.Unauthorized);
         }
     }
 }
