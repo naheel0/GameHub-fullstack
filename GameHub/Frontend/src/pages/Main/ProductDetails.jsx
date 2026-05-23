@@ -21,6 +21,7 @@ const ProductDetails = () => {
   const [showVideo, setShowVideo] = useState(false);
   const [wishlistLoading, setWishlistLoading] = useState(false);
   const [quantity, setQuantity] = useState(1);
+  const [apiUnavailable, setApiUnavailable] = useState(false);
   
   const { addToCart } = useCart();
   const { user } = useAuth();
@@ -34,13 +35,33 @@ const ProductDetails = () => {
   const [isInWishlistState, setIsInWishlistState] = useState(false);
 
   useEffect(() => {
+    if (!API_BASE) {
+      setError('Make sure the GameHub API is running.');
+      setApiUnavailable(true);
+      setLoading(false);
+      return;
+    }
+
     const fetchGame = async () => {
       try {
         setLoading(true);
         const response = await fetch(`${API_BASE}/games/${id}`);
         if (!response.ok) {
+          const responseText = await response.text();
+          if (responseText.trim().startsWith('<')) {
+            throw new Error('Make sure the GameHub API is running.');
+          }
           throw new Error('Failed to fetch game data');
         }
+        const contentType = response.headers.get('content-type') || '';
+        if (!contentType.includes('application/json')) {
+          const responseText = await response.text();
+          if (responseText.trim().startsWith('<')) {
+            throw new Error('Make sure the GameHub API is running.');
+          }
+          throw new Error('Unexpected response from the GameHub API.');
+        }
+
         const foundGame = await response.json();
         const normalized = normalizeGame(foundGame);
 
@@ -210,6 +231,20 @@ const ProductDetails = () => {
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600 mx-auto"></div>
           <p className="mt-4 text-gray-300">Loading game details...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (apiUnavailable) {
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center px-6">
+        <div className="max-w-xl rounded-2xl border border-red-900 bg-red-950/40 p-8 text-center shadow-2xl shadow-red-950/20">
+          <p className="text-sm uppercase tracking-[0.35em] text-red-300">Backend unavailable</p>
+          <h1 className="mt-4 text-3xl font-bold text-white sm:text-4xl">Make sure the GameHub API is running</h1>
+          <p className="mt-4 text-base leading-7 text-gray-300">
+            The product page could not load game data because the API response was not JSON.
+          </p>
         </div>
       </div>
     );
