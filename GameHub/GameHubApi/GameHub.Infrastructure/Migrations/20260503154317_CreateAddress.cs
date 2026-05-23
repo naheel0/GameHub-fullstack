@@ -10,9 +10,9 @@ namespace GameHub.Infrastructure.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.DropColumn(
-                name: "Addresses",
-                table: "Users");
+            migrationBuilder.Sql(@"
+IF COL_LENGTH('Users', 'Addresses') IS NOT NULL
+    ALTER TABLE [Users] DROP COLUMN [Addresses];");
 
             migrationBuilder.CreateTable(
                 name: "Address",
