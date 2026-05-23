@@ -55,16 +55,26 @@ builder.Services.Configure<Microsoft.AspNetCore.Mvc.ApiBehaviorOptions>(options 
 });
 
 // 4. CORS
-var allowedOrigins = builder.Configuration.GetValue<string>("AllowedOrigins")
+var defaultOrigins = new[]
+{
+    "http://localhost:5173",
+    "http://localhost:4173",
+    "http://127.0.0.1:5173",
+    "http://127.0.0.1:4173",
+    "https://game-hub-fullstack.vercel.app"
+};
+
+var configuredOrigins = builder.Configuration.GetValue<string>("AllowedOrigins")
     ?.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-    ?? new[]
-    {
-        "http://localhost:5173",
-        "http://localhost:4173",
-        "http://127.0.0.1:5173",
-        "http://127.0.0.1:4173",
-        "https://game-hub-fullstack.vercel.app"
-    };
+    ?? Array.Empty<string>();
+
+// Keep local development origins even when Azure app settings provide a production-only origin list.
+var allowedOrigins = defaultOrigins
+    .Concat(configuredOrigins)
+    .Where(origin => !string.IsNullOrWhiteSpace(origin))
+    .Distinct(StringComparer.OrdinalIgnoreCase)
+    .ToArray();
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("DefaultCors", policy =>
