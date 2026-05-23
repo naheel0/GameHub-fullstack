@@ -35,19 +35,19 @@ const Home = () => {
 
     const fetchGames = async () => {
       try {
-        const response = await fetch(`${API_BASE}/games?pageSize=100`);
-        if (!response.ok) {
-          throw new Error("Failed to fetch games data");
+          const response = await fetch(`${API_BASE}/games?pageSize=100`);
+          if (!response.ok) {
+            throw new Error("Failed to fetch games data");
+          }
+          const payload = await response.json();
+          const items = payload?.data?.items || payload?.items || payload || [];
+          const normalized = items.map(normalizeGame).filter(Boolean);
+          setFeaturedGames(normalized.slice(0, 6));
+          setLoading(false);
+        } catch (err) {
+          console.debug("Error fetching games:", err);
+          setLoading(false);
         }
-        const payload = await response.json();
-        const items = payload?.data?.items || payload?.items || payload || [];
-        const normalized = items.map(normalizeGame).filter(Boolean);
-        setFeaturedGames(normalized.slice(0, 6));
-        setLoading(false);
-      } catch (err) {
-        console.error("Error fetching games:", err);
-        setLoading(false);
-      }
     };
 
     fetchGames();
@@ -112,13 +112,9 @@ const Home = () => {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center px-6">
         <div className="max-w-2xl rounded-2xl border border-red-900 bg-red-950/40 p-8 text-center shadow-2xl shadow-red-950/20">
-          <p className="text-sm uppercase tracking-[0.35em] text-red-300">Configuration required</p>
-          <h1 className="mt-4 text-3xl font-bold text-white sm:text-4xl">API base URL is missing</h1>
+          <h1 className="mt-4 text-3xl font-bold text-white sm:text-4xl">Backend unavailable</h1>
           <p className="mt-4 text-base leading-7 text-gray-300">
-            Set the Vercel environment variable VITE_API_BASE_URL to your deployed GameHub API URL, then redeploy the frontend.
-          </p>
-          <p className="mt-3 text-sm text-gray-400">
-            Until that variable is set, the app cannot load games from the backend.
+            The application cannot reach the backend API. Please check configuration and try again.
           </p>
         </div>
       </div>

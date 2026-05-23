@@ -1,12 +1,13 @@
 const normalizeBaseUrl = (value) => value?.replace(/\/$/, "");
 
-const resolveBaseUrl = () => normalizeBaseUrl(import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_BASE);
+const withApiPrefix = (value) => {
+	if (!value) return null;
+	return value.endsWith("/api") ? value : `${value}/api`;
+};
+
+const resolveBaseUrl = () => withApiPrefix(normalizeBaseUrl(import.meta.env.VITE_API_BASE_URL || null));
 
 export const BaseUrl = resolveBaseUrl();
-
-if (!BaseUrl) {
-	console.error("Missing VITE_API_BASE_URL (or VITE_API_BASE) environment variable.");
-}
 
 export const getStoredAuth = () => {
 	const raw = localStorage.getItem("gameHubAuth");
@@ -15,7 +16,7 @@ export const getStoredAuth = () => {
 	try {
 		return JSON.parse(raw);
 	} catch (error) {
-		console.error("Failed to parse auth cache:", error);
+		console.debug("Failed to parse auth cache:", error);
 		localStorage.removeItem("gameHubAuth");
 		return null;
 	}
