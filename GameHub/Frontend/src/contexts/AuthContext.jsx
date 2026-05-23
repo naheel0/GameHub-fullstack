@@ -18,12 +18,14 @@ export const AuthProvider = ({ children }) => {
 
   useEffect(() => {
     const bootstrapAuth = async () => {
-      const savedAuth = getStoredAuth();
-      if (savedAuth?.user) {
-        setUser(savedAuth.user);
-      }
-
       try {
+        const persistedAuth = getStoredAuth();
+        if (!persistedAuth?.user) {
+          setUser(null);
+          setLoading(false);
+          return;
+        }
+
         const refreshResponse = await fetch(`${API_BASE}/auth/refresh`, {
           method: 'POST',
           credentials: 'include',
@@ -41,16 +43,21 @@ export const AuthProvider = ({ children }) => {
         if (refreshedUser?.accessToken) {
           setUser(refreshedUser);
           setStoredAuth({ user: refreshedUser });
+        } else {
+          setUser(null);
+          setStoredAuth(null);
         }
       } catch (error) {
         console.error('Auth refresh bootstrap error:', error);
+        setUser(null);
+        setStoredAuth(null);
       } finally {
         setLoading(false);
       }
     };
 
     bootstrapAuth();
-  }, []);
+  }, [API_BASE]);
 
   const authFetchWithLogout = async (url, options = {}) => {
     const { __skipRefresh, ...requestOptions } = options;
@@ -67,6 +74,11 @@ export const AuthProvider = ({ children }) => {
     };
 
     const performRefresh = async () => {
+      const persistedAuth = getStoredAuth();
+      if (!persistedAuth?.user && !user?.accessToken) {
+        return null;
+      }
+
       try {
         const refreshResponse = await fetch(`${API_BASE}/auth/refresh`, {
           method: 'POST',
@@ -94,6 +106,11 @@ export const AuthProvider = ({ children }) => {
 
     try {
       const headers = buildHeaders(requestOptions.headers);
+      const currentToken = user?.accessToken || getStoredAuth()?.user?.accessToken || '';
+
+      if (!headers.Authorization && currentToken) {
+        headers.Authorization = `Bearer ${currentToken}`;
+      }
 
       const fetchOptions = {
         ...requestOptions,
@@ -117,10 +134,16 @@ export const AuthProvider = ({ children }) => {
         return response;
       }
 
-      // Retry original request using cookie (credentials included). Do not rely on in-memory accessToken for retry.
+      const retryHeaders = buildHeaders(requestOptions.headers);
+      if (refreshedUser.accessToken) {
+        retryHeaders.Authorization = `Bearer ${refreshedUser.accessToken}`;
+      } else if (currentToken) {
+        retryHeaders.Authorization = `Bearer ${currentToken}`;
+      }
+
       return fetch(url, {
         ...requestOptions,
-        headers: buildHeaders(requestOptions.headers),
+        headers: retryHeaders,
         credentials: requestOptions.credentials || 'include',
         __skipRefresh: true,
       });

@@ -20,26 +20,36 @@ namespace GameHubApi.Controllers
         [HttpGet]
         public async Task<IActionResult> GetWishlist()
         {
-            var wishlist = await _wishlistService.GetWishlistItemsAsync(_currentUser.UserId!.Value);
+            var userId = GetCurrentUserId();
+            var wishlist = await _wishlistService.GetWishlistItemsAsync(userId);
             return Ok(wishlist);
         }
         [HttpPost("{gameId}")]
         public async Task<IActionResult> AddToWishlist(int gameId)
         {
-            await _wishlistService.AddToWishlistAsync(_currentUser.UserId!.Value, gameId);
+            var userId = GetCurrentUserId();
+            await _wishlistService.AddToWishlistAsync(userId, gameId);
             return Ok(new { meesage = "Add to wishlist" });
         }
         [HttpDelete("{gameId}")]
         public async Task<IActionResult> RemoveFromWishlist(int gameId)
         {
-            await _wishlistService.RemoveFromWishlistAsync(_currentUser.UserId!.Value, gameId);
+            var userId = GetCurrentUserId();
+            await _wishlistService.RemoveFromWishlistAsync(userId, gameId);
             return Ok(new { message = "Removed from wishlist" });
         }
         [HttpPost("{gameId}/move-to-cart")]
         public async Task<IActionResult> MoveToCart(int gameId)
         {
-            await _wishlistService.MoveToCartAsync(_currentUser.UserId!.Value, gameId);
+            var userId = GetCurrentUserId();
+            await _wishlistService.MoveToCartAsync(userId, gameId);
             return Ok(new { message = "Moved to cart" });
+        }
+
+        private int GetCurrentUserId()
+        {
+            return _currentUser.UserId
+                ?? throw new UnauthorizedAccessException(GameHub.Application.Resources.ExceptionMessages.Unauthorized);
         }
     }
 }

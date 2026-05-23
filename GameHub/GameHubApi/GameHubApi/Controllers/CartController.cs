@@ -21,19 +21,22 @@ namespace GameHubApi.Controllers
         [HttpGet]
         public async Task<IActionResult> GetCart()
         {
-            var cart = await _cartService.GetCartAsync(_currentUser.UserId!.Value);
+            var userId = GetCurrentUserId();
+            var cart = await _cartService.GetCartAsync(userId);
             return Ok(cart);
         }
         [HttpPost]
         public async Task<IActionResult> AddToCart([FromBody] AddToCartRequest request)
         {
-            await _cartService.AddToCartAsync(_currentUser.UserId!.Value, request.GameId, request.Quantity);
+            var userId = GetCurrentUserId();
+            await _cartService.AddToCartAsync(userId, request.GameId, request.Quantity);
             return Ok(new { message = "Item add to cart" });
         }
         [HttpPut("{gameId}")]
         public async Task<IActionResult> UpdateQuantity(int gameId, [FromBody] UpdateQuantityRequest request)
         {
-            await _cartService.UpdateQuantityAsync(_currentUser.UserId!.Value, gameId, request.Quantity);
+            var userId = GetCurrentUserId();
+            await _cartService.UpdateQuantityAsync(userId, gameId, request.Quantity);
             {
                 return Ok(new { message = "Quantity update" });
             }
@@ -41,14 +44,22 @@ namespace GameHubApi.Controllers
         [HttpDelete("{gameId}")]
         public async Task<IActionResult> ReoveFromCart(int gameId)
         {
-            await _cartService.RemoveFromCartAsync(_currentUser.UserId!.Value, gameId);
+            var userId = GetCurrentUserId();
+            await _cartService.RemoveFromCartAsync(userId, gameId);
             return Ok(new { message = "Item removed from cart" });
         }
         [HttpDelete]
         public async Task<IActionResult> ClearCart()
         {
-            await _cartService.ClearCartAsync(_currentUser.UserId!.Value);
+            var userId = GetCurrentUserId();
+            await _cartService.ClearCartAsync(userId);
             return Ok(new { message = "Cart cleared" });
+        }
+
+        private int GetCurrentUserId()
+        {
+            return _currentUser.UserId
+                ?? throw new UnauthorizedAccessException(GameHub.Application.Resources.ExceptionMessages.Unauthorized);
         }
     }
 }

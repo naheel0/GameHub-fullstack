@@ -1,6 +1,7 @@
 ﻿using GameHub.Application.Common.Exceptions;
 using GameHub.Application.Common.interfaces;
 using GameHub.Application.DTOs.Payments;
+using GameHub.Application.Resources;
 using GameHub.Application.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -26,8 +27,13 @@ namespace GameHubApi.Controllers
         {
             try
             {
-                var result = await _paymentService.CreatePaymentLinkAsync(purchaseId, _currentUser.UserId!.Value);
+                var userId = GetCurrentUserId();
+                var result = await _paymentService.CreatePaymentLinkAsync(purchaseId, userId);
                 return Ok(result);
+            }
+            catch (UnauthorizedAccessException ua)
+            {
+                return Unauthorized(new { message = ua.Message, error = nameof(UnauthorizedAccessException) });
             }
             catch (NotFoundException nf)
             {
@@ -46,14 +52,16 @@ namespace GameHubApi.Controllers
         [HttpPost("restore/{purchaseId:int}")]
         public async Task<IActionResult> RestorePurchaseToCart(int purchaseId)
         {
-            await _paymentService.RestoreCartFromPurchaseAsync(purchaseId, _currentUser.UserId!.Value);
+            var userId = GetCurrentUserId();
+            await _paymentService.RestoreCartFromPurchaseAsync(purchaseId, userId);
             return Ok(new { restored = true });
         }
 
         [HttpPost("verify")]
         public async Task<IActionResult> VerifyPayment([FromBody] PaymentVerifyRequest request)
         {
-            var result = await _paymentService.VerifyPaymentAsync(request, _currentUser.UserId!.Value);
+            var userId = GetCurrentUserId();
+            var result = await _paymentService.VerifyPaymentAsync(request, userId);
             return Ok(result);
         }
 
@@ -62,8 +70,13 @@ namespace GameHubApi.Controllers
         {
             try
             {
-                var result = await _paymentService.ConfirmPaymentLinkAsync(request, _currentUser.UserId!.Value);
+                var userId = GetCurrentUserId();
+                var result = await _paymentService.ConfirmPaymentLinkAsync(request, userId);
                 return Ok(result);
+            }
+            catch (UnauthorizedAccessException ua)
+            {
+                return Unauthorized(new { message = ua.Message, error = nameof(UnauthorizedAccessException) });
             }
             catch (NotFoundException nf)
             {
@@ -73,6 +86,12 @@ namespace GameHubApi.Controllers
             {
                 return BadRequest(new { message = "Failed to confirm payment", error = ex.Message });
             }
+        }
+
+        private int GetCurrentUserId()
+        {
+            return _currentUser.UserId
+                ?? throw new UnauthorizedAccessException(ExceptionMessages.Unauthorized);
         }
 
     }

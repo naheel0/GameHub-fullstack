@@ -1,4 +1,5 @@
 ﻿using GameHub.Application.DTOs.Auth;
+using GameHub.Application.Resources;
 using GameHub.Application.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -61,7 +62,7 @@ namespace GameHubApi.Controllers
         [Authorize]
         public async Task<IActionResult> Logout()
         {
-            var userId = int.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)!.Value);
+            var userId = GetCurrentUserId();
             var jti = User.FindFirst(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Jti)?.Value;
             await _authService.Logout(userId, jti);
             Response.Cookies.Delete("refreshToken");
@@ -71,9 +72,19 @@ namespace GameHubApi.Controllers
         [Authorize]
         public async Task<IActionResult> GetProfile()
         {
-            var userId = int.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)!.Value);
+            var userId = GetCurrentUserId();
             var result = await _authService.GetProfileAsync(userId);
             return result.Success ? Ok(result) : StatusCode(result.StatusCode != 0 ? result.StatusCode : 404, result);
+        }
+
+        private int GetCurrentUserId()
+        {
+            var idValue = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
+                ?? User.FindFirst(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Sub)?.Value;
+
+            return int.TryParse(idValue, out var parsedId)
+                ? parsedId
+                : throw new UnauthorizedAccessException(ExceptionMessages.Unauthorized);
         }
         private void SetRefreshTokenCookie(string token)
         {
