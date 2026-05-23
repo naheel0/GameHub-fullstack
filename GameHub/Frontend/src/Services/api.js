@@ -1,6 +1,12 @@
-const DEFAULT_API_BASE = import.meta.env.VITE_API_BASE || "https://localhost:7023";
+const normalizeBaseUrl = (value) => value?.replace(/\/$/, "");
 
-export const BaseUrl = import.meta.env.VITE_API_BASE_URL || DEFAULT_API_BASE;
+const resolveBaseUrl = () => normalizeBaseUrl(import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_BASE);
+
+export const BaseUrl = resolveBaseUrl();
+
+if (!BaseUrl) {
+	console.error("Missing VITE_API_BASE_URL (or VITE_API_BASE) environment variable.");
+}
 
 export const getStoredAuth = () => {
 	const raw = localStorage.getItem("gameHubAuth");
