@@ -89,14 +89,7 @@ public class OrderService : IOrderService
             await _context.SaveChangeAsync();
             await transaction.CommitAsync();
 
-            var savedPurchase = await _context.Purchases
-                .Include(p => p.Items)
-                .Include(p => p.ShippingAddress)
-                .AsNoTracking()
-                .FirstOrDefaultAsync(p => p.Id == purchase.Id && p.UserId == userId)
-                ?? throw new NotFoundException(nameof(ExceptionMessages.OrderNotFound));
-
-            return MapOrderToDto(savedPurchase);
+            return MapOrderToDto(purchase);
         }
         catch
         {
@@ -134,7 +127,7 @@ public class OrderService : IOrderService
         PurchaseId = p.Id,
         OrderId = p.OrderId,
         OrderDate = p.OrderDate,
-        Items = p.Items.Select(i => new OrderItemDto
+        Items = (p.Items ?? []).Select(i => new OrderItemDto
         {
             GameId = i.GameId,
             GameName = i.GameName,
@@ -144,7 +137,7 @@ public class OrderService : IOrderService
         SubTotal = p.SubTotal,
         Tax = p.Tax,
         Total = p.Total,
-        ShippingAddress = new AddressDto
+        ShippingAddress = p.ShippingAddress is null ? new AddressDto() : new AddressDto
         {
             AddressId = p.ShippingAddress.AddressId,
             FullName = p.ShippingAddress.FullName,
