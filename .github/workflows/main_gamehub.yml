@@ -24,10 +24,10 @@ jobs:
           dotnet-version: '8.x'
 
       - name: Build with dotnet
-        run: dotnet build GameHub/GameHubApi/GameHubApi.csproj --configuration Release
+        run: dotnet build GameHub/GameHubApi/GameHubApi/GameHubApi.csproj --configuration Release
 
       - name: dotnet publish
-        run: dotnet publish GameHub/GameHubApi/GameHubApi.csproj -c Release -o ./myapp
+        run: dotnet publish GameHub/GameHubApi/GameHubApi/GameHubApi.csproj -c Release -o ./myapp
 
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v4
