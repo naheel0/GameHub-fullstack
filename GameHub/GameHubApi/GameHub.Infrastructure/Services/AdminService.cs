@@ -102,7 +102,7 @@ namespace GameHub.Infrastructure.Services
         {
             var user = await _context.Users.FindAsync(userId)
                  ?? throw new NotFoundException(nameof(ExceptionMessages.UserNotFound));
-            await _context.Database.ExecuteSqlInterpolatedAsync(
+            await _context.Database.ExecuteSqlAsync(
                 $"EXEC BlockUser @UserId={userId}");
         }
         public async Task ActivateUserAsync(int userId)
