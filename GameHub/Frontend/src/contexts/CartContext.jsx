@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { toast } from 'react-toastify';
 import { useAuth } from './AuthContext';
-import { BaseUrl, buildAuthHeaders, normalizeGame } from '../Services/api';
+import { BaseUrl, normalizeGame } from '../Services/api';
 
 const CartContext = createContext();
 
@@ -21,7 +21,6 @@ export const CartProvider = ({ children }) => {
   const { user, authFetch, loading: authLoading } = useAuth();
 
   const API_BASE = BaseUrl;
-  const token = user?.accessToken;
 
   const fetchGame = useCallback(async (gameId) => {
     try {
@@ -59,10 +58,9 @@ export const CartProvider = ({ children }) => {
   }, [fetchGame]);
 
   const loadCart = useCallback(async () => {
-    // Wait until auth provider finishes loading so we don't clear the cart
     if (authLoading) return;
 
-    if (!user || !token) {
+    if (!user) {
       setCart([]);
       setLoading(false);
       return;
@@ -70,16 +68,13 @@ export const CartProvider = ({ children }) => {
 
     try {
       setLoading(true);
-      const response = await authFetch(`${API_BASE}/cart`, {
-        headers: { ...buildAuthHeaders(token) },
-      });
+      const response = await authFetch(`${API_BASE}/cart`);
 
       if (!response.ok) {
         throw new Error('Failed to fetch cart');
       }
 
       const items = await response.json();
-      // If server cart is empty but we have a pending purchase, try restoring it
       if ((!items || items.length === 0) && typeof window !== 'undefined') {
         try {
           const pending = localStorage.getItem('pendingPurchase');
@@ -88,14 +83,11 @@ export const CartProvider = ({ children }) => {
             if (!Number.isNaN(pid)) {
               const restoreResp = await authFetch(`${API_BASE}/payments/restore/${pid}`, {
                 method: 'POST',
-                headers: { ...buildAuthHeaders(token) },
               });
               if (restoreResp && restoreResp.ok) {
                 localStorage.removeItem('pendingPurchase');
                 // re-fetch cart items from server
-                const reResp = await authFetch(`${API_BASE}/cart`, {
-                  headers: { ...buildAuthHeaders(token) },
-                });
+                const reResp = await authFetch(`${API_BASE}/cart`);
                 if (reResp.ok) {
                   const reItems = await reResp.json();
                   const mappedRe = await Promise.all((reItems || []).map(mapCartItem));
@@ -119,14 +111,14 @@ export const CartProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  }, [API_BASE, authFetch, authLoading, mapCartItem, token, user]);
+  }, [API_BASE, authFetch, authLoading, mapCartItem, user]);
 
   useEffect(() => {
     loadCart();
   }, [loadCart]);
 
   const addToCart = async (game, quantity = 1) => {
-    if (!user || !token) {
+    if (!user) {
       toast.warning('Sign in to add items to your cart.');
       return false;
     }
@@ -139,7 +131,7 @@ export const CartProvider = ({ children }) => {
     try {
       const response = await authFetch(`${API_BASE}/cart`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...buildAuthHeaders(token) },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ gameId: game.id, quantity }),
       });
 
@@ -158,7 +150,7 @@ export const CartProvider = ({ children }) => {
   };
 
   const removeFromCart = async (gameId) => {
-    if (!user || !token) {
+    if (!user) {
       toast.warning('Sign in to manage your cart.');
       return false;
     }
@@ -166,7 +158,6 @@ export const CartProvider = ({ children }) => {
     try {
       const response = await authFetch(`${API_BASE}/cart/${gameId}`, {
         method: 'DELETE',
-        headers: { ...buildAuthHeaders(token) },
       });
 
       if (!response.ok) {
@@ -183,7 +174,7 @@ export const CartProvider = ({ children }) => {
   };
 
   const updateQuantity = async (gameId, newQuantity) => {
-    if (!user || !token) {
+    if (!user) {
       toast.warning('Sign in to manage your cart.');
       return false;
     }
@@ -195,7 +186,7 @@ export const CartProvider = ({ children }) => {
     try {
       const response = await authFetch(`${API_BASE}/cart/${gameId}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json', ...buildAuthHeaders(token) },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ quantity: newQuantity }),
       });
 
@@ -215,7 +206,7 @@ export const CartProvider = ({ children }) => {
   };
 
   const clearCart = async () => {
-    if (!user || !token) {
+    if (!user) {
       toast.warning('Sign in to manage your cart.');
       return false;
     }
@@ -223,7 +214,6 @@ export const CartProvider = ({ children }) => {
     try {
       const response = await authFetch(`${API_BASE}/cart`, {
         method: 'DELETE',
-        headers: { ...buildAuthHeaders(token) },
       });
 
       if (!response.ok) {
@@ -269,7 +259,7 @@ export const CartProvider = ({ children }) => {
   };
 
   const checkout = async (paymentMethod, address) => {
-    if (!user || !token) {
+    if (!user) {
       toast.warning('Sign in to continue to checkout.');
       return { success: false, error: 'User not logged in' };
     }
@@ -291,9 +281,7 @@ export const CartProvider = ({ children }) => {
 
     try {
       // Ensure server-side cart is populated. Some flows may keep cart only client-side.
-      const serverCartResp = await authFetch(`${API_BASE}/cart`, {
-        headers: { ...buildAuthHeaders(token) },
-      });
+      const serverCartResp = await authFetch(`${API_BASE}/cart`);
       if (serverCartResp.ok) {
         const serverItems = await serverCartResp.json().catch(() => []);
         if ((!serverItems || serverItems.length === 0) && cart.length > 0) {
@@ -302,7 +290,7 @@ export const CartProvider = ({ children }) => {
             try {
               await authFetch(`${API_BASE}/cart`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', ...buildAuthHeaders(token) },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ gameId: item.id, quantity: item.quantity }),
               });
             } catch {
@@ -316,7 +304,7 @@ export const CartProvider = ({ children }) => {
 
       const response = await authFetch(`${API_BASE}/orders`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...buildAuthHeaders(token) },
+        headers: { 'Content-Type': 'application/json' },
         // Force Razorpay as the only supported payment method
         body: JSON.stringify({
           addressId: resolvedAddressId,
@@ -367,16 +355,13 @@ export const CartProvider = ({ children }) => {
         date: orderDto.orderDate,
         shippingAddress: orderDto.shippingAddress || address,
       };
-      // Persist pending purchase id so we can restore the cart if the user navigates back without paying
       try {
         const pid = order.purchaseId;
         if (pid) localStorage.setItem('pendingPurchase', String(pid));
-      } catch (e) {
-        console.debug('Failed to persist pendingPurchase', e);
+      } catch (error) {
+        console.error('Failed to store pending purchase:', error);
       }
 
-      // Do NOT clear client cart here — the server removes cart items when a purchase is created.
-      // Keep the client cart until payment is verified or the server restores it on failure.
       toast.success('Order created. Complete payment to confirm it.');
       return { success: true, order };
     } catch (error) {

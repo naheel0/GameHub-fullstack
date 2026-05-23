@@ -55,12 +55,21 @@ builder.Services.Configure<Microsoft.AspNetCore.Mvc.ApiBehaviorOptions>(options 
 });
 
 // 4. CORS
-var allowedOrigins = builder.Configuration.GetValue<string>("AllowedOrigins") ?? "http://localhost:5173";
+var allowedOrigins = builder.Configuration.GetValue<string>("AllowedOrigins")
+    ?.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+    ?? new[]
+    {
+        "http://localhost:5173",
+        "http://localhost:4173",
+        "http://127.0.0.1:5173",
+        "http://127.0.0.1:4173",
+        "https://game-hub-fullstack.vercel.app"
+    };
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("DefaultCors", policy =>
     {
-        policy.WithOrigins(allowedOrigins.Split(','))
+        policy.WithOrigins(allowedOrigins)
             .AllowAnyHeader()
             .AllowAnyMethod()
             .WithExposedHeaders("X-Total-Count")

@@ -1,8 +1,16 @@
 const normalizeBaseUrl = (value) => value?.replace(/\/$/, "");
 
+const ensureProtocol = (value) => {
+	if (!value) return null;
+	if (/^https?:\/\//i.test(value)) return value;
+	if (/^(localhost|127\.0\.0\.1)(:\d+)?/i.test(value)) return `http://${value}`;
+	return `https://${value}`;
+};
+
 const withApiPrefix = (value) => {
 	if (!value) return null;
-	return value.endsWith("/api") ? value : `${value}/api`;
+	const absoluteValue = ensureProtocol(value);
+	return absoluteValue.endsWith("/api") ? absoluteValue : `${absoluteValue}/api`;
 };
 
 const resolveBaseUrl = () => withApiPrefix(normalizeBaseUrl(import.meta.env.VITE_API_BASE_URL || null));
@@ -10,24 +18,42 @@ const resolveBaseUrl = () => withApiPrefix(normalizeBaseUrl(import.meta.env.VITE
 export const BaseUrl = resolveBaseUrl();
 
 export const getStoredAuth = () => {
-	const raw = localStorage.getItem("gameHubAuth");
+	if (typeof window === 'undefined' || !window.localStorage) return null;
+	let raw = null;
+	try {
+		raw = localStorage.getItem("gameHubAuth");
+	} catch {
+		return null;
+	}
 	if (!raw) return null;
 
 	try {
 		return JSON.parse(raw);
-	} catch (error) {
-		console.debug("Failed to parse auth cache:", error);
-		localStorage.removeItem("gameHubAuth");
+	} catch {
+		try { localStorage.removeItem("gameHubAuth"); } catch { /* ignore parse errors */ }
 		return null;
 	}
 };
 
 export const setStoredAuth = (auth) => {
-	if (!auth) {
-		localStorage.removeItem("gameHubAuth");
-		return;
+	if (typeof window === 'undefined' || !window.localStorage) return;
+	try {
+		if (!auth) {
+			localStorage.removeItem("gameHubAuth");
+			return;
+		}
+		const toStore = auth.user
+			? {
+				user: {
+					...auth.user,
+					accessToken: undefined,
+				},
+			}
+			: auth;
+		localStorage.setItem("gameHubAuth", JSON.stringify(toStore));
+	} catch {
+		// Fail silently (quota or access issues), caller may log in development.
 	}
-	localStorage.setItem("gameHubAuth", JSON.stringify(auth));
 };
 
 export const buildAuthHeaders = (token) =>

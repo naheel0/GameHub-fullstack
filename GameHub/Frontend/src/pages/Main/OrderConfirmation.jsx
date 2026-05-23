@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useCart } from '../../contexts/CartContext';
 import { useAuth } from '../../contexts/AuthContext';
-import { BaseUrl, buildAuthHeaders } from '../../Services/api';
+import { BaseUrl } from '../../Services/api';
 import { 
   CheckBadgeIcon,
   ShoppingBagIcon,
@@ -20,7 +20,7 @@ const OrderConfirmation = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { clearCart, refreshCart } = useCart();
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, authFetch } = useAuth();
   
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -101,10 +101,10 @@ const OrderConfirmation = () => {
       const purchaseId = pendingOrder?.purchaseId;
       let confirmed = false;
 
-      if (purchaseId && user?.accessToken) {
-        const confirmResp = await fetch(`${BaseUrl}/payments/confirm-link`, {
+      if (purchaseId) {
+        const confirmResp = await authFetch(`${BaseUrl}/payments/confirm-link`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', ...buildAuthHeaders(user.accessToken) },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             purchaseId,
             razorpayPaymentLinkId: paymentLinkId || '',
@@ -116,9 +116,7 @@ const OrderConfirmation = () => {
           const confirmation = await confirmResp.json();
           if (confirmation?.success && confirmation?.orderId) {
             confirmed = true;
-            const orderResp = await fetch(`${BaseUrl}/orders/${confirmation.orderId}`, {
-              headers: { ...buildAuthHeaders(user.accessToken) },
-            });
+            const orderResp = await authFetch(`${BaseUrl}/orders/${confirmation.orderId}`);
             if (orderResp.ok) {
               const orderData = await orderResp.json();
               const processed = processOrderData(orderData);
@@ -152,9 +150,8 @@ const OrderConfirmation = () => {
       const purchaseId = purchaseFromReference || (Number.isFinite(pendingParsed) ? pendingParsed : null);
 
       if (purchaseId) {
-        const resp = await fetch(`${BaseUrl}/payments/restore/${purchaseId}`, {
+        const resp = await authFetch(`${BaseUrl}/payments/restore/${purchaseId}`, {
           method: 'POST',
-          headers: { ...buildAuthHeaders(user.accessToken) },
         });
         if (resp.ok) {
           await refreshCart();
@@ -176,9 +173,9 @@ const OrderConfirmation = () => {
   const handleRazorpayVerification = async (user, razorpayOrderId, razorpayPaymentId, razorpaySignature) => {
     try {
       setLoading(true);
-      const resp = await fetch(`${BaseUrl}/payments/verify`, {
+      const resp = await authFetch(`${BaseUrl}/payments/verify`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...buildAuthHeaders(user.accessToken) },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           RazorpayOrderId: razorpayOrderId,
           RazorpayPaymentId: razorpayPaymentId,
@@ -194,9 +191,7 @@ const OrderConfirmation = () => {
 
       const verification = await resp.json();
       if (verification?.success) {
-        const orderResp = await fetch(`${BaseUrl}/orders/${verification.orderId}`, {
-          headers: { ...buildAuthHeaders(user.accessToken) },
-        });
+        const orderResp = await authFetch(`${BaseUrl}/orders/${verification.orderId}`);
         if (orderResp.ok) {
           const orderData = await orderResp.json();
           const processed = processOrderData(orderData);
@@ -245,7 +240,7 @@ const OrderConfirmation = () => {
 
       // Handle payment link callback
       if (paymentLinkId) {
-        if (!user?.accessToken) {
+        if (!user) {
           navigate('/login');
           return;
         }
@@ -263,7 +258,7 @@ const OrderConfirmation = () => {
 
       // Handle Razorpay direct verification
       if (razorpayOrderId && razorpayPaymentId && razorpaySignature) {
-        if (!user?.accessToken) {
+        if (!user) {
           navigate('/login');
           return;
         }
@@ -274,7 +269,7 @@ const OrderConfirmation = () => {
 
     runVerification();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [location.search, user, navigate, authLoading]);
+  }, [location.search, user, navigate, authLoading, authFetch]);
 
   const processOrderData = (orderData) => {
     if (orderData.type === 'instant_purchase') {

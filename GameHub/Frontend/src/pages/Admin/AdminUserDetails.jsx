@@ -24,7 +24,7 @@ import Switch from '@mui/material/Switch';
 import { styled } from '@mui/material/styles';
 import SearchBar from "./components/SearchBar"; 
 import StatusSwitch from './components/Switches';
-import { BaseUrl, buildAuthHeaders } from "../../Services/api";
+import { BaseUrl } from "../../Services/api";
 import { useAuth } from "../../contexts/AuthContext";
 
 // Custom styled switches
@@ -63,7 +63,7 @@ const RoleSwitch = styled(Switch)(() => ({
 
 export default function AdminUsers() {
   const { users, updateUser, deleteUser } = useAdmin();
-  const { user: authUser } = useAuth();
+  const { authFetch } = useAuth();
   const [updatingUserId, setUpdatingUserId] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(5);
@@ -76,10 +76,7 @@ export default function AdminUsers() {
     setSelectedUser(u);
     setDetailLoading(true);
     try {
-      const res = await fetch(`${BaseUrl}/admin/adminusers/${u.id}`, {
-        headers: { ...buildAuthHeaders(authUser?.accessToken) },
-        credentials: "include",
-      });
+      const res = await authFetch(`${BaseUrl}/admin/adminusers/${u.id}`);
       if (res.ok) {
         const data = await res.json();
         // Stored proc returns enum integers as strings ("0","1") — normalize them

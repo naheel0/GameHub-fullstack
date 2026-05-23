@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, useCallback } from "react";
-import { BaseUrl, buildAuthHeaders, normalizeGame } from "../../../Services/api";
+import { BaseUrl, normalizeGame } from "../../../Services/api";
 import { useAuth } from "../../../contexts/AuthContext";
 
 const AdminContext = createContext();
@@ -34,15 +34,12 @@ const buildGameFormData = (productData) => {
   formData.append("InStock", String(productData.inStock));
   formData.append("Description", productData.description || "");
 
-  // Append new image File objects directly (from file input)
   const newImageFiles = (productData.imageFiles || []).filter(Boolean);
   newImageFiles.forEach((file) => formData.append("ImageFiles", file));
 
-  // Pass existing image URLs directly — no re-fetching
   const existingUrls = (productData.images || []).filter(Boolean);
   existingUrls.forEach((url) => formData.append("ExistingImages", url));
 
-  // Use new trailer File if provided, otherwise pass existing URL
   if (productData.trailerFile) {
     formData.append("TrailerFile", productData.trailerFile);
   } else if (productData.trailer) {
@@ -60,8 +57,7 @@ export function AdminProvider({ children }) {
   const [error, setError] = useState(null);
 
   const API_BASE = BaseUrl;
-  const { user, authFetch } = useAuth();
-  const token = user?.accessToken;
+  const { authFetch, user } = useAuth();
 
   const fetchGames = useCallback(async () => {
     const response = await fetch(`${API_BASE}/games?pageSize=100`);
@@ -74,7 +70,7 @@ export function AdminProvider({ children }) {
   const fetchUsers = useCallback(async () => {
     const url = `${API_BASE}/admin/adminusers`;
     const response = await authFetch(url, {
-      headers: { "Content-Type": "application/json", ...buildAuthHeaders(token) },
+      headers: { "Content-Type": "application/json" },
     });
 
     if (response.status === 401) throw new Error("Unauthorized: token expired or invalid. Please log out and log in again.");
@@ -85,12 +81,12 @@ export function AdminProvider({ children }) {
 
     const data = await response.json();
     return mapUsers(data);
-  }, [API_BASE, token, authFetch]);
+  }, [API_BASE, authFetch]);
 
   const fetchOrders = useCallback(async (gamesById) => {
     const url = `${API_BASE}/admin/adminorders`;
     const response = await authFetch(url, {
-      headers: { "Content-Type": "application/json", ...buildAuthHeaders(token) },
+      headers: { "Content-Type": "application/json" },
     });
 
     if (response.status === 401) throw new Error("Unauthorized: token expired or invalid. Please log out and log in again.");
@@ -104,12 +100,7 @@ export function AdminProvider({ children }) {
     const detailedOrders = await Promise.all(
       (list || []).map(async (order) => {
         try {
-          const detailResponse = await authFetch(`${API_BASE}/admin/adminorders/${order.orderId}`, {
-            headers: {
-              ...buildAuthHeaders(token),
-            },
-            credentials: "include",
-          });
+          const detailResponse = await authFetch(`${API_BASE}/admin/adminorders/${order.orderId}`);
 
           if (!detailResponse.ok) {
             return {
@@ -163,10 +154,10 @@ export function AdminProvider({ children }) {
     );
 
     return detailedOrders.filter(Boolean);
-  }, [API_BASE, token, authFetch]);
+  }, [API_BASE, authFetch]);
 
   const refreshAdminData = useCallback(async () => {
-    if (!token) {
+    if (!user) {
       setLoading(false);
       setError("Admin authorization required");
       return;
@@ -195,7 +186,7 @@ export function AdminProvider({ children }) {
     } finally {
       setLoading(false);
     }
-  }, [fetchGames, fetchOrders, fetchUsers, token]);
+  }, [fetchGames, fetchOrders, fetchUsers, user]);
 
   useEffect(() => {
     refreshAdminData();
@@ -206,10 +197,6 @@ export function AdminProvider({ children }) {
       const formData = buildGameFormData(productData);
       const response = await authFetch(`${API_BASE}/admin/games`, {
         method: "POST",
-        headers: {
-          ...buildAuthHeaders(token),
-        },
-        credentials: "include",
         body: formData,
       });
 
@@ -232,10 +219,6 @@ export function AdminProvider({ children }) {
       const formData = buildGameFormData(productData);
       const response = await authFetch(`${API_BASE}/admin/games/${id}`, {
         method: "PUT",
-        headers: {
-          ...buildAuthHeaders(token),
-        },
-        credentials: "include",
         body: formData,
       });
 
@@ -257,10 +240,6 @@ export function AdminProvider({ children }) {
     try {
       const response = await authFetch(`${API_BASE}/admin/games/${id}`, {
         method: "DELETE",
-        headers: {
-          ...buildAuthHeaders(token),
-        },
-        credentials: "include",
       });
 
       if (!response.ok) throw new Error("Failed to delete product");
@@ -280,9 +259,8 @@ export function AdminProvider({ children }) {
           method: "PUT",
           headers: {
             "Content-Type": "application/json",
-            ...buildAuthHeaders(token),
+
           },
-          credentials: "include",
           body: JSON.stringify({ role: userData.role }),
         });
         if (!response.ok) {
@@ -295,8 +273,7 @@ export function AdminProvider({ children }) {
         const endpoint = userData.status === "blocked" ? "block" : "activate";
         const response = await authFetch(`${API_BASE}/admin/adminusers/${id}/${endpoint}`, {
           method: "PUT",
-          headers: { ...buildAuthHeaders(token) },
-          credentials: "include",
+          headers: {},
         });
         if (!response.ok) {
           const text = await response.text().catch(() => "");
@@ -304,7 +281,6 @@ export function AdminProvider({ children }) {
         }
       }
 
-      // Optimistically update local state — no full re-fetch needed
       setUsers((prev) =>
         prev.map((u) => (u.id === id ? { ...u, ...userData } : u))
       );
@@ -320,9 +296,8 @@ export function AdminProvider({ children }) {
       const response = await authFetch(`${API_BASE}/admin/adminusers/${id}`, {
         method: "DELETE",
         headers: {
-          ...buildAuthHeaders(token),
+
         },
-        credentials: "include",
       });
 
       if (!response.ok) throw new Error("Failed to delete user");
@@ -341,9 +316,8 @@ export function AdminProvider({ children }) {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
-          ...buildAuthHeaders(token),
+
         },
-        credentials: "include",
         body: JSON.stringify({ status }),
       });
 
@@ -365,9 +339,8 @@ export function AdminProvider({ children }) {
       const response = await authFetch(`${API_BASE}/admin/adminorders/${orderId}`, {
         method: "DELETE",
         headers: {
-          ...buildAuthHeaders(token),
+
         },
-        credentials: "include",
       });
 
       if (!response.ok) throw new Error("Failed to delete order");

@@ -1,19 +1,11 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
-import { BaseUrl, buildAuthHeaders, getStoredAuth, normalizeUser, setStoredAuth } from '../Services/api';
+import { BaseUrl, getStoredAuth, normalizeUser, setStoredAuth } from '../Services/api';
 const AuthContext = createContext();
 // eslint-disable-next-line react-refresh/only-export-components
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) {
-    console.error('useAuth must be used within an AuthProvider');
-    return {
-      user: null,
-      login: async () => ({ success: false, error: 'Auth not available' }),
-      signup: async () => ({ success: false, error: 'Auth not available' }),
-      logout: () => {},
-      updateUser: async () => ({ success: false, error: 'Auth not available' }),
-      loading: false
-    };
+    throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;
 };
@@ -25,60 +17,117 @@ export const AuthProvider = ({ children }) => {
   const API_BASE = BaseUrl;
 
   useEffect(() => {
-    const savedAuth = getStoredAuth();
-    if (savedAuth?.user) {
-      if (savedAuth.accessToken && !savedAuth.user.accessToken) {
-        savedAuth.user.accessToken = savedAuth.accessToken;
+    const bootstrapAuth = async () => {
+      const savedAuth = getStoredAuth();
+      if (savedAuth?.user) {
+        setUser(savedAuth.user);
       }
-      setUser(savedAuth.user);
-    }
-    setLoading(false);
+
+      try {
+        const refreshResponse = await fetch(`${API_BASE}/auth/refresh`, {
+          method: 'POST',
+          credentials: 'include',
+        });
+
+        if (!refreshResponse.ok) {
+          setUser(null);
+          setStoredAuth(null);
+          setLoading(false);
+          return;
+        }
+
+        const refreshPayload = await refreshResponse.json().catch(() => null);
+        const refreshedUser = normalizeUser(refreshPayload?.data, refreshPayload?.data?.accessToken);
+        if (refreshedUser?.accessToken) {
+          setUser(refreshedUser);
+          setStoredAuth({ user: refreshedUser });
+        }
+      } catch (error) {
+        console.error('Auth refresh bootstrap error:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    bootstrapAuth();
   }, []);
 
-  // Call this to silently get a new access token using the HttpOnly refresh token cookie
-  const refreshAccessToken = async () => {
-    try {
-      const response = await fetch(`${API_BASE}/auth/refresh`, {
-        method: 'POST',
-        credentials: 'include', // sends the refreshToken cookie automatically
-      });
-      if (!response.ok) return null;
-      const payload = await response.json();
-      const newToken = payload.data?.accessToken;
-      if (!newToken) return null;
-      // Update stored user with new token
-      setUser(prev => {
-        if (!prev) return prev;
-        const updated = { ...prev, accessToken: newToken };
-        setStoredAuth({ user: updated, accessToken: newToken });
-        return updated;
-      });
-      return newToken;
-    } catch {
-      return null;
-    }
-  };
-
-  // Improved authFetch: auto-retry once with refreshed token on 401 and logout if refresh fails
   const authFetchWithLogout = async (url, options = {}) => {
-    let response = await fetch(url, { ...options, credentials: 'include' });
-    if (response.status === 401) {
-      const newToken = await refreshAccessToken();
-      if (newToken) {
-        response = await fetch(url, {
-          ...options,
+    const { __skipRefresh, ...requestOptions } = options;
+
+    const buildHeaders = (headersInput = {}) => {
+      try {
+        if (headersInput && typeof headersInput.entries === 'function') {
+          return Object.fromEntries(headersInput.entries());
+        }
+      } catch {
+        // fall through
+      }
+      return { ...headersInput };
+    };
+
+    const performRefresh = async () => {
+      try {
+        const refreshResponse = await fetch(`${API_BASE}/auth/refresh`, {
+          method: 'POST',
           credentials: 'include',
-          headers: { ...options.headers, Authorization: `Bearer ${newToken}` },
         });
-      } else {
-        // Refresh failed -> force logout so UI stops making authorized requests
-        console.warn('Token refresh failed; logging out user');
+
+        if (!refreshResponse.ok) {
+          return null;
+        }
+
+        const refreshPayload = await refreshResponse.json().catch(() => null);
+        const refreshedUser = normalizeUser(refreshPayload?.data, refreshPayload?.data?.accessToken);
+        if (!refreshedUser) {
+          return null;
+        }
+
+        setUser(refreshedUser);
+        setStoredAuth({ user: refreshedUser });
+        return refreshedUser;
+      } catch (error) {
+        console.error('Token refresh failed:', error);
+        return null;
+      }
+    };
+
+    try {
+      const headers = buildHeaders(requestOptions.headers);
+
+      const fetchOptions = {
+        ...requestOptions,
+        headers,
+        credentials: requestOptions.credentials || 'include',
+      };
+
+      const response = await fetch(url, fetchOptions);
+      if (response.status !== 401 || __skipRefresh) {
+        if (response.status === 401) {
+          setUser(null);
+          setStoredAuth(null);
+        }
+        return response;
+      }
+
+      const refreshedUser = await performRefresh();
+      if (!refreshedUser) {
         setUser(null);
         setStoredAuth(null);
         return response;
       }
+
+      // Retry original request using cookie (credentials included). Do not rely on in-memory accessToken for retry.
+      return fetch(url, {
+        ...requestOptions,
+        headers: buildHeaders(requestOptions.headers),
+        credentials: requestOptions.credentials || 'include',
+        __skipRefresh: true,
+      });
+    } catch (err) {
+      console.error('authFetch error:', err);
+      throw err;
     }
-    return response;
   };
 
   const login = async (email, password) => {
@@ -99,7 +148,8 @@ export const AuthProvider = ({ children }) => {
 
       const userData = normalizeUser(payload.data, payload.data?.accessToken);
       setUser(userData);
-      setStoredAuth({ user: userData, accessToken: userData.accessToken });
+      // Do not persist access tokens in localStorage — prefer httpOnly cookies set by server
+      setStoredAuth({ user: userData });
       return { success: true, user: userData };
     } catch (error) {
       console.error('Login error:', error);
@@ -136,10 +186,8 @@ export const AuthProvider = ({ children }) => {
       }
 
       if (!createResponse.ok || !payload?.success) {
-        // If API returned ProblemDetails with structured validation errors, surface them
         const errors = payload?.errors || payload?.Errors || payload?.extensions?.errors;
         if (errors && typeof errors === 'object') {
-            // Normalize error keys to canonical form used by the forms (camelCase)
             const canonicalMap = {
               firstname: 'firstName',
               lastname: 'lastName',
@@ -154,7 +202,6 @@ export const AuthProvider = ({ children }) => {
             const mapped = {};
             Object.keys(errors).forEach((rawKey) => {
               try {
-                // take last segment after '.' and strip array indices like [0]
                 let key = rawKey.split('.').pop();
                 key = key.replace(/\[\d+\]/g, '');
                 const lower = key.toLowerCase();
@@ -162,7 +209,6 @@ export const AuthProvider = ({ children }) => {
                 const values = Array.isArray(errors[rawKey]) ? errors[rawKey] : [errors[rawKey]];
                 mapped[target] = (mapped[target] || []).concat(values.map(v => typeof v === 'string' ? v : String(v)));
               } catch {
-                // fallback: include raw
                 mapped[rawKey] = mapped[rawKey] || [];
               }
             });
@@ -175,7 +221,8 @@ export const AuthProvider = ({ children }) => {
 
       const createdUser = normalizeUser(payload.data, payload.data?.accessToken);
       setUser(createdUser);
-      setStoredAuth({ user: createdUser, accessToken: createdUser.accessToken });
+      // Do not persist access tokens in localStorage — prefer httpOnly cookies set by server
+      setStoredAuth({ user: createdUser });
 
       return { success: true, user: createdUser };
     } catch (error) {
@@ -185,23 +232,13 @@ export const AuthProvider = ({ children }) => {
   };
 
   const logout = () => {
-    const token = user?.accessToken;
-    if (token) {
-      fetch(`${API_BASE}/auth/logout`, {
-        method: 'POST',
-        headers: {
-          ...buildAuthHeaders(token),
-        },
-        credentials: 'include',
-      }).catch((error) => console.error('Logout error:', error));
-    }
+    fetch(`${API_BASE}/auth/logout`, { method: 'POST', credentials: 'include' }).catch((error) => console.error('Logout error:', error));
     setUser(null);
     setStoredAuth(null);
   };
 
   const updateUser = async (userUpdates) => {
     try {
-      // Merge updates with current user state instead of replacing
       if (!user) {
         throw new Error('No user logged in');
       }
@@ -212,7 +249,7 @@ export const AuthProvider = ({ children }) => {
       };
 
       setUser(updatedUser);
-      setStoredAuth({ user: updatedUser, accessToken: updatedUser.accessToken });
+      setStoredAuth({ user: updatedUser });
       return { success: true };
     } catch (error) {
       console.error('Update user error:', error);
@@ -228,7 +265,7 @@ export const AuthProvider = ({ children }) => {
 
       const updatedUser = { ...user, ...updates };
       setUser(updatedUser);
-      setStoredAuth({ user: updatedUser, accessToken: updatedUser.accessToken });
+      setStoredAuth({ user: updatedUser });
       return { success: true };
     } catch (error) {
       console.error('Update user error:', error);
@@ -243,7 +280,6 @@ export const AuthProvider = ({ children }) => {
     logout,
     updateUser,
     updateUserPartial,
-    refreshAccessToken,
     authFetch: authFetchWithLogout,
     loading
   };

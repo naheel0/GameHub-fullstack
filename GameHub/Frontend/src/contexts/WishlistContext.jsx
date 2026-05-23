@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { toast } from 'react-toastify';
 import { useAuth } from './AuthContext';
-import { BaseUrl, buildAuthHeaders, normalizeGame } from '../Services/api';
+import { BaseUrl, normalizeGame } from '../Services/api';
 
 const WishlistContext = createContext();
 
@@ -20,7 +20,6 @@ export const WishlistProvider = ({ children }) => {
   const { user, authFetch } = useAuth();
 
   const API_BASE = BaseUrl;
-  const token = user?.accessToken;
 
   const fetchGame = useCallback(async (gameId) => {
     try {
@@ -56,7 +55,7 @@ export const WishlistProvider = ({ children }) => {
   }, [fetchGame]);
 
   const loadWishlist = useCallback(async () => {
-    if (!user || !token) {
+    if (!user) {
       setWishlist([]);
       setLoading(false);
       return;
@@ -64,9 +63,7 @@ export const WishlistProvider = ({ children }) => {
 
     try {
       setLoading(true);
-      const response = await authFetch(`${API_BASE}/wishlist`, {
-        headers: { ...buildAuthHeaders(token) },
-      });
+      const response = await authFetch(`${API_BASE}/wishlist`);
 
       if (!response.ok) {
         throw new Error('Failed to fetch wishlist');
@@ -82,14 +79,14 @@ export const WishlistProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  }, [API_BASE, mapWishlistItem, token, user, authFetch]);
+  }, [API_BASE, mapWishlistItem, user, authFetch]);
 
   useEffect(() => {
     loadWishlist();
   }, [loadWishlist]);
 
   const addToWishlist = async (game) => {
-    if (!user || !token) {
+    if (!user) {
       toast.warning('Sign in to manage your wishlist.', { toastId: 'wishlist-auth-required' });
       return;
     }
@@ -102,7 +99,6 @@ export const WishlistProvider = ({ children }) => {
 
       const response = await authFetch(`${API_BASE}/wishlist/${game.id}`, {
         method: 'POST',
-        headers: { ...buildAuthHeaders(token) },
       });
 
       if (!response.ok) {
@@ -118,7 +114,7 @@ export const WishlistProvider = ({ children }) => {
   };
 
   const removeFromWishlist = async (gameId) => {
-    if (!user || !token) {
+    if (!user) {
       toast.warning('Sign in to manage your wishlist.', { toastId: 'wishlist-auth-required' });
       return;
     }
@@ -126,7 +122,6 @@ export const WishlistProvider = ({ children }) => {
     try {
       const response = await authFetch(`${API_BASE}/wishlist/${gameId}`, {
         method: 'DELETE',
-        headers: { ...buildAuthHeaders(token) },
       });
 
       if (!response.ok) {
@@ -145,7 +140,7 @@ export const WishlistProvider = ({ children }) => {
   };
 
   const clearWishlist = async () => {
-    if (!user || !token) {
+    if (!user) {
       toast.warning('Sign in to manage your wishlist.', { toastId: 'wishlist-auth-required' });
       return;
     }
@@ -154,7 +149,6 @@ export const WishlistProvider = ({ children }) => {
       await Promise.all(wishlist.map((item) =>
         authFetch(`${API_BASE}/wishlist/${item.id}`, {
           method: 'DELETE',
-          headers: { ...buildAuthHeaders(token) },
         })
       ));
 
@@ -167,7 +161,7 @@ export const WishlistProvider = ({ children }) => {
   };
 
   const moveToCart = async (item, onCartUpdated) => {
-    if (!user || !token) {
+    if (!user) {
       toast.warning('Sign in to manage your wishlist.', { toastId: 'wishlist-auth-required' });
       return;
     }
@@ -175,7 +169,6 @@ export const WishlistProvider = ({ children }) => {
     try {
       const response = await authFetch(`${API_BASE}/wishlist/${item.id}/move-to-cart`, {
         method: 'POST',
-        headers: { ...buildAuthHeaders(token) },
       });
 
       if (!response.ok) {

@@ -158,14 +158,23 @@ const ProductDetails = () => {
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [isFullScreen,nextImage, prevImage]);
 
-  const handleAddToCart = () => {
-    if (game && game.inStock) {
-      for (let i = 0; i < quantity; i++) {
-        addToCart(game);
-      }
-      toast.success(`${quantity} ${game.name} added to cart!`);
-    } else {
+  const handleAddToCart = async () => {
+    if (!game) return;
+    if (!game.inStock) {
       toast.error('Sorry, this game is out of stock!');
+      return;
+    }
+
+    try {
+      const ok = await addToCart(game, quantity);
+      if (ok) {
+        toast.success(`${quantity} ${game.name} added to cart!`);
+      } else {
+        toast.error('Could not add to cart. Please try again.');
+      }
+    } catch (err) {
+      console.error('Error adding to cart:', err);
+      toast.error('Could not add to cart. Please try again.');
     }
   };
 
@@ -287,12 +296,59 @@ const ProductDetails = () => {
                 <div className="bg-gray-800 rounded-lg overflow-hidden border border-gray-700">
                   {showVideo ? (
                     <div className="relative pt-[56.25%]">
-                      <iframe
-                        src={game.trailer}
-                        title={`${game.name} Trailer`}
-                        className="absolute top-0 left-0 w-full h-full"
-                        allowFullScreen
-                      />
+                      {(() => {
+                        const trailerUrl = game?.trailer || '';
+
+                        const isSafeTrailerUrl = (u) => {
+                          try {
+                            if (!u) return false;
+                            const parsed = new URL(u, window.location.origin);
+                            const host = parsed.hostname.toLowerCase();
+                            const allowedHosts = [
+                              'www.youtube.com',
+                              'youtube.com',
+                              'youtu.be',
+                              'www.youtu.be',
+                              'player.vimeo.com',
+                              'vimeo.com',
+                              'www.vimeo.com',
+                              'www.youtube-nocookie.com'
+                            ];
+                            return allowedHosts.some(h => host === h || host.endsWith('.' + h));
+                          } catch {
+                            return false;
+                          }
+                        };
+
+                        if (typeof window !== 'undefined' && isSafeTrailerUrl(trailerUrl)) {
+                          return (
+                            <iframe
+                              src={trailerUrl}
+                              title={`${game.name} Trailer`}
+                              className="absolute top-0 left-0 w-full h-full"
+                              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                              referrerPolicy="no-referrer"
+                              sandbox="allow-scripts allow-same-origin allow-presentation"
+                            />
+                          );
+                        }
+
+                        return (
+                          <div className="p-4 text-center text-gray-300">
+                            <p>Trailer unavailable or blocked for security.</p>
+                            {trailerUrl ? (
+                              <a
+                                href={trailerUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-red-400 hover:text-red-300"
+                              >
+                                Open trailer in new tab
+                              </a>
+                            ) : null}
+                          </div>
+                        );
+                      })()}
                     </div>
                   ) : (
                     <div 

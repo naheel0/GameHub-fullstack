@@ -1,5 +1,6 @@
 using FluentValidation;
 using GameHub.Application.DTOs.Auth;
+using System.Text.RegularExpressions;
 
 namespace GameHub.Application.Validators.Auth
 {
@@ -10,8 +11,7 @@ namespace GameHub.Application.Validators.Auth
             RuleFor(x => x.FirstName).NotEmpty().MaximumLength(50);
             RuleFor(x => x.LastName).NotEmpty().MaximumLength(50);
             RuleFor(x => x.Phone)
-                .NotEmpty().WithMessage(string.Format(GameHub.Application.Resources.ExceptionMessages.ResourceManager.GetString("Validation_FieldRequired") ?? "{0} is required", "Phone"))
-                .Matches(@"^\+?[0-9() \-]{7,20}$")
+                .Must(phone => string.IsNullOrWhiteSpace(phone) || Regex.IsMatch(phone, @"^\+?[0-9() \-]{7,20}$"))
                 .WithMessage(GameHub.Application.Resources.ExceptionMessages.ResourceManager.GetString("Validation_PhoneInvalid") ?? "Phone must be a valid Indian or international number and may include +, spaces, dashes, or parentheses (7-20 chars)");
 
             RuleFor(x => x.Email)

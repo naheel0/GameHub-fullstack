@@ -20,7 +20,7 @@ import {
   ShoppingBagIcon as ShoppingBagSolid,
   HeartIcon as HeartSolid
 } from '@heroicons/react/24/solid';
-import { BaseUrl, buildAuthHeaders, normalizeGame } from '../../Services/api';
+import { BaseUrl, normalizeGame } from '../../Services/api';
 
 
 const Profile = () => {
@@ -44,7 +44,6 @@ const Profile = () => {
   const [addressesLoading, setAddressesLoading] = useState(false);
 
   const API_BASE = BaseUrl;
-  const token = user?.accessToken;
 
   const formatRupees = useCallback((amount) => {
     if (!amount) return '₹0';
@@ -60,14 +59,10 @@ const Profile = () => {
   }, []);
 
   const fetchOrderCount = useCallback(async () => {
-    if (!user || !token) return;
+    if (!user) return;
 
     try {
-      const response = await authFetch(`${API_BASE}/orders`, {
-        headers: {
-          ...buildAuthHeaders(token),
-        },
-      });
+      const response = await authFetch(`${API_BASE}/orders`);
 
       if (response.status === 401) {
         throw new Error('Unauthorized: token expired or invalid. Please log out and log in again.');
@@ -83,18 +78,14 @@ const Profile = () => {
       console.error('Error fetching order count:', error);
       setOrderCount(0);
     }
-  }, [API_BASE, token, user, authFetch]);
+  }, [API_BASE, user, authFetch]);
 
   const fetchOrderHistory = useCallback(async () => {
-    if (!user || !token) return;
+    if (!user) return;
 
     try {
       setOrdersLoading(true);
-      const response = await authFetch(`${API_BASE}/orders`, {
-        headers: {
-          ...buildAuthHeaders(token),
-        },
-      });
+      const response = await authFetch(`${API_BASE}/orders`);
 
       if (!response.ok) {
         throw new Error('Failed to fetch orders');
@@ -154,18 +145,14 @@ const Profile = () => {
     } finally {
       setOrdersLoading(false);
     }
-  }, [API_BASE, token, user, authFetch]);
+  }, [API_BASE, user, authFetch]);
 
   const fetchAddresses = useCallback(async () => {
-    if (!user || !token) return;
+    if (!user) return;
 
     try {
       setAddressesLoading(true);
-      const response = await authFetch(`${API_BASE}/addresses`, {
-        headers: {
-          ...buildAuthHeaders(token),
-        },
-      });
+      const response = await authFetch(`${API_BASE}/addresses`);
 
       if (!response.ok) {
         throw new Error('Failed to fetch addresses');
@@ -183,7 +170,7 @@ const Profile = () => {
     } finally {
       setAddressesLoading(false);
     }
-  }, [API_BASE, token, user, authFetch]);
+  }, [API_BASE, user, authFetch]);
 
   const handleInputChange = useCallback((e) => {
     const { name, value } = e.target;

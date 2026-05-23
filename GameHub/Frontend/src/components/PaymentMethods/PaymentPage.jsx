@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useCart } from "../../contexts/CartContext";
 import { useAuth } from "../../contexts/AuthContext";
-import { BaseUrl, buildAuthHeaders } from "../../Services/api";
+import { BaseUrl } from "../../Services/api";
 import { toast } from "react-toastify";
 import AddressSection from "../PaymentMethods/AddressSection"; // New Component
 import OrderSummary from "../PaymentMethods/OrderSummary"; // New Component
@@ -43,7 +43,7 @@ const PaymentPage = () => {
   const [addresses, setAddresses] = useState([]);
   const userAddresses = useMemo(() => addresses, [addresses]);
   const API_BASE = BaseUrl;
-  const token = user?.accessToken;
+
 
   const savePendingOrderDraft = useCallback((draftOrder) => {
     if (!draftOrder) return;
@@ -67,13 +67,13 @@ const PaymentPage = () => {
       return false;
     }
 
-    if (!user?.accessToken) {
+    if (!user) {
       redirectToLogin();
       return false;
     }
 
     return true;
-  }, [authLoading, redirectToLogin, user?.accessToken]);
+  }, [authLoading, redirectToLogin, user]);
 
   useEffect(() => {
     const storedOrder = (() => {
@@ -108,7 +108,7 @@ const PaymentPage = () => {
       return;
     }
 
-    if (!user?.accessToken) {
+    if (!user) {
       redirectToLogin();
       return;
     }
@@ -122,20 +122,16 @@ const PaymentPage = () => {
         userAddresses.find((addr) => addr.isDefault) || userAddresses[0];
       setSelectedAddress(defaultAddress.id);
     }
-  }, [authLoading, cart.length, navigate, order, redirectToLogin, selectedAddress, user?.accessToken, userAddresses]);
+  }, [authLoading, cart.length, navigate, order, redirectToLogin, selectedAddress, user, userAddresses]);
 
   const refreshAddresses = useCallback(async () => {
-    if (!user || !token) {
+    if (!user) {
       setAddresses([]);
       return;
     }
 
     try {
-      const response = await authFetch(`${API_BASE}/addresses`, {
-        headers: {
-          ...buildAuthHeaders(token),
-        },
-      });
+      const response = await authFetch(`${API_BASE}/addresses`);
 
       if (!response.ok) {
         throw new Error("Failed to fetch addresses");
@@ -151,7 +147,7 @@ const PaymentPage = () => {
       console.error("Error loading addresses:", error);
       setAddresses([]);
     }
-  }, [API_BASE, token, user, authFetch]);
+  }, [API_BASE, user, authFetch]);
 
   useEffect(() => {
     refreshAddresses();
@@ -208,7 +204,6 @@ const PaymentPage = () => {
             method: "PUT",
             headers: {
               "Content-Type": "application/json",
-              ...buildAuthHeaders(token),
             },
             body: JSON.stringify(payload),
           },
@@ -224,7 +219,6 @@ const PaymentPage = () => {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            ...buildAuthHeaders(token),
           },
           body: JSON.stringify(payload),
         });
@@ -286,7 +280,7 @@ const PaymentPage = () => {
       const response = await authFetch(`${API_BASE}/addresses/${addressId}`, {
         method: "DELETE",
         headers: {
-          ...buildAuthHeaders(token),
+
         },
       });
 
@@ -319,7 +313,6 @@ const PaymentPage = () => {
         {
           method: "PUT",
           headers: {
-            ...buildAuthHeaders(token),
           },
         },
       );
@@ -371,7 +364,7 @@ const PaymentPage = () => {
         `${API_BASE}/payments/create-link/${purchaseId}`,
         {
           method: "POST",
-          headers: { ...buildAuthHeaders(token) },
+          headers: {},
         },
       );
 
