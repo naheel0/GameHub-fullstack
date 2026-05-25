@@ -9,7 +9,7 @@
 
 > A polished full-stack e-commerce showcase for discovering games, managing carts, and completing secure payment-backed checkout flows.
 
-![GameHub cover](./docs/images/cover.png)
+![GameHub cover](./docs/images/Cover.png)
 
 ## Table of Contents
 
@@ -25,15 +25,15 @@
 10. [Environment Variables](#environment-variables)
 11. [API Documentation](#api-documentation)
 12. [Deployment](#deployment)
-14. [Project Structure](#project-structure)
-15. [Performance & Optimizations](#performance--optimizations)
-16. [Key Challenges](#key-challenges)
-17. [Future Improvements](#future-improvements)
-18. [FAQ](#faq)
-19. [Contributing](#contributing)
-20. [Acknowledgments](#acknowledgments)
-21. [Author & Contact](#author--contact)
-22. [License](#license)
+13. [Project Structure](#project-structure)
+14. [Performance & Optimizations](#performance--optimizations)
+15. [Key Challenges](#key-challenges)
+16. [Future Improvements](#future-improvements)
+17. [FAQ](#faq)
+18. [Contributing](#contributing)
+19. [Acknowledgments](#acknowledgments)
+20. [Author & Contact](#author--contact)
+21. [License](#license)
 
 ## Project Overview
 
@@ -52,11 +52,11 @@ The project also reflects my learning goals as an engineer: keep the frontend re
 If deployed, use the details below:
 
 - Live demo: https://game-hub-fullstack.vercel.app
-- API docs: https://your-gamehub-api.com/swagger
+- API docs: https://localhost:7023/swagger
 - Test user email: demo@gamehub.dev
 - Test user password: Password123!
 
-> Replace these placeholders with your actual production or preview environment details.
+
 
 ## Features
 
@@ -99,7 +99,7 @@ Add your own assets here to make the README feel real and product-focused.
 
 ### Cover
 
-![GameHub cover screenshot](./docs/images/cover.png)
+![GameHub cover screenshot](./docs/images/Cover.png)
 
 ### Product Grid
 
@@ -107,11 +107,11 @@ Add your own assets here to make the README feel real and product-focused.
 
 ### Cart
 
-![GameHub cart view](./docs/images/cart.png)
+![GameHub cart view](./docs/images/Cart.png)
 
 ### Checkout
 
-![GameHub checkout flow](./docs/images/checkout.png)
+![GameHub checkout flow](./docs/images/Checkout.png)
 
 ## Tech Stack
 
@@ -249,7 +249,7 @@ dotnet run --project GameHubApi/GameHubApi.csproj
 | `Frontend__BaseUrl` | `http://localhost:5173` | Used for payment callbacks and redirects. |
 | `Razorpay__KeyId` | `rzp_test_XXXXXXXXXXXXXX` | Razorpay public key ID. |
 | `Razorpay__KeySecret` | `your-razorpay-key-secret` | Razorpay secret key for payment-link creation. |
-| `AllowedOrigins` | `http://localhost:5173,https://your-frontend.com` | CORS allow-list. |
+| `AllowedOrigins` | `http://localhost:5173,https://game-hub-fullstack.vercel.app` | CORS allow-list. |
 | `ASPNETCORE_ENVIRONMENT` | `Development` | Controls local developer behavior. |
 
 ### Frontend
@@ -261,6 +261,8 @@ dotnet run --project GameHubApi/GameHubApi.csproj
 > If `VITE_API_BASE_URL` is missing or points to the wrong origin in production, API requests may hit the SPA shell instead of the backend.
 
 ## API Documentation
+
+Full route reference: [docs/api.md](docs/api.md). Swagger at `https://localhost:7023/swagger` is the live interactive way to test the backend.
 
 Base path: `/api`
 
