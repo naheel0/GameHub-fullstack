@@ -205,10 +205,9 @@ cd GameHub-fullstack
 ### Backend Setup
 
 ```bash
-cd GameHubApi
-dotnet restore GameHubApi.slnx
-dotnet build
-dotnet run --project GameHubApi/GameHubApi.csproj
+dotnet restore GameHubApi/GameHubApi.slnx
+dotnet build GameHubApi/GameHubApi/GameHubApi.csproj -c Release
+dotnet run --project GameHubApi/GameHubApi/GameHubApi.csproj
 ```
 
 The API runs at `https://localhost:7023` or `http://localhost:5177` in development, and Swagger opens automatically.
@@ -228,7 +227,7 @@ The frontend runs at `http://localhost:5173`.
 The backend applies migrations on startup. If you add a seed script or seed project later, run it after restoring dependencies and before signing in with test accounts.
 
 ```bash
-dotnet run --project GameHubApi/GameHubApi.csproj
+dotnet run --project GameHubApi/GameHubApi/GameHubApi.csproj
 ```
 
 ## Environment Variables
