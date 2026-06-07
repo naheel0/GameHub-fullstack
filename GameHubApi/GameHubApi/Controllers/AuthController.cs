@@ -1,6 +1,7 @@
 ﻿using GameHub.Application.DTOs.Auth;
 using GameHub.Application.Resources;
 using GameHub.Application.Services;
+using GameHub.Application.Common.Interfaces;  // Add this for IEmailService and IOtpService
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -12,15 +13,52 @@ namespace GameHubApi.Controllers
     {
         private readonly IAuthService _authService;
         private readonly IConfiguration _config;
-        public AuthController(IAuthService authService, IConfiguration config)
+        private readonly IEmailService _emailService;
+        private readonly IOtpService _otpService;
+
+        public AuthController(IAuthService authService, IConfiguration config, IEmailService emailService, IOtpService otpService)
         {
             _authService = authService;
             _config = config;
+            _emailService = emailService;
+            _otpService = otpService;
         }
-        [HttpPost("register")]
-        public async Task<IActionResult> Register(RegisterRequest request)
+
+        // ========== NEW: Send OTP for registration ==========
+        [HttpPost("send-otp")]
+        public async Task<IActionResult> SendOtp([FromBody] SendOtpRequest request)
         {
-            var result = await _authService.RegisterAsync(request);
+            // Optional: Check if email is already registered
+            // var existing = await _authService.CheckEmailExistsAsync(request.Email);
+            // if (existing) return BadRequest(new { message = "Email already in use." });
+
+            var otp = await _otpService.GenerateAndStoreOtpAsync(request.Email);
+            await _emailService.SendOtpEmailAsync(request.Email, otp);
+
+            return Ok(new { message = "OTP sent to your email address." });
+        }
+
+        // ========== NEW: Verify OTP and complete registration ==========
+        [HttpPost("verify-and-register")]
+        public async Task<IActionResult> VerifyAndRegister([FromBody] VerifyAndRegisterRequest request)
+        {
+            // 1. Verify OTP
+            var isValid = await _otpService.VerifyOtpAsync(request.Email, request.Otp);
+            if (!isValid)
+                return BadRequest(new { message = "Invalid or expired OTP." });
+
+            // 2. OTP is correct – now register the user
+            var registerRequest = new RegisterRequest
+            {
+                Email = request.Email,
+                Password = request.Password,
+                ConfirmPassword = request.ConfirmPassword,
+                FirstName = request.FirstName,
+                LastName = request.LastName,
+                Phone = request.Phone
+            };
+
+            var result = await _authService.RegisterAsync(registerRequest);
             if (result.Success)
             {
                 var refreshToken = result.Data?.RefreshToken ?? string.Empty;
@@ -35,6 +73,10 @@ namespace GameHubApi.Controllers
             return StatusCode(failStatus, result);
         }
 
+        // Note: Non-OTP register endpoint removed — use `send-otp` + `verify-and-register`.
+
+        // ... rest of your existing methods (Login, Refresh, Logout, GetProfile, etc.) ...
+
         [HttpPost("login")]
         public async Task<IActionResult> Login(LoginRequest request)
         {
@@ -47,6 +89,7 @@ namespace GameHubApi.Controllers
             if (result.Data != null) result.Data.RefreshToken = null;
             return Ok(result);
         }
+
         [HttpPost("refresh")]
         public async Task<IActionResult> Refresh()
         {
@@ -58,6 +101,7 @@ namespace GameHubApi.Controllers
             result.Data.RefreshToken = null;
             return Ok(result);
         }
+
         [HttpPost("logout")]
         [Authorize]
         public async Task<IActionResult> Logout()
@@ -68,6 +112,7 @@ namespace GameHubApi.Controllers
             Response.Cookies.Delete("refreshToken");
             return Ok(new { message = "logged out" });
         }
+
         [HttpGet("profile")]
         [Authorize]
         public async Task<IActionResult> GetProfile()
@@ -86,6 +131,7 @@ namespace GameHubApi.Controllers
                 ? parsedId
                 : throw new UnauthorizedAccessException(ExceptionMessages.Unauthorized);
         }
+
         private void SetRefreshTokenCookie(string token)
         {
             var days = 7;
@@ -102,6 +148,6 @@ namespace GameHubApi.Controllers
             };
             Response.Cookies.Append("refreshToken", token, cookieOptions);
         }
-
     }
+
 }
