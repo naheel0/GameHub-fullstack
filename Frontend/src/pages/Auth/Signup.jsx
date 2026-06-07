@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
 import { EyeIcon, EyeSlashIcon } from "@heroicons/react/24/outline";
@@ -32,6 +32,8 @@ const Signup = () => {
   const [otp, setOtp] = useState("");
   const [otpSent, setOtpSent] = useState(false);
   const [info, setInfo] = useState("");
+  const [resendTimer, setResendTimer] = useState(0);
+  const [resendLoading, setResendLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState("");
@@ -40,6 +42,7 @@ const Signup = () => {
 
   const { sendSignupOtp, verifyAndSignup } = useAuth();
   const navigate = useNavigate();
+  const otpRef = useRef(null);
 
   const handleChange = (e) => {
     setFormData({
@@ -52,7 +55,9 @@ const Signup = () => {
   };
 
   const handleOtpChange = (e) => {
-    setOtp(e.target.value);
+    // Allow only digits and max length 6
+    const digits = e.target.value.replace(/\D/g, "").slice(0, 6);
+    setOtp(digits);
     setError("");
     setInfo("");
     setFieldErrors({});
@@ -69,6 +74,9 @@ const Signup = () => {
       if (otpResult.success) {
         setOtpSent(true);
         setInfo(otpResult.message || "OTP sent to your email.");
+        setResendTimer(60);
+        // focus OTP input when available
+        setTimeout(() => otpRef.current?.focus(), 50);
       } else {
         if (otpResult.fieldErrors && typeof otpResult.fieldErrors === "object") {
           setFieldErrors(otpResult.fieldErrors);
@@ -105,6 +113,20 @@ const Signup = () => {
 
     setLoading(false);
   };
+
+  useEffect(() => {
+    if (resendTimer <= 0) return;
+    const t = setInterval(() => {
+      setResendTimer((s) => {
+        if (s <= 1) {
+          clearInterval(t);
+          return 0;
+        }
+        return s - 1;
+      });
+    }, 1000);
+    return () => clearInterval(t);
+  }, [resendTimer]);
 
   return (
     <div className="min-h-screen bg-black flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
@@ -378,29 +400,31 @@ const Signup = () => {
             )}
           </div>
 
-          {otpSent && (
-            <div>
-              <button
-                type="button"
-                disabled={loading}
-                onClick={async () => {
-                  setLoading(true);
-                  setError("");
-                  setInfo("");
-                  const otpResult = await sendSignupOtp(formData.email);
-                  if (otpResult.success) {
-                    setInfo(otpResult.message || "OTP resent to your email.");
-                  } else {
-                    setError(otpResult.error || "Failed to resend OTP.");
-                  }
-                  setLoading(false);
-                }}
-                className="w-full py-2 px-4 text-sm font-medium rounded-lg text-red-300 border border-red-500 hover:bg-red-950 transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Resend OTP
-              </button>
-            </div>
-          )}
+            {otpSent && (
+              <div>
+                <button
+                  type="button"
+                  disabled={resendTimer > 0 || resendLoading}
+                  onClick={async () => {
+                    setResendLoading(true);
+                    setError("");
+                    setInfo("");
+                    const otpResult = await sendSignupOtp(formData.email);
+                    if (otpResult.success) {
+                      setInfo(otpResult.message || "OTP resent to your email.");
+                      setResendTimer(60);
+                      setTimeout(() => otpRef.current?.focus(), 50);
+                    } else {
+                      setError(otpResult.error || "Failed to resend OTP.");
+                    }
+                    setResendLoading(false);
+                  }}
+                  className="w-full py-2 px-4 text-sm font-medium rounded-lg text-red-300 border border-red-500 hover:bg-red-950 transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {resendLoading ? 'Resending…' : (resendTimer > 0 ? `Resend OTP (${resendTimer}s)` : 'Resend OTP')}
+                </button>
+              </div>
+            )}
 
           <div className="text-center">
             <p className="text-sm text-gray-400">
