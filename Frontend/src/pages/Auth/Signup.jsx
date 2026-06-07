@@ -28,16 +28,17 @@ const Signup = () => {
     phone: "",
     password: "",
     confirmPassword: "",
-    role: "user",
-    status: "active",
   });
+  const [otp, setOtp] = useState("");
+  const [otpSent, setOtpSent] = useState(false);
+  const [info, setInfo] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState("");
   const [fieldErrors, setFieldErrors] = useState({});
   const [loading, setLoading] = useState(false);
 
-  const { signup } = useAuth();
+  const { sendSignupOtp, verifyAndSignup } = useAuth();
   const navigate = useNavigate();
 
   const handleChange = (e) => {
@@ -46,6 +47,14 @@ const Signup = () => {
       [e.target.name]: e.target.value,
     });
     setError("");
+    setInfo("");
+    setFieldErrors({});
+  };
+
+  const handleOtpChange = (e) => {
+    setOtp(e.target.value);
+    setError("");
+    setInfo("");
     setFieldErrors({});
   };
 
@@ -53,6 +62,22 @@ const Signup = () => {
     e.preventDefault();
     setLoading(true);
     setError("");
+    setInfo("");
+
+    if (!otpSent) {
+      const otpResult = await sendSignupOtp(formData.email);
+      if (otpResult.success) {
+        setOtpSent(true);
+        setInfo(otpResult.message || "OTP sent to your email.");
+      } else {
+        if (otpResult.fieldErrors && typeof otpResult.fieldErrors === "object") {
+          setFieldErrors(otpResult.fieldErrors);
+        }
+        setError(otpResult.error || "Failed to send OTP.");
+      }
+      setLoading(false);
+      return;
+    }
 
     const userData = {
       firstName: formData.firstName,
@@ -60,18 +85,14 @@ const Signup = () => {
       email: formData.email,
       phone: formData.phone,
       password: formData.password,
-      role: formData.role,
-      status:formData.status,
+      confirmPassword: formData.confirmPassword,
+      otp,
     };
 
-    const result = await signup(userData);
+    const result = await verifyAndSignup(userData);
 
     if (result.success) {
-      if (formData.role === "admin") {
-        navigate("/admin");
-      } else {
-        navigate("/");
-      }
+      navigate("/");
     } else {
       // Prefer structured field errors if provided
       if (result.fieldErrors && typeof result.fieldErrors === "object") {
@@ -115,6 +136,12 @@ const Signup = () => {
           {error && (
             <div className="bg-red-900 border border-red-700 text-red-200 px-4 py-3 rounded-lg text-sm">
               {error}
+            </div>
+          )}
+
+          {info && (
+            <div className="bg-green-900 border border-green-700 text-green-200 px-4 py-3 rounded-lg text-sm">
+              {info}
             </div>
           )}
 
@@ -176,11 +203,34 @@ const Signup = () => {
                 required
                 value={formData.email}
                 onChange={handleChange}
+                disabled={otpSent}
                 className="w-full px-3 py-3 bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent text-white placeholder-gray-400"
                 placeholder="Enter your email"
               />
               <FieldErrors errors={fieldErrors.email || fieldErrors.Email} prefix="email" />
             </div>
+
+            {otpSent && (
+              <div>
+                <label
+                  htmlFor="otp"
+                  className="block text-sm font-medium text-gray-300 mb-2"
+                >
+                  OTP Code
+                </label>
+                <input
+                  id="otp"
+                  name="otp"
+                  type="text"
+                  required
+                  value={otp}
+                  onChange={handleOtpChange}
+                  className="w-full px-3 py-3 bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent text-white placeholder-gray-400"
+                  placeholder="Enter 6-digit OTP"
+                />
+                <FieldErrors errors={fieldErrors.otp || fieldErrors.Otp} prefix="otp" />
+              </div>
+            )}
 
             <div>
               <label
@@ -308,10 +358,34 @@ const Signup = () => {
               {loading ? (
                 <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
               ) : (
-                "Create Account"
+                otpSent ? "Verify OTP & Create Account" : "Send OTP"
               )}
             </button>
           </div>
+
+          {otpSent && (
+            <div>
+              <button
+                type="button"
+                disabled={loading}
+                onClick={async () => {
+                  setLoading(true);
+                  setError("");
+                  setInfo("");
+                  const otpResult = await sendSignupOtp(formData.email);
+                  if (otpResult.success) {
+                    setInfo(otpResult.message || "OTP resent to your email.");
+                  } else {
+                    setError(otpResult.error || "Failed to resend OTP.");
+                  }
+                  setLoading(false);
+                }}
+                className="w-full py-2 px-4 text-sm font-medium rounded-lg text-red-300 border border-red-500 hover:bg-red-950 transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Resend OTP
+              </button>
+            </div>
+          )}
 
           <div className="text-center">
             <p className="text-sm text-gray-400">

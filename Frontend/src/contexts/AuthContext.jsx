@@ -181,8 +181,94 @@ export const AuthProvider = ({ children }) => {
   };
 
   const signup = async (userData) => {
+    if (!userData?.otp) {
+      return { success: false, error: 'OTP is required. Please request and verify OTP first.' };
+    }
+
+    return verifyAndSignup(userData);
+  };
+
+  const parseApiPayload = async (response) => {
+    const responseText = await response.text();
+    if (!responseText) {
+      return {};
+    }
+
     try {
-      const createResponse = await fetch(`${API_BASE}/auth/register`, {
+      return JSON.parse(responseText);
+    } catch {
+      return { message: responseText };
+    }
+  };
+
+  const mapFieldErrors = (payload) => {
+    const errors = payload?.errors || payload?.Errors || payload?.extensions?.errors;
+    if (!errors || typeof errors !== 'object') {
+      return null;
+    }
+
+    const canonicalMap = {
+      firstname: 'firstName',
+      lastname: 'lastName',
+      email: 'email',
+      phone: 'phone',
+      password: 'password',
+      confirmpassword: 'confirmPassword',
+      otp: 'otp',
+    };
+
+    const mapped = {};
+    Object.keys(errors).forEach((rawKey) => {
+      try {
+        let key = rawKey.split('.').pop();
+        key = key.replace(/\[\d+\]/g, '');
+        const lower = key.toLowerCase();
+        const target = canonicalMap[lower] || key;
+        const values = Array.isArray(errors[rawKey]) ? errors[rawKey] : [errors[rawKey]];
+        mapped[target] = (mapped[target] || []).concat(values.map(v => typeof v === 'string' ? v : String(v)));
+      } catch {
+        mapped[rawKey] = mapped[rawKey] || [];
+      }
+    });
+
+    return mapped;
+  };
+
+  const sendSignupOtp = async (email) => {
+    try {
+      const response = await fetch(`${API_BASE}/auth/send-otp`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({ email }),
+      });
+
+      const payload = await parseApiPayload(response);
+
+      if (!response.ok) {
+        const mapped = mapFieldErrors(payload);
+        return {
+          success: false,
+          error: payload?.message || payload?.detail || 'Failed to send OTP. Please try again.',
+          fieldErrors: mapped || undefined,
+        };
+      }
+
+      return {
+        success: true,
+        message: payload?.message || 'OTP sent to your email address.',
+      };
+    } catch (error) {
+      console.error('Send OTP error:', error);
+      return { success: false, error: 'Failed to send OTP. Please try again.' };
+    }
+  };
+
+  const verifyAndSignup = async (userData) => {
+    try {
+      const createResponse = await fetch(`${API_BASE}/auth/verify-and-register`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -195,49 +281,17 @@ export const AuthProvider = ({ children }) => {
           email: userData.email,
           password: userData.password,
           confirmPassword: userData.confirmPassword || userData.password,
+          otp: userData.otp,
         }),
       });
 
-      const responseText = await createResponse.text();
-      let payload = {};
-      if (responseText) {
-        try {
-          payload = JSON.parse(responseText);
-        } catch {
-          payload = { message: responseText };
-        }
-      }
+      const payload = await parseApiPayload(createResponse);
 
       if (!createResponse.ok || !payload?.success) {
-        const errors = payload?.errors || payload?.Errors || payload?.extensions?.errors;
-        if (errors && typeof errors === 'object') {
-            const canonicalMap = {
-              firstname: 'firstName',
-              lastname: 'lastName',
-              email: 'email',
-              phone: 'phone',
-              password: 'password',
-              confirmpassword: 'confirmPassword',
-              role: 'role',
-              status: 'status'
-            };
-
-            const mapped = {};
-            Object.keys(errors).forEach((rawKey) => {
-              try {
-                let key = rawKey.split('.').pop();
-                key = key.replace(/\[\d+\]/g, '');
-                const lower = key.toLowerCase();
-                const target = canonicalMap[lower] || key;
-                const values = Array.isArray(errors[rawKey]) ? errors[rawKey] : [errors[rawKey]];
-                mapped[target] = (mapped[target] || []).concat(values.map(v => typeof v === 'string' ? v : String(v)));
-              } catch {
-                mapped[rawKey] = mapped[rawKey] || [];
-              }
-            });
-
-            return { success: false, error: payload?.detail || payload?.message || 'Please fix the highlighted fields and try again.', fieldErrors: mapped };
-          }
+        const mapped = mapFieldErrors(payload);
+        if (mapped) {
+          return { success: false, error: payload?.detail || payload?.message || 'Please fix the highlighted fields and try again.', fieldErrors: mapped };
+        }
 
         return { success: false, error: payload?.message || payload?.detail || 'Signup failed. Please try again.' };
       }
@@ -299,6 +353,8 @@ export const AuthProvider = ({ children }) => {
   const value = {
     user,
     login,
+    sendSignupOtp,
+    verifyAndSignup,
     signup,
     logout,
     updateUser,
