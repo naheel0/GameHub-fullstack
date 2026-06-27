@@ -4,11 +4,13 @@ using GameHub.Application;
 using GameHub.Infrastructure;
 using GameHubApi.Middleware;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Security.Claims;
 using System.Text;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -25,6 +27,7 @@ var secretKey = Encoding.UTF8.GetBytes(jwtSettings["SecretKey"]!);
 // 3. Controllers
 builder.Services.AddControllers().AddJsonOptions(opts =>
 {
+    opts.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
     opts.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
 });
 

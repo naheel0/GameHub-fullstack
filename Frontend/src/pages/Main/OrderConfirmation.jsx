@@ -68,8 +68,8 @@ const OrderConfirmation = () => {
     }
 
     if (hasRazorpayCallback) {
-      // Prevent CartProvider's loadCart auto-restore from racing with handlePaidPaymentLink
-      try { localStorage.removeItem('pendingPurchase'); } catch (error) { console.debug('Failed to remove pendingPurchase', error); }
+      // Note: We do NOT remove pendingPurchase here - it remains available for
+      // handlePaidPaymentLink/handleFailedPaymentLink to read the purchaseId
       clearPendingPaymentDraft();
       setLoading(true);
       return;
@@ -81,6 +81,28 @@ const OrderConfirmation = () => {
   }, [location, navigate, clearCart]);
 
   const handlePaidPaymentLink = async (user, paymentLinkId, razorpayPaymentId) => {
+    // Read pendingPurchase BEFORE removal to get the purchaseId for confirmation
+    const pendingPurchaseRaw = (() => {
+      try {
+        const raw = localStorage.getItem('pendingPurchase');
+        const parsed = raw ? Number(raw) : NaN;
+        return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+      } catch (e) {
+        console.debug('Failed to read pendingPurchase', e);
+        return null;
+      }
+    })();
+
+    // Read pendingRazorpayOrder BEFORE clearPendingPaymentDraft for fallback
+    const pendingOrder = (() => {
+      try {
+        return JSON.parse(localStorage.getItem('pendingRazorpayOrder') || 'null');
+      } catch (error) {
+        console.debug('Failed to read pendingRazorpayOrder', error);
+        return null;
+      }
+    })();
+
     // Remove pendingPurchase synchronously BEFORE any await to prevent
     // loadCart() auto-restore logic from winning the race and restoring cart items
     try { localStorage.removeItem('pendingPurchase'); } catch (error) { console.debug('Failed to remove pendingPurchase', error); }
@@ -89,16 +111,7 @@ const OrderConfirmation = () => {
     try {
       setLoading(true);
 
-      const pendingOrder = (() => {
-        try {
-          return JSON.parse(localStorage.getItem('pendingRazorpayOrder') || 'null');
-        } catch (error) {
-          console.debug('Failed to read pendingRazorpayOrder', error);
-          return null;
-        }
-      })();
-
-      const purchaseId = pendingOrder?.purchaseId;
+      const purchaseId = pendingOrder?.purchaseId || pendingPurchaseRaw;
       let confirmed = false;
 
       if (purchaseId) {
@@ -146,8 +159,8 @@ const OrderConfirmation = () => {
       setLoading(true);
       const purchaseFromReference = extractPurchaseIdFromReference(referenceId);
       const pendingRaw = localStorage.getItem('pendingPurchase');
-      const pendingParsed = pendingRaw ? Number(pendingRaw) : null;
-      const purchaseId = purchaseFromReference || (Number.isFinite(pendingParsed) ? pendingParsed : null);
+      const pendingParsed = pendingRaw ? Number(pendingRaw) : NaN;
+      const purchaseId = purchaseFromReference || (Number.isFinite(pendingParsed) && pendingParsed > 0 ? pendingParsed : null);
 
       if (purchaseId) {
         const resp = await authFetch(`${BaseUrl}/payments/restore/${purchaseId}`, {
@@ -350,9 +363,28 @@ const OrderConfirmation = () => {
     return (
       <div className="min-h-screen bg-linear-to-br from-green-900 via-gray-900 to-black py-8">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-500 mx-auto mb-4"></div>
-            <p className="text-gray-300">Loading your order...</p>
+          <div className="text-center mb-12">
+            <div className="h-24 w-24 bg-gray-800 animate-pulse rounded-full mx-auto mb-6" />
+            <div className="h-10 bg-gray-800 animate-pulse rounded-lg w-64 mx-auto mb-4" />
+            <div className="h-6 bg-gray-800 animate-pulse rounded w-96 mx-auto" />
+          </div>
+          <div className="bg-gray-800/50 backdrop-blur-sm rounded-2xl border border-gray-700/50 p-6 mb-8">
+            <div className="h-6 bg-gray-800 animate-pulse rounded w-32 mb-4" />
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="flex items-center justify-between p-4 bg-gray-700/30 rounded-lg border border-gray-600/30 mb-4">
+                <div className="flex items-center space-x-4">
+                  <div className="w-12 h-12 bg-gray-800 animate-pulse rounded-lg" />
+                  <div>
+                    <div className="h-5 bg-gray-800 animate-pulse rounded w-32 mb-2" />
+                    <div className="h-4 bg-gray-800 animate-pulse rounded w-16" />
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="h-5 bg-gray-800 animate-pulse rounded w-12 mb-1" />
+                  <div className="h-4 bg-gray-800 animate-pulse rounded w-16" />
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </div>

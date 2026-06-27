@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   StarIcon,
@@ -15,10 +15,10 @@ import { useCart } from "../../contexts/CartContext";
 import { useWishlist } from "../../contexts/WishlistContext";
 import { useAuth } from "../../contexts/AuthContext";
 import { BaseUrl, normalizeGame } from "../../Services/api";
+import { GameCardSkeleton } from "../../components/common/Skeleton";
 
 const Products = () => {
   const [games, setGames] = useState([]);
-  const [filteredGames, setFilteredGames] = useState([]);
   const [selectedGenre, setSelectedGenre] = useState("All");
   const [selectedPlatform, setSelectedPlatform] = useState("All");
   const [sortBy, setSortBy] = useState("name");
@@ -53,7 +53,6 @@ const Products = () => {
         const items = payload?.data?.items || payload?.items || payload || [];
         const normalized = items.map(normalizeGame).filter(Boolean);
         setGames(normalized);
-        setFilteredGames(normalized);
         setLoading(false);
       } catch (err) {
         setError(err.message);
@@ -65,15 +64,16 @@ const Products = () => {
     fetchGames();
   }, [API_BASE]);
 
-  useEffect(() => {
+  const filteredGames = useMemo(() => {
     let result = [...games];
 
     if (searchTerm) {
+      const lowerTerm = searchTerm.toLowerCase();
       result = result.filter(
         (game) =>
-          game.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          game.genre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          game.description?.toLowerCase().includes(searchTerm.toLowerCase())
+          game.name.toLowerCase().includes(lowerTerm) ||
+          game.genre.toLowerCase().includes(lowerTerm) ||
+          game.description?.toLowerCase().includes(lowerTerm)
       );
     }
 
@@ -103,37 +103,29 @@ const Products = () => {
         break;
     }
 
-    setFilteredGames(result);
-    setCurrentPage(1); // Reset to first page when filters change
+    return result;
   }, [games, searchTerm, selectedGenre, selectedPlatform, sortBy]);
 
-  const indexOfLastGame = currentPage * gamesPerPage;
-  const indexOfFirstGame = indexOfLastGame - gamesPerPage;
-  const currentGames = filteredGames.slice(indexOfFirstGame, indexOfLastGame);
+  const currentGames = useMemo(() => {
+    const indexOfLastGame = currentPage * gamesPerPage;
+    const indexOfFirstGame = indexOfLastGame - gamesPerPage;
+    return filteredGames.slice(indexOfFirstGame, indexOfLastGame);
+  }, [currentPage, filteredGames, gamesPerPage]);
 
   const totalPages = Math.ceil(filteredGames.length / gamesPerPage);
 
-  const paginate = (pageNumber) => setCurrentPage(pageNumber);
-
-  const nextPage = () => {
-    if (currentPage < totalPages) {
-      setCurrentPage(currentPage + 1);
-    }
-  };
-
-  const prevPage = () => {
-    if (currentPage > 1) {
-      setCurrentPage(currentPage - 1);
-    }
-  };
-
-  const genres = ["All", ...new Set(games.map((game) => game.genre))];
-  const platforms = [
+  const genres = useMemo(() => ["All", ...new Set(games.map((game) => game.genre))], [games]);
+  
+  const platforms = useMemo(() => [
     "All",
     ...new Set(games.flatMap((game) => game.platform.split(", "))),
-  ];
+  ], [games]);
 
-  const handleWishlist = (game) => {
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, selectedGenre, selectedPlatform, sortBy]);
+
+  const handleWishlist = useCallback((game) => {
     if (!user) {
       navigate("/login", { state: { from: location.pathname } });
       return;
@@ -144,9 +136,9 @@ const Products = () => {
     } else {
       addToWishlist(game);
     }
-  };
+  }, [user, navigate, location.pathname, isInWishlist, addToWishlist, removeFromWishlist]);
 
-  const handleAddToCart = (game) => {
+  const handleAddToCart = useCallback((game) => {
     if (!user) {
       navigate("/login", { state: { from: location.pathname } });
       return;
@@ -158,9 +150,9 @@ const Products = () => {
     }
 
     addToCart(game);
-  };
+  }, [user, navigate, location.pathname, addToCart]);
 
-  const renderStars = (rating) => {
+  const renderStars = useCallback((rating) => {
     return Array.from({ length: 5 }, (_, index) =>
       index < Math.floor(rating) ? (
         <StarIcon key={index} className="h-4 w-4 text-yellow-400" />
@@ -168,9 +160,9 @@ const Products = () => {
         <StarOutline key={index} className="h-4 w-4 text-yellow-400" />
       )
     );
-  };
+  }, []);
 
-  const getPageNumbers = () => {
+  const getPageNumbers = useCallback(() => {
     const pageNumbers = [];
     const maxVisiblePages = 5;
 
@@ -203,21 +195,48 @@ const Products = () => {
     }
 
     return pageNumbers;
-  };
+  }, [totalPages, currentPage]);
 
-  const clearFilters = () => {
+  const clearFilters = useCallback(() => {
     setSearchTerm("");
     setSelectedGenre("All");
     setSelectedPlatform("All");
     setSortBy("name");
-  };
+  }, []);
+
+  const paginate = useCallback((pageNumber) => setCurrentPage(pageNumber), []);
+
+  const nextPage = useCallback(() => {
+    setCurrentPage((prev) => Math.min(prev + 1, totalPages));
+  }, [totalPages]);
+
+  const prevPage = useCallback(() => {
+    setCurrentPage((prev) => Math.max(prev - 1, 1));
+  }, []);
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600 mx-auto"></div>
-          <p className="mt-4 text-gray-300">Loading games...</p>
+      <div className="min-h-screen bg-black py-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-8">
+            <div className="h-10 bg-gray-800 animate-pulse rounded-lg w-64 mx-auto mb-4" />
+            <div className="h-5 bg-gray-800 animate-pulse rounded w-96 mx-auto" />
+          </div>
+          <div className="bg-gray-900 rounded-lg shadow-md p-6 mb-8 border border-gray-800">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i}>
+                  <div className="h-4 bg-gray-800 animate-pulse rounded mb-2 w-20" />
+                  <div className="h-10 bg-gray-800 animate-pulse rounded" />
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <GameCardSkeleton key={i} />
+            ))}
+          </div>
         </div>
       </div>
     );

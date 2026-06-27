@@ -15,76 +15,62 @@ namespace GameHubApi.Controllers
         private readonly IConfiguration _config;
         private readonly IEmailService _emailService;
         private readonly IOtpService _otpService;
-            private readonly ILogger<AuthController> _logger;
 
-        public AuthController(IAuthService authService, IConfiguration config, IEmailService emailService, IOtpService otpService, ILogger<AuthController> logger)
+        public AuthController(IAuthService authService, IConfiguration config, IEmailService emailService, IOtpService otpService)
         {
             _authService = authService;
             _config = config;
             _emailService = emailService;
             _otpService = otpService;
-            _logger = logger;
         }
 
         // ========== NEW: Send OTP for registration ==========
         [HttpPost("send-otp")]
         public async Task<IActionResult> SendOtp([FromBody] SendOtpRequest request)
         {
-            try
-            {
-                var otp = await _otpService.GenerateAndStoreOtpAsync(request.Email);
-                await _emailService.SendOtpEmailAsync(request.Email, otp);
-                return Ok(new { message = "OTP sent to your email address." });
-            }
-            catch (Exception ex)
-            {
-                _logger?.LogError(ex, "Failed to send OTP to {Email}", request.Email);
-                // Provide a helpful client message without leaking internal details
-                return StatusCode(500, new { message = "Failed to send OTP. Check email configuration or try again later." });
-            }
+            // Optional: Check if email is already registered
+            // var existing = await _authService.CheckEmailExistsAsync(request.Email);
+            // if (existing) return BadRequest(new { message = "Email already in use." });
+
+            var otp = await _otpService.GenerateAndStoreOtpAsync(request.Email);
+            await _emailService.SendOtpEmailAsync(request.Email, otp);
+
+            return Ok(new { message = "OTP sent to your email address." });
         }
 
         // ========== NEW: Verify OTP and complete registration ==========
         [HttpPost("verify-and-register")]
         public async Task<IActionResult> VerifyAndRegister([FromBody] VerifyAndRegisterRequest request)
         {
-            try
+            // 1. Verify OTP
+            var isValid = await _otpService.VerifyOtpAsync(request.Email, request.Otp);
+            if (!isValid)
+                return BadRequest(new { message = "Invalid or expired OTP." });
+
+            // 2. OTP is correct – now register the user
+            var registerRequest = new RegisterRequest
             {
-                // 1. Verify OTP
-                var isValid = await _otpService.VerifyOtpAsync(request.Email, request.Otp);
-                if (!isValid)
-                    return BadRequest(new { message = "Invalid or expired OTP." });
+                Email = request.Email,
+                Password = request.Password,
+                ConfirmPassword = request.ConfirmPassword,
+                FirstName = request.FirstName,
+                LastName = request.LastName,
+                Phone = request.Phone
+            };
 
-                // 2. OTP is correct – now register the user
-                var registerRequest = new RegisterRequest
-                {
-                    Email = request.Email,
-                    Password = request.Password,
-                    ConfirmPassword = request.ConfirmPassword,
-                    FirstName = request.FirstName,
-                    LastName = request.LastName,
-                    Phone = request.Phone
-                };
-
-                var result = await _authService.RegisterAsync(registerRequest);
-                if (result.Success)
-                {
-                    var refreshToken = result.Data?.RefreshToken ?? string.Empty;
-                    if (!string.IsNullOrEmpty(refreshToken))
-                        SetRefreshTokenCookie(refreshToken);
-                    if (result.Data != null) result.Data.RefreshToken = null;
-                    var successStatus = result.StatusCode != 0 ? result.StatusCode : 200;
-                    return StatusCode(successStatus, result);
-                }
-
-                var failStatus = result.StatusCode != 0 ? result.StatusCode : 400;
-                return StatusCode(failStatus, result);
-            }
-            catch (Exception ex)
+            var result = await _authService.RegisterAsync(registerRequest);
+            if (result.Success)
             {
-                _logger?.LogError(ex, "Failed to verify OTP/register for {Email}", request.Email);
-                return StatusCode(500, new { message = "Registration failed due to a server error. Please try again later." });
+                var refreshToken = result.Data?.RefreshToken ?? string.Empty;
+                if (!string.IsNullOrEmpty(refreshToken))
+                    SetRefreshTokenCookie(refreshToken);
+                if (result.Data != null) result.Data.RefreshToken = null;
+                var successStatus = result.StatusCode != 0 ? result.StatusCode : 200;
+                return StatusCode(successStatus, result);
             }
+
+            var failStatus = result.StatusCode != 0 ? result.StatusCode : 400;
+            return StatusCode(failStatus, result);
         }
 
         // Note: Non-OTP register endpoint removed — use `send-otp` + `verify-and-register`.
