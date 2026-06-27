@@ -1,5 +1,24 @@
 import React from 'react';
 
+export const HeroSkeleton = () => (
+  <div className="relative w-full h-full flex items-center justify-center text-center text-white">
+    <div className="h-12 bg-gray-800 animate-pulse rounded-lg w-96 mb-6" />
+    <div className="h-6 bg-gray-800 animate-pulse rounded-lg w-64 mb-8" />
+    <div className="flex items-center justify-center space-x-4 mb-8">
+      <div className="h-10 bg-gray-800 animate-pulse rounded-lg w-32" />
+      <div className="h-10 bg-gray-800 animate-pulse rounded-lg w-32" />
+    </div>
+  </div>
+);
+
+export const FeatureSkeleton = () => (
+  <div className="text-center p-6 bg-gray-800 rounded-lg">
+    <div className="w-12 h-12 bg-gray-800 animate-pulse rounded-full mx-auto mb-4" />
+    <div className="h-6 bg-gray-800 animate-pulse rounded-lg w-32 mx-auto mb-2" />
+    <div className="h-4 bg-gray-800 animate-pulse rounded-lg w-48 mx-auto" />
+  </div>
+);
+
 export const Skeleton = ({ className = '', count = 1 }) => {
   const baseClass = 'animate-pulse bg-gray-800/60 rounded';
   

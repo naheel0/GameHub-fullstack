@@ -329,6 +329,13 @@ const PaymentPage = () => {
     }
   };
 
+  const clearStaleOrder = useCallback(() => {
+    try { localStorage.removeItem('pendingRazorpayOrder'); } catch { /* ignore */ }
+    try { localStorage.removeItem('pendingPurchase'); } catch { /* ignore */ }
+    setPaymentOrder(null);
+    setIsResumedPayment(false);
+  }, []);
+
   const handleRazorpayCheckout = async () => {
     setIsProcessing(true);
 
@@ -338,6 +345,27 @@ const PaymentPage = () => {
       }
 
       let paymentOrder = order;
+
+      // If we have a stored order, verify it's still valid on the server before using it
+      if (paymentOrder?.purchaseId) {
+        try {
+          const verifyRes = await authFetch(`${API_BASE}/orders`);
+          if (verifyRes.ok) {
+            const orders = await verifyRes.json();
+            const stillPending = orders.some(
+              (o) => o.purchaseId === paymentOrder.purchaseId && o.status === "Pending"
+            );
+            if (!stillPending) {
+              clearStaleOrder();
+              paymentOrder = null;
+            }
+          }
+        } catch {
+          // If verify fails, clear and re-checkout to be safe
+          clearStaleOrder();
+          paymentOrder = null;
+        }
+      }
 
       if (!paymentOrder?.purchaseId) {
         const checkoutResult = await checkout("razorpay", selectedAddress);
@@ -370,6 +398,10 @@ const PaymentPage = () => {
 
       if (!response.ok) {
         const text = await response.text().catch(() => "");
+        // Stale order — clear it so the next attempt creates a fresh one
+        if (response.status === 404) {
+          clearStaleOrder();
+        }
         throw new Error(text || "Failed to create Razorpay payment link");
       }
 

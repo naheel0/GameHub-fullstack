@@ -18,6 +18,7 @@ import "swiper/css/navigation";
 import "swiper/css/pagination";
 import "swiper/css/effect-fade";
 import { BaseUrl, normalizeGame } from "../../Services/api";
+import { GameCardSkeleton, HeroSkeleton, FeatureSkeleton } from "../../components/common/Skeleton";
 
 const Home = () => {
   const [featuredGames, setFeaturedGames] = useState([]);
@@ -84,7 +85,7 @@ const Home = () => {
     },
   ];
 
-  const renderStars = (rating) => {
+const renderStars = (rating) => {
     return Array.from({ length: 5 }, (_, index) => (
       <FaStar
         key={index}
@@ -99,11 +100,41 @@ const Home = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-red-600 mx-auto"></div>
-          <p className="mt-4 text-white text-lg">Loading amazing games...</p>
+      <div className="min-h-screen bg-black">
+        {/* Hero Skeleton */}
+        <div className="w-full h-[90vh] md:h-[85vh] sm:h-[70vh] relative overflow-hidden">
+          <HeroSkeleton />
         </div>
+
+        {/* Features Section Skeleton */}
+        <section className="bg-gray-900 py-16">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="text-center mb-12">
+              <div className="h-10 bg-gray-800 animate-pulse rounded-lg w-64 mx-auto mb-4" />
+              <div className="h-6 bg-gray-800 animate-pulse rounded-lg w-96 mx-auto" />
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <FeatureSkeleton key={i} />
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* Featured Games Grid Skeleton */}
+        <section className="py-16 bg-black">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="text-center mb-12">
+              <div className="h-10 bg-gray-800 animate-pulse rounded-lg w-64 mx-auto mb-4" />
+              <div className="h-6 bg-gray-800 animate-pulse rounded-lg w-96 mx-auto" />
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <GameCardSkeleton key={i} />
+              ))}
+            </div>
+          </div>
+        </section>
       </div>
     );
   }
