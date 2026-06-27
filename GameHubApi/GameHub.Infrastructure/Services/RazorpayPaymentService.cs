@@ -27,7 +27,11 @@ public class RazorpayPaymentService : IPaymentService
         _context = context;
         _keyId = config["Razorpay:KeyId"]!;
         _keySecret = config["Razorpay:KeySecret"]!;
-        _frontendBaseUrl = config["Frontend:BaseUrl"] ?? "http://localhost:5173";
+        var configured = config["Frontend:BaseUrl"];
+        // Razorpay rejects localhost URLs; fall back to production URL when running in Azure
+        _frontendBaseUrl = !string.IsNullOrWhiteSpace(configured) && !configured.Contains("localhost")
+            ? configured
+            : "https://game-hub-fullstack.vercel.app";
     }
 
     public async Task<PaymentLinkInitiateDto> CreatePaymentLinkAsync(int purchaseId, int userId)
