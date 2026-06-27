@@ -105,6 +105,16 @@ All protected endpoints use JWT auth with the access token read from the `access
 }
 ```
 
+`POST /api/Orders/buy-now` (Buy Now from product page)
+
+```json
+{
+	"gameId": 12,
+	"quantity": 1,
+	"addressId": "2b5c9ed5-5f0b-4d62-8f9d-1c5a6f1c3d11"
+}
+```
+
 ### Payments
 
 `POST /api/Payments/verify`
@@ -200,6 +210,7 @@ All protected endpoints use JWT auth with the access token read from the `access
 | Method | Route | Purpose | Notes |
 |---|---|---|---|
 | `POST` | `/api/Orders` | Place an order | Protected route. |
+| `POST` | `/api/Orders/buy-now` | Place an instant order | Protected route. Creates order directly from product ID without cart. |
 | `GET` | `/api/Orders` | Get order history | Protected route. |
 | `GET` | `/api/Orders/{orderId}` | Get order by ID | Protected route. |
 

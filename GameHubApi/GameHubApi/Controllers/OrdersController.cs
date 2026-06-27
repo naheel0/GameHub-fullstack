@@ -27,6 +27,15 @@ namespace GameHubApi.Controllers
             var order = await _orderService.PlaceOrderAsync(userId, request);
             return Ok(order);
         }
+        
+        [HttpPost("buy-now")]
+        public async Task<IActionResult> BuyNow([FromBody] BuyNowRequest request)
+        {
+            var userId = GetCurrentUserId();
+            var order = await _orderService.BuyNowAsync(userId, request);
+            return Ok(order);
+        }
+        
         [HttpGet]
         public async Task<IActionResult> GetOrderHistory()
         {

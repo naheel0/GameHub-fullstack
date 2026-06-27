@@ -33,16 +33,42 @@ const PaymentPage = () => {
     isDefault: false,
   });
 
-  const navigate = useNavigate();
+const navigate = useNavigate();
   const location = useLocation();
   const { getCartSummary, checkout, cart } = useCart();
   const { user, loading: authLoading, authFetch } = useAuth();
 
-  const order = paymentOrder;
-  const summary = order?.summary || getCartSummary();
   const [addresses, setAddresses] = useState([]);
   const userAddresses = useMemo(() => addresses, [addresses]);
   const API_BASE = BaseUrl;
+
+  const order = paymentOrder;
+
+  const getBuyNowIntent = useCallback(() => {
+    try {
+      const raw = localStorage.getItem('buyNowIntent');
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
+    }
+  }, []);
+
+  const buyNowIntent = useMemo(() => getBuyNowIntent(), [getBuyNowIntent]);
+
+  const buyNowSummary = useMemo(() => {
+    if (!buyNowIntent?.game) return null;
+    const subtotal = buyNowIntent.game.price * buyNowIntent.quantity;
+    const tax = Math.round(subtotal * 0.1 * 100) / 100;
+    const total = subtotal + tax;
+    return {
+      subtotal: subtotal.toFixed(2),
+      tax: tax.toFixed(2),
+      total: total.toFixed(2),
+      totalItems: buyNowIntent.quantity
+    };
+  }, [buyNowIntent]);
+
+  const summary = order?.summary || buyNowSummary || getCartSummary();
 
 
   const savePendingOrderDraft = useCallback((draftOrder) => {
@@ -103,7 +129,7 @@ const PaymentPage = () => {
     setIsResumedPayment(false);
   }, [location.state?.order, savePendingOrderDraft]);
 
-  useEffect(() => {
+useEffect(() => {
     if (authLoading) {
       return;
     }
@@ -113,7 +139,7 @@ const PaymentPage = () => {
       return;
     }
 
-    if (!order && cart.length === 0) {
+    if (!order && cart.length === 0 && !buyNowIntent) {
       navigate("/cart", { replace: true });
     }
 
@@ -122,7 +148,7 @@ const PaymentPage = () => {
         userAddresses.find((addr) => addr.isDefault) || userAddresses[0];
       setSelectedAddress(defaultAddress.id);
     }
-  }, [authLoading, cart.length, navigate, order, redirectToLogin, selectedAddress, user, userAddresses]);
+  }, [authLoading, buyNowIntent, cart.length, navigate, order, redirectToLogin, selectedAddress, user, userAddresses]);
 
   const refreshAddresses = useCallback(async () => {
     if (!user) {
@@ -302,7 +328,7 @@ const PaymentPage = () => {
     }
   };
 
-  const handleSetDefaultAddress = async (addressId) => {
+const handleSetDefaultAddress = async (addressId) => {
     try {
       if (!requireAuthenticatedUser()) {
         return;
@@ -336,6 +362,39 @@ const PaymentPage = () => {
     setIsResumedPayment(false);
   }, []);
 
+  const clearBuyNowIntent = useCallback(() => {
+    try { localStorage.removeItem('buyNowIntent'); } catch { /* ignore */ }
+  }, []);
+
+  const handleBuyNowCheckout = async (buyNowIntent, addressId) => {
+    const response = await authFetch(`${API_BASE}/orders/buy-now`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        gameId: buyNowIntent.gameId,
+        quantity: buyNowIntent.quantity,
+        addressId: addressId
+      }),
+    });
+
+    if (!response.ok) {
+      const text = await response.text().catch(() => '');
+      throw new Error(text || 'Failed to create buy now order');
+    }
+
+    const orderData = await response.json();
+    return {
+      purchaseId: orderData.purchaseId,
+      items: orderData.items || [],
+      summary: {
+        subtotal: orderData.subTotal,
+        tax: orderData.tax,
+        total: orderData.total,
+        totalItems: orderData.items?.reduce((sum, item) => sum + item.quantity, 0) || 1
+      }
+    };
+  };
+
   const handleRazorpayCheckout = async () => {
     setIsProcessing(true);
 
@@ -344,7 +403,22 @@ const PaymentPage = () => {
         return;
       }
 
+      const buyNowIntent = getBuyNowIntent();
       let paymentOrder = order;
+
+      // Handle buy-now flow
+      if (buyNowIntent && !paymentOrder?.purchaseId) {
+        try {
+          const buyNowResult = await handleBuyNowCheckout(buyNowIntent, selectedAddress);
+          paymentOrder = buyNowResult;
+          setPaymentOrder(paymentOrder);
+          clearBuyNowIntent();
+          savePendingOrderDraft(paymentOrder);
+        } catch (error) {
+          toast.error(error.message || 'Could not create buy now order.');
+          return;
+        }
+      }
 
       // If we have a stored order, verify it's still valid on the server before using it
       if (paymentOrder?.purchaseId) {
@@ -424,12 +498,33 @@ const PaymentPage = () => {
   };
 
   const handleBackToCart = () => {
-    navigate("/cart");
+    // Check localStorage directly for the most current state
+    const hasBuyNowIntent = (() => {
+      try {
+        const raw = localStorage.getItem('buyNowIntent');
+        return raw ? JSON.parse(raw) : null;
+      } catch {
+        return null;
+      }
+    })();
+    if (hasBuyNowIntent || location.state?.fromProduct) {
+      navigate("/products");
+    } else {
+      navigate("/cart");
+    }
   };
 
-  const getOrderItems = () => {
+  const getOrderItems = useCallback(() => {
     if (order) {
       return order.items;
+    }
+    if (buyNowIntent?.game) {
+      return [{
+        name: buyNowIntent.game.name,
+        price: buyNowIntent.game.price,
+        quantity: buyNowIntent.quantity,
+        image: buyNowIntent.game.image
+      }];
     }
     return cart.map((item) => ({
       name: item.name,
@@ -437,9 +532,10 @@ const PaymentPage = () => {
       quantity: item.quantity,
       image: item.images?.[0],
     }));
-  };
+  }, [order, buyNowIntent, cart]);
 
   const orderItems = getOrderItems();
+  const isBuyNowFlow = !!buyNowIntent;
   const selectedAddressDataForSummary = userAddresses.find(
     (addr) => addr.id === selectedAddress,
   );
@@ -455,7 +551,7 @@ const PaymentPage = () => {
               className="flex items-center text-gray-400 hover:text-white transition duration-300 mb-2"
             >
               <FaArrowLeft className="h-4 w-4 mr-2" />
-              Back to Cart
+              {isBuyNowFlow ? "Back to Products" : "Back to Cart"}
             </button>
             <h1 className="text-4xl font-bold text-white">
               Complete Your Purchase

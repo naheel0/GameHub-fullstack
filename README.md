@@ -297,6 +297,7 @@ Base path: `/api`
 | Method | Endpoint | Auth | Description |
 |---|---|---|---|
 | `POST` | `/api/Orders` | Yes | Creates an order from the cart. |
+| `POST` | `/api/Orders/buy-now` | Yes | Creates an order directly from a single product (Buy Now). |
 | `GET` | `/api/Orders` | Yes | Returns the current user's order history. |
 | `GET` | `/api/Orders/{orderId}` | Yes | Returns a single order. |
 | `POST` | `/api/Payments/create-link/{purchaseId}` | Yes | Creates a Razorpay payment link. |

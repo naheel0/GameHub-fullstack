@@ -19,9 +19,10 @@ const ProductDetails = () => {
   const [error, setError] = useState(null);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [showVideo, setShowVideo] = useState(false);
-  const [wishlistLoading, setWishlistLoading] = useState(false);
-  const [quantity, setQuantity] = useState(1);
-  const [apiUnavailable, setApiUnavailable] = useState(false);
+const [wishlistLoading, setWishlistLoading] = useState(false);
+   const [quantity, setQuantity] = useState(1);
+   const [apiUnavailable, setApiUnavailable] = useState(false);
+   const [buyNowLoading, setBuyNowLoading] = useState(false);
   
   const { addToCart } = useCart();
   const { user } = useAuth();
@@ -176,53 +177,39 @@ const ProductDetails = () => {
       console.error('Error adding to cart:', err);
       toast.error('Could not add to cart. Please try again.');
     }
-  };
+};
 
-  const buyNow = () => {
-    if (!user) {
-      navigate('/login', { state: { from: location.pathname } });
-      return;
-    }
+   const buyNow = async () => {
+     if (!user) {
+       navigate('/login', { state: { from: location.pathname } });
+       return;
+     }
 
-    if (!game.inStock) {
-      toast.error('Sorry, this game is out of stock!');
-      return;
-    }
+     if (!game.inStock) {
+       toast.error('Sorry, this game is out of stock!');
+       return;
+     }
 
-    const subtotal = game.price * quantity;
-    const tax = subtotal * 0.1;
-    const total = subtotal + tax;
-
-    const orderData = {
-      id: 'order_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
-      items: [{
-        gameId: game.id,
-        name: game.name,
-        price: game.price,
-        quantity: quantity,
-        image: game.images?.[0],
-        platform: game.platform,
-        genre: game.genre
-      }],
-      summary: {
-        subtotal: subtotal.toFixed(2),
-        tax: tax.toFixed(2),
-        total: total.toFixed(2),
-        totalItems: quantity
-      },
-      status: 'pending',
-      date: new Date().toISOString(),
-      type: 'instant_purchase'
-    };
-
-    navigate('/payment', { 
-      state: { 
-        order: orderData,
-        fromProduct: true,
-        singleItem: true
-      }
-    });
-  };
+     setBuyNowLoading(true);
+     try {
+       localStorage.setItem('buyNowIntent', JSON.stringify({
+         gameId: game.id,
+         quantity: quantity,
+         game: {
+           id: game.id,
+           name: game.name,
+           price: game.price,
+           image: game.images?.[0]
+         }
+       }));
+       navigate('/payment', { state: { fromProduct: true, singleItem: true } });
+     } catch (error) {
+       console.error('Error preparing buy now:', error);
+       toast.error('Could not proceed to checkout. Please try again.');
+     } finally {
+       setBuyNowLoading(false);
+     }
+   };
 
   const renderStars = (rating) => {
     return Array.from({ length: 5 }, (_, index) => (
@@ -529,14 +516,18 @@ const ProductDetails = () => {
 
                   <button
                     onClick={buyNow}
-                    disabled={!game.inStock}
+                    disabled={!game.inStock || buyNowLoading}
                     className={`flex-1 py-3 px-6 rounded-lg transition duration-300 border ${
                       game.inStock
                         ? 'bg-green-600 hover:bg-green-700 hover:transform hover:scale-105 transition duration-300 text-white border-green-600'
                         : 'bg-gray-700 text-gray-400 cursor-not-allowed border-gray-600'
                     }`}
                   >
-                    Buy Now
+                    {buyNowLoading ? (
+                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                    ) : (
+                      'Buy Now'
+                    )}
                   </button>
 
                   <button

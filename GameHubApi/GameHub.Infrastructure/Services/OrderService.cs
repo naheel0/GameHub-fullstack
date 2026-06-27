@@ -59,7 +59,6 @@ public class OrderService : IOrderService
                 var purchase = new Purchase
                 {
                     UserId = userId,
-                    // Enforce Razorpay as the only supported payment method server-side
                     PaymentMethod = PaymentMethod.Razorpay,
                     Status = OrderStatus.Pending,
                     SubTotal = subtotal,
@@ -89,6 +88,81 @@ public class OrderService : IOrderService
 
                 _context.Purchases.Add(purchase);
                 _context.CartItems.RemoveRange(cartItems);
+
+                await _context.SaveChangeAsync();
+                await transaction.CommitAsync();
+
+                return MapOrderToDto(purchase);
+            }
+            catch
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
+        });
+    }
+
+    public async Task<OrderDto> BuyNowAsync(int userId, BuyNowRequest request)
+    {
+        _ = await _context.Users.FindAsync(userId)
+            ?? throw new NotFoundException(nameof(ExceptionMessages.UserNotFound));
+
+        var game = await _context.Games.FindAsync(request.GameId)
+            ?? throw new NotFoundException(nameof(ExceptionMessages.GameNotFound));
+
+        if (!game.InStock)
+            throw new BusinessRuleException(nameof(ExceptionMessages.GameOutOfStock));
+
+        var address = await _context.Address
+            .FirstOrDefaultAsync(a => a.AddressId == request.AddressId && a.UserId == userId)
+            ?? throw new NotFoundException(nameof(ExceptionMessages.AddressNotFoundOrDoesNotBelong));
+
+        decimal subtotal = game.Price * request.Quantity;
+        decimal tax = Math.Round(subtotal * 0.1m, 2);
+        decimal total = subtotal + tax;
+
+        var executionStrategy = _context.Database.CreateExecutionStrategy();
+
+        return await executionStrategy.ExecuteAsync(async () =>
+        {
+            await using var transaction = await _context.Database.BeginTransactionAsync();
+
+            try
+            {
+                var purchase = new Purchase
+                {
+                    UserId = userId,
+                    PaymentMethod = PaymentMethod.Razorpay,
+                    Status = OrderStatus.Pending,
+                    SubTotal = subtotal,
+                    Tax = tax,
+                    Total = total,
+                    ShippingAddress = new PurchaseShippingAddress
+                    {
+                        AddressId = address.AddressId,
+                        FullName = address.FullName,
+                        AddressLine1 = address.AddressLine1,
+                        AddressLine2 = address.AddressLine2,
+                        City = address.City,
+                        State = address.State,
+                        ZipCode = address.ZipCode,
+                        Country = address.Country,
+                        Phone = address.Phone
+                    }
+                };
+
+                purchase.Items = new List<OrderItem>
+                {
+                    new OrderItem
+                    {
+                        GameId = game.Id,
+                        GameName = game.Name,
+                        Price = game.Price,
+                        Quantity = request.Quantity
+                    }
+                };
+
+                _context.Purchases.Add(purchase);
 
                 await _context.SaveChangeAsync();
                 await transaction.CommitAsync();
