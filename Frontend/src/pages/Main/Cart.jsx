@@ -1,18 +1,12 @@
-import React, { useState } from "react";
-import { useCart } from "../../contexts/CartContext";
-import { useAuth } from "../../contexts/AuthContext";
-import { Link, useNavigate } from "react-router-dom";
-import {
-  TrashIcon,
-  PlusIcon,
-  MinusIcon,
-  ShoppingBagIcon,
-  LockClosedIcon,
-  ShieldCheckIcon,
-  TruckIcon,
-} from "@heroicons/react/24/outline";
-import { toast } from "react-toastify";
-import { CartItemSkeleton } from "../../components/common/Skeleton";
+import React, { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { ShoppingBagIcon } from '@heroicons/react/24/outline';
+import { CartItemSkeleton } from '../../components/common/Skeleton';
+import { useCart } from '../../contexts/CartContext';
+import { useAuth } from '../../contexts/AuthContext';
+import { toast } from 'react-toastify';
+import CartItem from '../../components/Cart/CartItem';
+import CartSummary from '../../components/Cart/CartSummary';
 
 const CartPage = () => {
   const {
@@ -36,45 +30,45 @@ const CartPage = () => {
     await updateQuantity(gameId, newQuantity);
   };
 
- const handleRemoveItem = async (gameId) => {
-  await removeFromCart(gameId);
-};
+  const handleRemoveItem = async (gameId) => {
+    await removeFromCart(gameId);
+  };
 
   const handleClearCart = async () => {
-  await clearCart();
-};
+    await clearCart();
+  };
 
   const handleCheckout = async () => {
     if (!user) {
-      navigate("/login", { state: { from: "/cart" } });
+      navigate('/login', { state: { from: '/cart' } });
       return;
     }
 
     if (cart.some((item) => !item.inStock)) {
       toast.error(
-        "Remove out-of-stock items before continuing to payment."
+        'Remove out-of-stock items before continuing to payment.'
       );
       return;
     }
 
-      setIsCheckingOut(true);
+    setIsCheckingOut(true);
     try {
-      navigate("/payment", {
+      navigate('/payment', {
         state: {
           cartSummary: getCartSummary(),
           cartItems: cart,
         },
       });
     } catch (error) {
-      console.error("Navigation error:", error);
-      toast.error("Could not open the payment page. Please try again.");
+      console.error('Navigation error:', error);
+      toast.error('Could not open the payment page. Please try again.');
     } finally {
       setIsCheckingOut(false);
     }
   };
 
   const handleContinueShopping = () => {
-    navigate("/products");
+    navigate('/products');
   };
 
   if (loading) {
@@ -163,7 +157,6 @@ const CartPage = () => {
   return (
     <div className="min-h-screen bg-black py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Header */}
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-3xl font-bold text-white">Shopping Cart</h1>
           <button
@@ -171,185 +164,31 @@ const CartPage = () => {
             disabled={isCheckingOut}
             className="flex items-center gap-2 bg-gray-800 hover:bg-gray-700 text-gray-300 px-4 py-2 rounded-lg text-sm font-medium transition duration-300 border border-gray-700 disabled:opacity-50"
           >
-            <TrashIcon className="h-4 w-4" />
             Clear Cart
           </button>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Cart Items */}
           <div className="lg:col-span-2 space-y-4">
             {cart.map((item) => (
-              <div
+              <CartItem
                 key={item.cartItemId || item.id}
-                className="bg-gray-900 border border-gray-800 rounded-lg p-6"
-              >
-                <div className="flex flex-col sm:flex-row gap-4">
-                  {/* Game Image */}
-                  <div className="shrink-0">
-                    <img
-                      src={item.images?.[0] || "/images/placeholder-game.jpg"}
-                      alt={item.name}
-                      className="w-24 h-32 object-cover rounded-lg"
-                      onError={(e) => {
-                        e.target.src = "/images/placeholder-game.jpg";
-                      }}
-                    />
-                  </div>
-
-                  {/* Game Details */}
-                  <div className="grow">
-                    <h3 className="text-lg font-semibold text-white mb-2">
-                      {item.name}
-                    </h3>
-                    <div className="flex flex-wrap gap-2 mb-3">
-                      <span className="bg-gray-800 text-gray-300 px-2 py-1 rounded text-xs">
-                        {item.genre}
-                      </span>
-                      <span className="bg-gray-800 text-gray-300 px-2 py-1 rounded text-xs">
-                        {item.platform}
-                      </span>
-                    </div>
-                    {!item.inStock && (
-                      <span className="text-red-400 text-sm font-medium">
-                        Out of Stock
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Quantity Controls */}
-                  <div className="flex flex-col items-end justify-between">
-                    <div className="flex items-center gap-3 mb-4">
-                      <label className="text-sm text-gray-400">Quantity:</label>
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() =>
-                            handleQuantityChange(item.id, item.quantity - 1)
-                          }
-                          disabled={item.quantity <= 1 || isCheckingOut}
-                          className="w-8 h-8 flex items-center justify-center bg-gray-800 hover:bg-gray-700 text-gray-300 rounded border border-gray-700 disabled:opacity-50 transition duration-300"
-                        >
-                          <MinusIcon className="h-4 w-4" />
-                        </button>
-                        <span className="w-8 text-center text-white font-medium">
-                          {item.quantity}
-                        </span>
-                        <button
-                          onClick={() =>
-                            handleQuantityChange(item.id, item.quantity + 1)
-                          }
-                          disabled={isCheckingOut}
-                          className="w-8 h-8 flex items-center justify-center bg-gray-800 hover:bg-gray-700 text-gray-300 rounded border border-gray-700 disabled:opacity-50 transition duration-300"
-                        >
-                          <PlusIcon className="h-4 w-4" />
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Price and Remove */}
-                    <div className="flex items-center gap-4">
-                      <div className="text-right">
-                        <div className="text-lg font-bold text-white">
-                          ₹{(item.price * item.quantity).toFixed(2)}
-                        </div>
-                        <div className="text-sm text-gray-400">
-                          ₹{item.price} each
-                        </div>
-                      </div>
-                      <button
-                        onClick={() => handleRemoveItem(item.id, item.name)}
-                        disabled={isCheckingOut}
-                        className="text-gray-400 hover:text-red-400 transition duration-300 disabled:opacity-50"
-                        title="Remove item"
-                      >
-                        <TrashIcon className="h-5 w-5" />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
+                item={item}
+                onQuantityChange={handleQuantityChange}
+                onRemove={handleRemoveItem}
+                isCheckingOut={isCheckingOut}
+              />
             ))}
           </div>
 
-          {/* Order Summary */}
           <div className="lg:col-span-1">
-            <div className="bg-gray-900 border border-gray-800 rounded-lg p-6 sticky top-8">
-              <h3 className="text-xl font-bold text-white mb-6">
-                Order Summary
-              </h3>
-
-              {/* Summary Rows */}
-              <div className="space-y-3 mb-6">
-                <div className="flex justify-between text-gray-300">
-                  <span>Items ({summary.totalItems}):</span>
-                  <span>₹{summary.subtotal}</span>
-                </div>
-
-                <div className="flex justify-between text-gray-300">
-                  <span>Shipping:</span>
-                  <span className="text-green-400">FREE</span>
-                </div>
-
-                <div className="flex justify-between text-gray-300">
-                  <span>Tax:</span>
-                  <span>₹{summary.tax}</span>
-                </div>
-
-                <div className="border-t border-gray-700 my-4"></div>
-
-                <div className="flex justify-between text-lg font-bold text-white">
-                  <span>Total:</span>
-                  <span>₹{summary.total}</span>
-                </div>
-              </div>
-
-              {/* Checkout Button */}
-              <button
-                onClick={handleCheckout}
-                disabled={isCheckingOut || cart.some((item) => !item.inStock)}
-                className="w-full bg-red-600 hover:bg-red-700 text-white py-3 px-4 rounded-lg font-medium transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed mb-4"
-              >
-                {isCheckingOut ? (
-                  <div className="flex items-center justify-center gap-2">
-                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                    Processing...
-                  </div>
-                ) : (
-                  `Proceed to Payment - ₹${summary.total}`
-                )}
-              </button>
-
-              {cart.some((item) => !item.inStock) && (
-                <div className="text-red-400 text-sm text-center mb-4">
-                  ⚠️ Some items in your cart are out of stock. Please remove
-                  them to proceed.
-                </div>
-              )}
-
-              <button
-                onClick={handleContinueShopping}
-                disabled={isCheckingOut}
-                className="w-full bg-gray-800 hover:bg-gray-700 text-gray-300 py-3 px-4 rounded-lg font-medium transition duration-300 border border-gray-700 disabled:opacity-50"
-              >
-                Continue Shopping
-              </button>
-            </div>
-
-            {/* Security Badges */}
-            <div className="mt-6 space-y-2">
-              <div className="flex items-center gap-2 text-sm text-gray-400">
-                <LockClosedIcon className="h-4 w-4" />
-                <span>Secure Checkout</span>
-              </div>
-              <div className="flex items-center gap-2 text-sm text-gray-400">
-                <ShieldCheckIcon className="h-4 w-4" />
-                <span>Buyer Protection</span>
-              </div>
-              <div className="flex items-center gap-2 text-sm text-gray-400">
-                <TruckIcon className="h-4 w-4" />
-                <span>Free Shipping</span>
-              </div>
-            </div>
+            <CartSummary
+              summary={summary}
+              onCheckout={handleCheckout}
+              onContinueShopping={handleContinueShopping}
+              isCheckingOut={isCheckingOut}
+              hasOutOfStock={cart.some((item) => !item.inStock)}
+            />
           </div>
         </div>
       </div>

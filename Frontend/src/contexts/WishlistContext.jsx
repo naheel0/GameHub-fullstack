@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { toast } from 'react-toastify';
 import { useAuth } from './AuthContext';
-import { BaseUrl, normalizeGame } from '../Services/api';
+import { BaseUrl, fetchWithGameCache } from '../Services/api';
 
 const WishlistContext = createContext();
 
@@ -23,10 +23,8 @@ export const WishlistProvider = ({ children }) => {
 
   const fetchGame = useCallback(async (gameId) => {
     try {
-      const response = await fetch(`${API_BASE}/games/${gameId}`);
-      if (!response.ok) return null;
-      const data = await response.json();
-      return normalizeGame(data);
+      const response = await fetchWithGameCache(API_BASE, gameId);
+      return response;
     } catch (error) {
       console.error('Error fetching game:', error);
       return null;

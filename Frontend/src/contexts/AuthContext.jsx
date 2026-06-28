@@ -141,8 +141,9 @@ export const AuthProvider = ({ children }) => {
         retryHeaders.Authorization = `Bearer ${currentToken}`;
       }
 
+      const { __skipRefresh: _skipRetry, ...retryRequestOptions } = requestOptions;
       return fetch(url, {
-        ...requestOptions,
+        ...retryRequestOptions,
         headers: retryHeaders,
         credentials: requestOptions.credentials || 'include',
         __skipRefresh: true,

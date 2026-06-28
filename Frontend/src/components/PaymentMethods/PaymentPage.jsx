@@ -2,14 +2,13 @@ import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useCart } from "../../contexts/CartContext";
 import { useAuth } from "../../contexts/AuthContext";
-import { BaseUrl } from "../../Services/api";
+import { BaseUrl, normalizeGame } from "../../Services/api";
 import { toast } from "react-toastify";
-import AddressSection from "../PaymentMethods/AddressSection"; // New Component
-import OrderSummary from "../PaymentMethods/OrderSummary"; // New Component
+import AddressSection from "../PaymentMethods/AddressSection";
+import OrderSummary from "../PaymentMethods/OrderSummary";
+import PaymentActionSection from './PaymentActionSection';
+import SecurityFeatures from './SecurityFeatures';
 import {
-  FaLock,
-  FaShieldAlt,
-  FaCheckCircle,
   FaArrowLeft,
 } from "react-icons/fa";
 
@@ -19,7 +18,6 @@ const PaymentPage = () => {
   const [editingAddress, setEditingAddress] = useState(null);
   const [selectedAddress, setSelectedAddress] = useState(null);
   const [paymentOrder, setPaymentOrder] = useState(null);
-  const [isResumedPayment, setIsResumedPayment] = useState(false);
 
   const [addressForm, setAddressForm] = useState({
     fullName: "",
@@ -39,8 +37,8 @@ const navigate = useNavigate();
   const { user, loading: authLoading, authFetch } = useAuth();
 
   const [addresses, setAddresses] = useState([]);
-  const userAddresses = useMemo(() => addresses, [addresses]);
   const API_BASE = BaseUrl;
+  const userAddresses = addresses;
 
   const order = paymentOrder;
 
@@ -70,6 +68,16 @@ const navigate = useNavigate();
 
   const summary = order?.summary || buyNowSummary || getCartSummary();
 
+
+   const clearStaleOrder = useCallback(() => {
+    try { localStorage.removeItem('pendingRazorpayOrder'); } catch { /* ignore */ }
+    try { localStorage.removeItem('pendingPurchase'); } catch { /* ignore */ }
+    setPaymentOrder(null);
+  }, []);
+
+  const clearBuyNowIntent = useCallback(() => {
+    try { localStorage.removeItem('buyNowIntent'); } catch { /* ignore */ }
+  }, []);
 
   const savePendingOrderDraft = useCallback((draftOrder) => {
     if (!draftOrder) return;
@@ -114,22 +122,41 @@ const navigate = useNavigate();
 
     if (location.state?.order) {
       setPaymentOrder(location.state.order);
-      setIsResumedPayment(false);
       savePendingOrderDraft(location.state.order);
       return;
     }
 
     if (storedOrder) {
-      setPaymentOrder(storedOrder);
-      setIsResumedPayment(true);
+      const verifyStaleOrder = async () => {
+        try {
+          const verifyRes = await authFetch(`${API_BASE}/orders`);
+          if (verifyRes.ok) {
+            const orders = await verifyRes.json();
+            const stillPending = orders.some(
+              (o) => o.purchaseId === storedOrder.purchaseId && o.status === "Pending"
+            );
+            if (!stillPending) {
+              clearStaleOrder();
+              setPaymentOrder(null);
+              return;
+            }
+          }
+        } catch {
+          clearStaleOrder();
+          setPaymentOrder(null);
+          return;
+        }
+        setPaymentOrder(storedOrder);
+      };
+
+      verifyStaleOrder();
       return;
     }
 
     setPaymentOrder(null);
-    setIsResumedPayment(false);
-  }, [location.state?.order, savePendingOrderDraft]);
+  }, [location.state?.order, savePendingOrderDraft, clearStaleOrder, authFetch, API_BASE]);
 
-useEffect(() => {
+  useEffect(() => {
     if (authLoading) {
       return;
     }
@@ -143,12 +170,12 @@ useEffect(() => {
       navigate("/cart", { replace: true });
     }
 
-    if (userAddresses.length > 0 && !selectedAddress) {
+    if (addresses.length > 0 && !selectedAddress) {
       const defaultAddress =
-        userAddresses.find((addr) => addr.isDefault) || userAddresses[0];
+        addresses.find((addr) => addr.isDefault) || addresses[0];
       setSelectedAddress(defaultAddress.id);
     }
-  }, [authLoading, buyNowIntent, cart.length, navigate, order, redirectToLogin, selectedAddress, user, userAddresses]);
+  }, [authLoading, buyNowIntent, cart.length, navigate, order, redirectToLogin, selectedAddress, user, addresses]);
 
   const refreshAddresses = useCallback(async () => {
     if (!user) {
@@ -355,18 +382,17 @@ const handleSetDefaultAddress = async (addressId) => {
     }
   };
 
-  const clearStaleOrder = useCallback(() => {
-    try { localStorage.removeItem('pendingRazorpayOrder'); } catch { /* ignore */ }
-    try { localStorage.removeItem('pendingPurchase'); } catch { /* ignore */ }
-    setPaymentOrder(null);
-    setIsResumedPayment(false);
-  }, []);
-
-  const clearBuyNowIntent = useCallback(() => {
-    try { localStorage.removeItem('buyNowIntent'); } catch { /* ignore */ }
-  }, []);
-
   const handleBuyNowCheckout = async (buyNowIntent, addressId) => {
+    const gameResponse = await fetch(`${API_BASE}/games/${buyNowIntent.gameId}`);
+    if (!gameResponse.ok) {
+      throw new Error('Game is no longer available.');
+    }
+    const gameData = await gameResponse.json();
+    const normalized = normalizeGame(gameData);
+    if (!normalized || !normalized.inStock) {
+      throw new Error('Game is currently out of stock.');
+    }
+
     const response = await authFetch(`${API_BASE}/orders/buy-now`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -514,6 +540,9 @@ const handleSetDefaultAddress = async (addressId) => {
       }
     })();
     if (hasBuyNowIntent || location.state?.fromProduct) {
+      // Buy Now: clean up before navigating away to prevent cart restore issues
+      try { localStorage.removeItem('buyNowIntent'); } catch { /* ignore */ }
+      try { localStorage.removeItem('pendingPurchase'); } catch { /* ignore */ }
       navigate("/products");
     } else {
       navigate("/cart");
@@ -569,7 +598,7 @@ const handleSetDefaultAddress = async (addressId) => {
           <div className="text-right">
             <p className="text-gray-400">Order Total</p>
             <p className="text-3xl font-bold text-red-500">
-              ${summary?.total || "0.00"}
+              ₹{summary?.total || "0.00"}
             </p>
           </div>
         </div>
@@ -594,77 +623,13 @@ const handleSetDefaultAddress = async (addressId) => {
               resetAddressForm={resetAddressForm}
             />
 
-            <div className="bg-gray-900/80 backdrop-blur-sm rounded-xl shadow-2xl p-6 border border-gray-700/50">
-              <h2 className="text-2xl font-bold text-white mb-4">Continue to Payment</h2>
+            <PaymentActionSection
+              isProcessing={isProcessing}
+              onPay={handleRazorpayCheckout}
+              disabled={isProcessing || !selectedAddress}
+            />
 
-              {isResumedPayment && order && (
-                <p></p>
-              )}
-
-              <button
-                type="button"
-                onClick={handleRazorpayCheckout}
-                disabled={isProcessing || !selectedAddress}
-                className="w-full bg-linear-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 disabled:from-gray-600 disabled:to-gray-700 text-white py-4 px-6 rounded-lg transition duration-300 font-semibold flex items-center justify-center space-x-2 border border-red-600 disabled:border-gray-600"
-              >
-                {isProcessing ? (
-                  <>
-                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
-                    Redirecting...
-                  </>
-                ) : (
-                  <>
-                    <span>Continue with Razorpay</span>
-                  </>
-                )}
-              </button>
-
-              
-            </div>
-
-            
-
-            {/* Security Features (Can be a standalone component too, but keeping inline for simplicity) */}
-            <div className="bg-gray-900/80 backdrop-blur-sm rounded-xl shadow-2xl p-6 border border-gray-700/50">
-              <h3 className="text-xl font-bold text-white mb-4">
-                Security Features
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {/* Security features array from original component */}
-                {[
-                  {
-                    icon: <FaLock className="text-xl" />,
-                    title: "SSL Encrypted",
-                    description: "All transactions are 256-bit SSL encrypted",
-                  },
-                  {
-                    icon: <FaShieldAlt className="text-xl" />,
-                    title: "PCI Compliant",
-                    description: "We are PCI DSS Level 1 certified",
-                  },
-                  {
-                    icon: <FaCheckCircle className="text-xl" />,
-                    title: "3D Secure",
-                    description: "Additional security layer for card payments",
-                  },
-                ].map((feature, index) => (
-                  <div
-                    key={index}
-                    className="text-center p-4 bg-gray-800/50 rounded-lg border border-gray-600/50 hover:border-red-500/30 transition duration-300"
-                  >
-                    <div className="text-red-500 mb-2 flex justify-center">
-                      {feature.icon}
-                    </div>
-                    <h4 className="font-semibold text-white mb-1">
-                      {feature.title}
-                    </h4>
-                    <p className="text-sm text-gray-400">
-                      {feature.description}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </div>
+            <SecurityFeatures />
           </div>
 
           {/* Right Column - Order Summary */}

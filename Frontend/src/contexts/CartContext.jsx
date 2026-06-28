@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { toast } from 'react-toastify';
 import { useAuth } from './AuthContext';
-import { BaseUrl, normalizeGame } from '../Services/api';
+import { BaseUrl, fetchWithGameCache } from '../Services/api';
 
 const CartContext = createContext();
 
@@ -24,10 +24,8 @@ export const CartProvider = ({ children }) => {
 
   const fetchGame = useCallback(async (gameId) => {
     try {
-      const response = await fetch(`${API_BASE}/games/${gameId}`);
-      if (!response.ok) return null;
-      const data = await response.json();
-      return normalizeGame(data);
+      const response = await fetchWithGameCache(API_BASE, gameId);
+      return response;
     } catch (error) {
       console.error('Error fetching game:', error);
       return null;
@@ -75,7 +73,9 @@ export const CartProvider = ({ children }) => {
       }
 
       const items = await response.json();
-      if ((!items || items.length === 0) && typeof window !== 'undefined') {
+      // Only attempt to restore cart for non-buy-now purchases (Buy Now items were never in cart)
+      const hasBuyNowIntent = typeof window !== 'undefined' && localStorage.getItem('buyNowIntent');
+      if ((!items || items.length === 0) && !hasBuyNowIntent && typeof window !== 'undefined') {
         try {
           const pending = localStorage.getItem('pendingPurchase');
           if (pending) {
@@ -286,6 +286,7 @@ export const CartProvider = ({ children }) => {
         const serverItems = await serverCartResp.json().catch(() => []);
         if ((!serverItems || serverItems.length === 0) && cart.length > 0) {
           // Sync local cart items to server
+          let syncError = null;
           for (const item of cart) {
             try {
               await authFetch(`${API_BASE}/cart`, {
@@ -293,11 +294,13 @@ export const CartProvider = ({ children }) => {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ gameId: item.id, quantity: item.quantity }),
               });
-            } catch {
-              // swallow sync errors; server may already have items
-              // Log debug info to avoid empty block warnings
-              console.debug('Failed to sync local cart item to server', item);
+            } catch (err) {
+              syncError = err;
+              console.debug('Failed to sync local cart item to server', item, err);
             }
+          }
+          if (syncError) {
+            throw new Error('Some cart items could not be synced to the server. Please try again.');
           }
         }
       }

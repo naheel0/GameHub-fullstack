@@ -17,6 +17,29 @@ const resolveBaseUrl = () => withApiPrefix(normalizeBaseUrl(import.meta.env.VITE
 
 export const BaseUrl = resolveBaseUrl();
 
+const gameCache = new Map();
+
+export const fetchWithGameCache = async (baseUrl, gameId) => {
+  const key = String(gameId);
+  if (gameCache.has(key)) {
+    return gameCache.get(key);
+  }
+  try {
+    const response = await fetch(`${baseUrl}/games/${gameId}`);
+    if (!response.ok) {
+      gameCache.set(key, null);
+      return null;
+    }
+    const data = await response.json();
+    const normalized = normalizeGame(data);
+    gameCache.set(key, normalized);
+    return normalized;
+  } catch (error) {
+    console.error('Error fetching game:', error);
+    return null;
+  }
+};
+
 export const getStoredAuth = () => {
 	if (typeof window === 'undefined' || !window.localStorage) return null;
 	let raw = null;
@@ -60,20 +83,25 @@ export const buildAuthHeaders = (token) =>
 	token ? { Authorization: `Bearer ${token}` } : {};
 
 export const normalizeGame = (game) => {
-	if (!game) return null;
+  if (!game) return null;
 
-	return {
-		id: game.id,
-		name: game.name,
-		genre: game.genre,
-		platform: game.platform,
-		price: game.price,
-		rating: game.rating,
-		inStock: game.inStock,
-		trailer: game.trailerUrl || game.trailer || "",
-		images: game.imageUrls || game.image || game.images || [],
-		description: game.description || "",
-	};
+  const images = game.imageUrls || game.images || [];
+  const normalizedImages = Array.isArray(images)
+    ? images
+    : (images ? [images] : []);
+
+  return {
+    id: game.id,
+    name: game.name,
+    genre: game.genre,
+    platform: game.platform,
+    price: game.price,
+    rating: game.rating,
+    inStock: game.inStock,
+    trailer: game.trailerUrl || game.trailer || "",
+    images: normalizedImages,
+    description: game.description || "",
+  };
 };
 
 export const normalizeUser = (data, accessToken) => {
