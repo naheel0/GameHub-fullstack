@@ -140,11 +140,9 @@ export const CartProvider = ({ children }) => {
       }
 
       await loadCart();
-      toast.success(`${game.name} added to cart!`);
       return true;
     } catch (error) {
       console.error('Error adding to cart:', error);
-      toast.error('Could not add that game to your cart.');
       return false;
     }
   };

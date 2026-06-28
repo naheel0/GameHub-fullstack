@@ -438,7 +438,6 @@ const handleSetDefaultAddress = async (addressId) => {
           const buyNowResult = await handleBuyNowCheckout(buyNowIntent, selectedAddress);
           paymentOrder = buyNowResult;
           setPaymentOrder(paymentOrder);
-          clearBuyNowIntent();
           savePendingOrderDraft(paymentOrder);
           try {
             const pid = buyNowResult.purchaseId;

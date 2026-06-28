@@ -140,7 +140,7 @@ const Products = () => {
   );
 
   const handleAddToCart = useCallback(
-    (game) => {
+    async (game) => {
       if (!user) {
         navigate('/login', { state: { from: location.pathname } });
         return;
@@ -151,7 +151,17 @@ const Products = () => {
         return;
       }
 
-      addToCart(game);
+      try {
+        const ok = await addToCart(game);
+        if (ok) {
+          toast.success(`${game.name} added to cart!`);
+        } else {
+          toast.error('Could not add to cart. Please try again.');
+        }
+      } catch (err) {
+        console.error('Error adding to cart:', err);
+        toast.error('Could not add to cart. Please try again.');
+      }
     },
     [user, navigate, location.pathname, addToCart]
   );
