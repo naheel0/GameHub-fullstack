@@ -414,6 +414,12 @@ const handleSetDefaultAddress = async (addressId) => {
           setPaymentOrder(paymentOrder);
           clearBuyNowIntent();
           savePendingOrderDraft(paymentOrder);
+          try {
+            const pid = buyNowResult.purchaseId;
+            if (pid) localStorage.setItem('pendingPurchase', String(pid));
+          } catch (e) {
+            console.debug('Failed to store pending purchase for buy-now flow', e);
+          }
         } catch (error) {
           toast.error(error.message || 'Could not create buy now order.');
           return;
