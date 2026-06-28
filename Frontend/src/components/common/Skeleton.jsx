@@ -40,7 +40,7 @@ export const FeatureSkeleton = () => (
 
 export const Skeleton = ({ className = '', count = 1 }) => {
   const baseClass = 'animate-pulse bg-gray-800/60 rounded';
-  
+
   if (count > 1) {
     return (
       <div className="grid gap-6">
@@ -50,20 +50,17 @@ export const Skeleton = ({ className = '', count = 1 }) => {
       </div>
     );
   }
-  
+
   return <div className={`${baseClass} ${className}`} />;
 };
 
 export const GameCardSkeleton = () => (
   <div className="bg-gray-900 rounded-lg overflow-hidden border border-gray-800">
-    {/* Image with Relative Container */}
     <div className="relative">
       <div className="w-full h-48 bg-gradient-to-br from-gray-800 to-gray-900 animate-pulse" />
-      {/* Price Badge */}
       <div className="absolute top-2 right-2 bg-gray-800/80 backdrop-blur-sm animate-pulse rounded px-3 py-1 h-6 w-16" />
     </div>
-    
-    {/* Content */}
+
     <div className="p-6">
       <div className="h-6 bg-gray-800/60 animate-pulse rounded-lg mb-2" />
       <div className="h-4 bg-gray-800/40 animate-pulse rounded-lg mb-3 w-3/4" />
@@ -82,6 +79,85 @@ export const GameCardSkeleton = () => (
     </div>
   </div>
 );
+
+const StarRow = () => (
+  <div className="flex items-center space-x-1">
+    {Array.from({ length: 5 }).map((_, i) => (
+      <div key={i} className="h-5 w-5 bg-gray-800 animate-pulse rounded" />
+    ))}
+  </div>
+);
+
+export const ProductDetailsSkeleton = React.memo(() => (
+  <div className="min-h-screen bg-black py-8">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="h-6 bg-gray-800 animate-pulse rounded w-24 mb-6" />
+      <div className="bg-gray-900 rounded-lg shadow-lg overflow-hidden border border-gray-800">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 p-8">
+          <div className="space-y-6">
+            <div className="bg-gray-800 rounded-lg overflow-hidden border border-gray-700">
+              <div className="w-full h-96 bg-gray-800 animate-pulse" />
+            </div>
+            <div className="grid grid-cols-5 gap-3">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <div key={i} className="rounded-lg overflow-hidden border-2 border-gray-600 bg-gray-800 animate-pulse h-20" />
+              ))}
+            </div>
+          </div>
+          <div className="space-y-6">
+            <div>
+              <div className="h-10 bg-gray-800 animate-pulse rounded-lg w-3/4 mb-4" />
+              <div className="flex items-center space-x-4 mb-4">
+                <div className="flex items-center space-x-1">
+                  <StarRow />
+                  <div className="h-6 bg-gray-800 animate-pulse rounded-lg w-16 ml-2" />
+                </div>
+                <div className="h-6 bg-gray-800 animate-pulse rounded w-20" />
+              </div>
+            </div>
+            <div className="h-12 bg-gray-800 animate-pulse rounded-lg w-48 mb-2" />
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div>
+                <div className="h-4 bg-gray-800 animate-pulse rounded mb-1 w-16" />
+                <div className="h-4 bg-gray-800 animate-pulse rounded w-32" />
+              </div>
+              <div>
+                <div className="h-4 bg-gray-800 animate-pulse rounded mb-1 w-16" />
+                <div className="h-4 bg-gray-800 animate-pulse rounded w-32" />
+              </div>
+              <div className="col-span-2">
+                <div className="h-4 bg-gray-800 animate-pulse rounded mb-1 w-20" />
+                <div className="h-4 bg-gray-800 animate-pulse rounded w-full" />
+                <div className="h-4 bg-gray-800 animate-pulse rounded w-5/6 mt-1" />
+              </div>
+            </div>
+            <div className="flex items-center space-x-4">
+              <div className="h-4 bg-gray-800 animate-pulse rounded w-16" />
+              <div className="flex items-center space-x-2">
+                <div className="w-8 h-8 rounded-full bg-gray-800 animate-pulse" />
+                <div className="w-12 h-4 bg-gray-800 animate-pulse rounded" />
+                <div className="w-8 h-8 rounded-full bg-gray-800 animate-pulse" />
+              </div>
+            </div>
+            <div className="flex space-x-4">
+              <div className="flex-1 h-12 bg-gray-800 animate-pulse rounded-lg" />
+              <div className="flex-1 h-12 bg-gray-800 animate-pulse rounded-lg" />
+              <div className="w-12 h-12 bg-gray-800 animate-pulse rounded-lg" />
+            </div>
+            <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
+              <div className="h-6 bg-gray-800 animate-pulse rounded-lg w-32 mb-2" />
+              <div className="space-y-2">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <div key={i} className="h-4 bg-gray-800 animate-pulse rounded-lg w-48" />
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+));
 
 export const CartItemSkeleton = () => (
   <div className="bg-gray-900 border border-gray-800 rounded-lg p-6">

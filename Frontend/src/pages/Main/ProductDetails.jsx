@@ -9,6 +9,7 @@ import { GiFastBackwardButton } from 'react-icons/gi';
 import { MdArrowForwardIos, MdArrowBackIosNew } from "react-icons/md";
 import { toast } from 'react-toastify';
 import { BaseUrl, normalizeGame } from '../../Services/api';
+import { ProductDetailsSkeleton } from '../../components/common/Skeleton';
 
 const ProductDetails = () => {
   const { id } = useParams();
@@ -222,14 +223,7 @@ const [wishlistLoading, setWishlistLoading] = useState(false);
   };
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600 mx-auto"></div>
-          <p className="mt-4 text-gray-300">Loading game details...</p>
-        </div>
-      </div>
-    );
+    return <ProductDetailsSkeleton />;
   }
 
   if (apiUnavailable) {
