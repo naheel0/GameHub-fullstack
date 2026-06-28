@@ -68,9 +68,8 @@ const OrderConfirmation = () => {
     }
 
     if (hasRazorpayCallback) {
-      // Note: We do NOT remove pendingPurchase here - it remains available for
-      // handlePaidPaymentLink/handleFailedPaymentLink to read the purchaseId
-      clearPendingPaymentDraft();
+      // Leave pendingPurchase and pendingRazorpayOrder for handlePaidPaymentLink/handleFailedPaymentLink
+      // to read. They will be cleaned up after verification.
       setLoading(true);
       return;
     }
