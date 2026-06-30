@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { toast } from 'react-toastify';
 import { useAuth } from './AuthContext';
-import { BaseUrl, fetchWithGameCache } from '../Services/api';
+import { BaseUrl, fetchWithGameCache, invalidateGameCache } from '../Services/api';
 
 const CartContext = createContext();
 
@@ -104,6 +104,8 @@ export const CartProvider = ({ children }) => {
       }
       const mapped = await Promise.all((items || []).map(mapCartItem));
       setCart(mapped.filter(Boolean));
+      // Invalidate game cache for cart items so fresh metadata is fetched
+      (items || []).forEach((item) => invalidateGameCache(item.gameId));
     } catch (error) {
       console.error('Error loading cart:', error);
       toast.error('We could not load your cart. Please try again.');
@@ -162,7 +164,7 @@ export const CartProvider = ({ children }) => {
         throw new Error('Failed to remove from cart');
       }
 
-      setCart((prev) => prev.filter((item) => item.id !== gameId));
+      await loadCart();
       return true;
     } catch (error) {
       console.error('Error removing from cart:', error);
@@ -192,9 +194,7 @@ export const CartProvider = ({ children }) => {
         throw new Error('Failed to update quantity');
       }
 
-      setCart((prev) => prev.map((item) => (
-        item.id === gameId ? { ...item, quantity: newQuantity } : item
-      )));
+      await loadCart();
       return true;
     } catch (error) {
       console.error('Error updating quantity:', error);

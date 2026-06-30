@@ -1,7 +1,6 @@
 ﻿using GameHub.Application.DTOs.Auth;
 using GameHub.Application.Resources;
 using GameHub.Application.Services;
-using GameHub.Application.Common.Interfaces;  // Add this for IEmailService and IOtpService
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -35,7 +34,7 @@ namespace GameHubApi.Controllers
             var otp = await _otpService.GenerateAndStoreOtpAsync(request.Email);
             await _emailService.SendOtpEmailAsync(request.Email, otp);
 
-            return Ok(new { message = "OTP sent to your email address." });
+            return Ok(new { message = ExceptionMessages.OtpSentToEmail });
         }
 
         // ========== NEW: Verify OTP and complete registration ==========
@@ -45,7 +44,7 @@ namespace GameHubApi.Controllers
             // 1. Verify OTP
             var isValid = await _otpService.VerifyOtpAsync(request.Email, request.Otp);
             if (!isValid)
-                return BadRequest(new { message = "Invalid or expired OTP." });
+                return BadRequest(new { message = ExceptionMessages.InvalidOrExpiredRefreshToken });
 
             // 2. OTP is correct – now register the user
             var registerRequest = new RegisterRequest
@@ -94,7 +93,10 @@ namespace GameHubApi.Controllers
         public async Task<IActionResult> Refresh()
         {
             var refreshToken = Request.Cookies["refreshToken"];
-            var result = await _authService.RefreshTokenAsync(refreshToken);
+            if (string.IsNullOrEmpty(refreshToken))
+                return BadRequest(new { message = ExceptionMessages.RefreshTokenRequired });
+
+            var result = await _authService.RefreshTokenAsync(refreshToken!);
             if (!result.Success)
                 return StatusCode(result.StatusCode != 0 ? result.StatusCode : 401, result);
             SetRefreshTokenCookie(result.Data!.RefreshToken);
@@ -110,7 +112,7 @@ namespace GameHubApi.Controllers
             var jti = User.FindFirst(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Jti)?.Value;
             await _authService.Logout(userId, jti);
             Response.Cookies.Delete("refreshToken");
-            return Ok(new { message = "logged out" });
+            return Ok(new { message = ExceptionMessages.LogoutSuccessful });
         }
 
         [HttpGet("profile")]
@@ -120,6 +122,15 @@ namespace GameHubApi.Controllers
             var userId = GetCurrentUserId();
             var result = await _authService.GetProfileAsync(userId);
             return result.Success ? Ok(result) : StatusCode(result.StatusCode != 0 ? result.StatusCode : 404, result);
+        }
+
+        [HttpPut("profile")]
+        [Authorize]
+        public async Task<IActionResult> UpdateProfile([FromBody] UpdateProfileRequest request)
+        {
+            var userId = GetCurrentUserId();
+            var result = await _authService.UpdateProfileAsync(userId, request);
+            return result.Success ? Ok(result) : StatusCode(result.StatusCode != 0 ? result.StatusCode : 400, result);
         }
 
         private int GetCurrentUserId()
@@ -132,8 +143,9 @@ namespace GameHubApi.Controllers
                 : throw new UnauthorizedAccessException(ExceptionMessages.Unauthorized);
         }
 
-        private void SetRefreshTokenCookie(string token)
+        private void SetRefreshTokenCookie(string? token)
         {
+            if (string.IsNullOrEmpty(token)) return;
             var days = 7;
             var cfg = _config.GetSection("JwtSettings");
             if (cfg != null && int.TryParse(cfg["RefreshTokenExpirationDays"], out var parsed))

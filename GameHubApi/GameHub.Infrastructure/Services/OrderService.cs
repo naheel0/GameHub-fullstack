@@ -21,32 +21,9 @@ public class OrderService : IOrderService
         _ = await _context.Users.FindAsync(userId)
             ?? throw new NotFoundException(nameof(ExceptionMessages.UserNotFound));
 
-        var cartItems = await _context.CartItems
-            .Where(ci => ci.UserId == userId)
-            .ToListAsync();
-
-        if (!cartItems.Any())
-            throw new BusinessRuleException(nameof(ExceptionMessages.CartEmpty));
-
         var address = await _context.Address
             .FirstOrDefaultAsync(a => a.AddressId == request.AddressId && a.UserId == userId)
             ?? throw new NotFoundException(nameof(ExceptionMessages.AddressNotFoundOrDoesNotBelong));
-
-
-        var gameIds = cartItems.Select(ci => ci.GameId).Distinct();
-        var games = await _context.Games
-            .Where(g => gameIds.Contains(g.Id))
-            .ToDictionaryAsync(g => g.Id);
-
-        foreach (var cartItem in cartItems)
-        {
-            if (!games.TryGetValue(cartItem.GameId, out var game) || !game.InStock)
-                throw new BusinessRuleException(nameof(ExceptionMessages.GameNoLongerAvailable), cartItem.GameName);
-        }
-
-        decimal subtotal = cartItems.Sum(ci => ci.Price * ci.Quantity);
-        decimal tax = Math.Round(subtotal * 0.1m, 2);
-        decimal total = subtotal + tax;
 
         var executionStrategy = _context.Database.CreateExecutionStrategy();
 
@@ -56,6 +33,29 @@ public class OrderService : IOrderService
 
             try
             {
+                // Re-read cart items inside the transaction to prevent race conditions
+                var cartItems = await _context.CartItems
+                    .Where(ci => ci.UserId == userId)
+                    .ToListAsync();
+
+                if (!cartItems.Any())
+                    throw new BusinessRuleException(nameof(ExceptionMessages.CartEmpty));
+
+                var gameIds = cartItems.Select(ci => ci.GameId).Distinct();
+                var games = await _context.Games
+                    .Where(g => gameIds.Contains(g.Id))
+                    .ToDictionaryAsync(g => g.Id);
+
+                foreach (var cartItem in cartItems)
+                {
+                    if (!games.TryGetValue(cartItem.GameId, out var game) || !game.InStock)
+                        throw new BusinessRuleException(nameof(ExceptionMessages.GameNoLongerAvailable), cartItem.GameName);
+                }
+
+                decimal subtotal = cartItems.Sum(ci => ci.Price * ci.Quantity);
+                decimal tax = Math.Round(subtotal * 0.1m, 2);
+                decimal total = subtotal + tax;
+
                 var purchase = new Purchase
                 {
                     UserId = userId,

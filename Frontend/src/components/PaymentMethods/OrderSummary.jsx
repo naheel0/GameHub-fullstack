@@ -29,7 +29,7 @@ const OrderSummary = ({ summary, orderItems, selectedAddress }) => {
               </div>
             </div>
             <span className="font-semibold text-white">
-              ₹{(item.price * item.quantity).toFixed(2)}
+              ₹{((item.price || 0) * (item.quantity || 1)).toFixed(2)}
             </span>
           </div>
         ))}

@@ -23,9 +23,9 @@ namespace GameHubApi.Controllers
             var qParams = query ?? new QueryParameters();
 
             // Map underscored keys that don't map automatically to properties
-            if (Request.Query.TryGetValue("_sort", out var s)) qParams.SortBy = s;
-            if (Request.Query.TryGetValue("_order", out var o)) qParams.SortOrder = o;
-            if (Request.Query.TryGetValue("q", out var qq)) qParams.Search = qq;
+            if (Request.Query.TryGetValue("_sort", out var s)) qParams.SortBy = s.ToString();
+            if (Request.Query.TryGetValue("_order", out var o)) qParams.SortOrder = o.ToString();
+            if (Request.Query.TryGetValue("q", out var qq)) qParams.Search = qq.ToString();
             if (Request.Query.TryGetValue("_page", out var p) && int.TryParse(p, out var pi)) qParams.Page = pi;
             if (Request.Query.TryGetValue("_limit", out var l) && int.TryParse(l, out var li)) qParams.PageSize = li;
 

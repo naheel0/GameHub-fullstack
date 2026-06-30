@@ -1,4 +1,5 @@
-﻿using GameHub.Application.Common.interfaces;
+﻿using GameHub.Application.Common.Exceptions;
+using GameHub.Application.Common.interfaces;
 using GameHub.Application.Common.Models;
 using GameHub.Application.DTOs.Auth;
 using GameHub.Application.Resources;
@@ -53,7 +54,7 @@ namespace GameHub.Infrastructure.Services
             var authResponse = MapToAuthResponse(user, accessToken, refreshToken);
             return ApiResponse<AuthResponse>.Ok(authResponse, "Registration successful");
         }
-        public async Task<ApiResponse<AuthResponse>> LoginAsync(LoginRequest request, object newRefreshToken)
+        public async Task<ApiResponse<AuthResponse>> LoginAsync(LoginRequest request, object? newRefreshToken)
         {
             var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == request.Email);
             if (user == null || !PasswordHasher.Verify(request.Password, user.PasswordHash))
@@ -61,7 +62,7 @@ namespace GameHub.Infrastructure.Services
             if (user.AccountStatus == Domain.Enums.AccountStatus.Blocked)
                 return ApiResponse<AuthResponse>.Fail(ExceptionMessages.AccountBlocked, 403);
             var accessToken = _tokenService.GenerateAccessToken(user);
-            string refreshTokenString = newRefreshToken as string;
+            string refreshTokenString = newRefreshToken as string ?? string.Empty;
             if (string.IsNullOrEmpty(refreshTokenString))
             {
                 refreshTokenString = _tokenService.GenerateRefreshToken();
@@ -103,6 +104,28 @@ namespace GameHub.Infrastructure.Services
 
             await _context.SaveChangeAsync();
         }
+        public async Task<ApiResponse<AuthResponse>> UpdateProfileAsync(int userId, UpdateProfileRequest request)
+        {
+            var user = await _context.Users.FindAsync(userId)
+                ?? throw new NotFoundException(ExceptionMessages.UserNotFound, userId);
+
+            if (user.Email != request.Email)
+            {
+                var exists = await _context.Users.AnyAsync(u => u.Email == request.Email && u.Id != userId);
+                if (exists)
+                    return ApiResponse<AuthResponse>.Fail(ExceptionMessages.EmailAlreadyRegistered, 400);
+            }
+
+            user.FirstName = request.FirstName;
+            user.LastName = request.LastName;
+            user.Email = request.Email;
+            user.Phone = request.Phone;
+
+            await _context.SaveChangeAsync();
+
+            return ApiResponse<AuthResponse>.Ok(MapToAuthResponse(user, null, null), "Profile updated successfully");
+        }
+
         public async Task<ApiResponse<AuthResponse>> GetProfileAsync(int userId)
         {
             var user = await _context.Users.FindAsync(userId);
@@ -111,14 +134,14 @@ namespace GameHub.Infrastructure.Services
             var authResponse = MapToAuthResponse(user, null, null);
             return ApiResponse<AuthResponse>.Ok(authResponse, "profile retrieved");
         }
-        private static AuthResponse MapToAuthResponse(User user, string accessToken, object refreshToken)
+        private static AuthResponse MapToAuthResponse(User user, string? accessToken, object? refreshToken)
         {
             return new AuthResponse
             {
                 Id = user.Id,
                 Email = user.Email,
                 FirstName = user.FirstName,
-                LastName = user.LastName,
+                LastName = user.LastName ?? string.Empty,
                 Phone = user.Phone,
                 Role = user.Role.ToString(),
                 Status = user.AccountStatus.ToString(),

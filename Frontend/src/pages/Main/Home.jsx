@@ -45,11 +45,11 @@ const Home = () => {
 
   const { addToWishlist, removeFromWishlist, isInWishlist } = useWishlist();
 
-  const handleWishlistToggle = (game) => {
+  const handleWishlistToggle = async (game) => {
     if (isInWishlist(game.id)) {
-      removeFromWishlist(game.id);
+      await removeFromWishlist(game.id);
     } else {
-      addToWishlist(game);
+      await addToWishlist(game);
     }
   };
 

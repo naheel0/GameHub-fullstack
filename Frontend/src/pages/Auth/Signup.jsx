@@ -28,6 +28,7 @@ const Signup = () => {
     phone: "",
     password: "",
     confirmPassword: "",
+    terms: false,
   });
   const [otp, setOtp] = useState("");
   const [otpSent, setOtpSent] = useState(false);
@@ -83,6 +84,12 @@ const Signup = () => {
         }
         setError(otpResult.error || "Failed to send OTP.");
       }
+      setLoading(false);
+      return;
+    }
+
+    if (!formData.terms) {
+      setError("You must agree to the Terms and Conditions.");
       setLoading(false);
       return;
     }
@@ -357,7 +364,8 @@ const Signup = () => {
               id="terms"
               name="terms"
               type="checkbox"
-              required
+              checked={formData.terms}
+              onChange={(e) => setFormData({ ...formData, terms: e.target.checked })}
               className="h-4 w-4 text-red-600 focus:ring-red-500 border-gray-600 rounded bg-gray-800"
             />
             <label htmlFor="terms" className="ml-2 block text-sm text-gray-300">

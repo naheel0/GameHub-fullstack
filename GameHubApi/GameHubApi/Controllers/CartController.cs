@@ -1,5 +1,6 @@
 ﻿using GameHub.Application.Common.interfaces;
 using GameHub.Application.DTOs.Cart;
+using GameHub.Application.Resources;
 using GameHub.Application.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -30,30 +31,28 @@ namespace GameHubApi.Controllers
         {
             var userId = GetCurrentUserId();
             await _cartService.AddToCartAsync(userId, request.GameId, request.Quantity);
-            return Ok(new { message = "Item add to cart" });
+            return Ok(new { message = ExceptionMessages.ItemAddedToCart });
         }
         [HttpPut("{gameId}")]
         public async Task<IActionResult> UpdateQuantity(int gameId, [FromBody] UpdateQuantityRequest request)
         {
             var userId = GetCurrentUserId();
             await _cartService.UpdateQuantityAsync(userId, gameId, request.Quantity);
-            {
-                return Ok(new { message = "Quantity update" });
-            }
+            return Ok(new { message = ExceptionMessages.QuantityUpdated });
         }
         [HttpDelete("{gameId}")]
-        public async Task<IActionResult> ReoveFromCart(int gameId)
+        public async Task<IActionResult> RemoveFromCart(int gameId)
         {
             var userId = GetCurrentUserId();
             await _cartService.RemoveFromCartAsync(userId, gameId);
-            return Ok(new { message = "Item removed from cart" });
+            return Ok(new { message = ExceptionMessages.ItemRemovedFromCart });
         }
         [HttpDelete]
         public async Task<IActionResult> ClearCart()
         {
             var userId = GetCurrentUserId();
             await _cartService.ClearCartAsync(userId);
-            return Ok(new { message = "Cart cleared" });
+            return Ok(new { message = ExceptionMessages.CartCleared });
         }
 
         private int GetCurrentUserId()

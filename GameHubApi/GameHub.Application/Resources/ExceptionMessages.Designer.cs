@@ -413,5 +413,248 @@ namespace GameHub.Application.Resources {
                 return ResourceManager.GetString("UserNotFound", resourceCulture);
             }
         }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Add to wishlist..
+        /// </summary>
+        public static string AddToWishlist {
+            get {
+                return ResourceManager.GetString("AddToWishlist", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Address deleted..
+        /// </summary>
+        public static string AddressDeleted {
+            get {
+                return ResourceManager.GetString("AddressDeleted", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Address updated..
+        /// </summary>
+        public static string AddressUpdated {
+            get {
+                return ResourceManager.GetString("AddressUpdated", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Cart cleared..
+        /// </summary>
+        public static string CartCleared {
+            get {
+                return ResourceManager.GetString("CartCleared", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Default address updated..
+        /// </summary>
+        public static string DefaultAddressUpdated {
+            get {
+                return ResourceManager.GetString("DefaultAddressUpdated", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Item added to cart..
+        /// </summary>
+        public static string ItemAddedToCart {
+            get {
+                return ResourceManager.GetString("ItemAddedToCart", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Item removed from cart..
+        /// </summary>
+        public static string ItemRemovedFromCart {
+            get {
+                return ResourceManager.GetString("ItemRemovedFromCart", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Logged out successfully..
+        /// </summary>
+        public static string LogoutSuccessful {
+            get {
+                return ResourceManager.GetString("LogoutSuccessful", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Moved to cart..
+        /// </summary>
+        public static string MovedToCart {
+            get {
+                return ResourceManager.GetString("MovedToCart", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to OTP sent to your email address..
+        /// </summary>
+        public static string OtpSentToEmail {
+            get {
+                return ResourceManager.GetString("OtpSentToEmail", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Order already confirmed..
+        /// </summary>
+        public static string OrderAlreadyConfirmed {
+            get {
+                return ResourceManager.GetString("OrderAlreadyConfirmed", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Order status updated..
+        /// </summary>
+        public static string OrderStatusUpdated {
+            get {
+                return ResourceManager.GetString("OrderStatusUpdated", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Payment amount mismatch. Expected {0} paise, received {1} paise..
+        /// </summary>
+        public static string PaymentAmountMismatch {
+            get {
+                return ResourceManager.GetString("PaymentAmountMismatch", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Payment amount verification failed..
+        /// </summary>
+        public static string PaymentAmountVerificationFailed {
+            get {
+                return ResourceManager.GetString("PaymentAmountVerificationFailed", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Payment confirmed successfully..
+        /// </summary>
+        public static string PaymentConfirmedSuccessfully {
+            get {
+                return ResourceManager.GetString("PaymentConfirmedSuccessfully", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Payment link creation failed: {0}.
+        /// </summary>
+        public static string PaymentLinkCreationFailed {
+            get {
+                return ResourceManager.GetString("PaymentLinkCreationFailed", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Payment link response was invalid..
+        /// </summary>
+        public static string PaymentLinkResponseInvalid {
+            get {
+                return ResourceManager.GetString("PaymentLinkResponseInvalid", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Payment already verified..
+        /// </summary>
+        public static string PaymentAlreadyVerified {
+            get {
+                return ResourceManager.GetString("PaymentAlreadyVerified", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Payment record not found..
+        /// </summary>
+        public static string PaymentRecordNotFound {
+            get {
+                return ResourceManager.GetString("PaymentRecordNotFound", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Payment signature verification failed..
+        /// </summary>
+        public static string PaymentSignatureVerificationFailed {
+            get {
+                return ResourceManager.GetString("PaymentSignatureVerificationFailed", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Payment verified successfully..
+        /// </summary>
+        public static string PaymentVerifiedSuccessfully {
+            get {
+                return ResourceManager.GetString("PaymentVerifiedSuccessfully", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Quantity updated..
+        /// </summary>
+        public static string QuantityUpdated {
+            get {
+                return ResourceManager.GetString("QuantityUpdated", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Removed from wishlist..
+        /// </summary>
+        public static string RemovedFromWishlist {
+            get {
+                return ResourceManager.GetString("RemovedFromWishlist", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Role updated successfully..
+        /// </summary>
+        public static string RoleUpdatedSuccessfully {
+            get {
+                return ResourceManager.GetString("RoleUpdatedSuccessfully", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to User activated successfully..
+        /// </summary>
+        public static string UserActivatedSuccessfully {
+            get {
+                return ResourceManager.GetString("UserActivatedSuccessfully", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to User updated successfully..
+        /// </summary>
+        public static string UserUpdatedSuccessfully {
+            get {
+                return ResourceManager.GetString("UserUpdatedSuccessfully", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to User blocked successfully..
+        /// </summary>
+        public static string UserBlockedSuccessfully {
+            get {
+                return ResourceManager.GetString("UserBlockedSuccessfully", resourceCulture);
+            }
+        }
     }
 }

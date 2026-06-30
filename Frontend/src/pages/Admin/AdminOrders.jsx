@@ -20,11 +20,11 @@ export default function AdminOrders() {
       setFilteredOrders(orders);
     } else {
       const lowerQuery = searchQuery.toLowerCase();
-      setFilteredOrders(orders.filter(
-        (order) =>
-          (order.orderId || order.id).toString().toLowerCase().includes(lowerQuery) ||
-          order.email.toLowerCase().includes(lowerQuery)
-      ));
+        setFilteredOrders(orders.filter(
+          (order) =>
+            (order.orderId || order.id).toString().toLowerCase().includes(lowerQuery) ||
+            (order.email || '').toLowerCase().includes(lowerQuery)
+        ));
     }
   }, [orders, searchQuery]);
 
@@ -36,11 +36,11 @@ export default function AdminOrders() {
 
   const getTotalPrice = (items, total) =>
     items && items.length
-      ? items.reduce((sum, item) => sum + item.price * (item.qty || 1), 0)
+      ? items.reduce((sum, item) => sum + item.price * (item.quantity || item.qty || 1), 0)
       : (total || 0);
 
   const getTotalQty = (items) =>
-    items.reduce((sum, item) => sum + (item.qty || 1), 0);
+    items.reduce((sum, item) => sum + (item.quantity || item.qty || 1), 0);
 
   const handleDelete = async (id) => {
     if (window.confirm("Are you sure you want to delete this order?")) {

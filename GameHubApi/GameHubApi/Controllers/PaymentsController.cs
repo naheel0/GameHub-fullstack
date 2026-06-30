@@ -45,7 +45,7 @@ namespace GameHubApi.Controllers
             }
             catch (Exception ex)
             {
-                return BadRequest(new { message = "Failed to create payment link", error = ex.Message });
+                return BadRequest(new { message = string.Format(ExceptionMessages.PaymentLinkCreationFailed, ex.Message), error = ex.Message });
             }
         }
 
@@ -84,7 +84,7 @@ namespace GameHubApi.Controllers
             }
             catch (Exception ex)
             {
-                return BadRequest(new { message = "Failed to confirm payment", error = ex.Message });
+                return BadRequest(new { message = string.Format(ExceptionMessages.PaymentLinkCreationFailed, ex.Message), error = ex.Message });
             }
         }
 

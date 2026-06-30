@@ -5,7 +5,7 @@ import {
   MinusIcon,
 } from '@heroicons/react/24/outline';
 
-const CartItem = ({ item, onQuantityChange, onRemove, isCheckingOut }) => {
+const CartItem = ({ item, onQuantityChange, onRemove }) => {
   return (
     <div
       className="bg-gray-900 border border-gray-800 rounded-lg p-6"
@@ -43,7 +43,7 @@ const CartItem = ({ item, onQuantityChange, onRemove, isCheckingOut }) => {
             <div className="flex items-center gap-2">
               <button
                 onClick={() => onQuantityChange(item.id, item.quantity - 1)}
-                disabled={item.quantity <= 1 || isCheckingOut}
+                disabled={item.quantity <= 1}
                 className="w-8 h-8 flex items-center justify-center bg-gray-800 hover:bg-gray-700 text-gray-300 rounded border border-gray-700 disabled:opacity-50 transition duration-300"
               >
                 <MinusIcon className="h-4 w-4" />
@@ -53,7 +53,6 @@ const CartItem = ({ item, onQuantityChange, onRemove, isCheckingOut }) => {
               </span>
               <button
                 onClick={() => onQuantityChange(item.id, item.quantity + 1)}
-                disabled={isCheckingOut}
                 className="w-8 h-8 flex items-center justify-center bg-gray-800 hover:bg-gray-700 text-gray-300 rounded border border-gray-700 disabled:opacity-50 transition duration-300"
               >
                 <PlusIcon className="h-4 w-4" />
@@ -72,8 +71,7 @@ const CartItem = ({ item, onQuantityChange, onRemove, isCheckingOut }) => {
             </div>
             <button
               onClick={() => onRemove(item.id)}
-              disabled={isCheckingOut}
-              className="text-gray-400 hover:text-red-400 transition duration-300 disabled:opacity-50"
+              className="text-gray-400 hover:text-red-400 transition duration-300"
               title="Remove item"
             >
               <TrashIcon className="h-5 w-5" />

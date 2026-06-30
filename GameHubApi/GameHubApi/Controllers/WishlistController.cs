@@ -1,4 +1,5 @@
 ﻿using GameHub.Application.Common.interfaces;
+using GameHub.Application.Resources;
 using GameHub.Application.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -29,21 +30,21 @@ namespace GameHubApi.Controllers
         {
             var userId = GetCurrentUserId();
             await _wishlistService.AddToWishlistAsync(userId, gameId);
-            return Ok(new { meesage = "Add to wishlist" });
+            return Ok(new { message = ExceptionMessages.AddToWishlist });
         }
         [HttpDelete("{gameId}")]
         public async Task<IActionResult> RemoveFromWishlist(int gameId)
         {
             var userId = GetCurrentUserId();
             await _wishlistService.RemoveFromWishlistAsync(userId, gameId);
-            return Ok(new { message = "Removed from wishlist" });
+            return Ok(new { message = ExceptionMessages.RemovedFromWishlist });
         }
         [HttpPost("{gameId}/move-to-cart")]
         public async Task<IActionResult> MoveToCart(int gameId)
         {
             var userId = GetCurrentUserId();
             await _wishlistService.MoveToCartAsync(userId, gameId);
-            return Ok(new { message = "Moved to cart" });
+            return Ok(new { message = ExceptionMessages.MovedToCart });
         }
 
         private int GetCurrentUserId()

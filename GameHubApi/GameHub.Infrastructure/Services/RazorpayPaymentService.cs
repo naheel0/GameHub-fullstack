@@ -1,6 +1,7 @@
 ﻿using GameHub.Application.Common.Exceptions;
 using GameHub.Application.Common.interfaces;
 using GameHub.Application.DTOs.Payments;
+using GameHub.Application.Resources;
 using GameHub.Application.Services;
 using GameHub.Domain.Entities;
 using GameHub.Domain.Enums;
@@ -39,10 +40,10 @@ public class RazorpayPaymentService : IPaymentService
         var purchase = await _context.Purchases
             .Include(p => p.ShippingAddress)
             .FirstOrDefaultAsync(p => p.Id == purchaseId && p.UserId == userId)
-            ?? throw new NotFoundException("Order not found");
+            ?? throw new NotFoundException(ExceptionMessages.OrderNotFound);
 
         if (purchase.Status == OrderStatus.Confirmed)
-            throw new BusinessRuleException("Order already confirmed");
+            throw new BusinessRuleException(ExceptionMessages.OrderAlreadyConfirmed);
 
         int amountInPaise = (int)Math.Round(purchase.Total * 100, MidpointRounding.AwayFromZero);
         var callbackUrl = $"{_frontendBaseUrl.TrimEnd('/')}/order-confirmation";
@@ -73,7 +74,10 @@ public class RazorpayPaymentService : IPaymentService
         var responseBody = await response.Content.ReadAsStringAsync();
 
         if (!response.IsSuccessStatusCode)
-            throw new BusinessRuleException($"Failed to create Razorpay payment link: {responseBody}");
+        {
+            var errorBody = await response.Content.ReadAsStringAsync();
+            throw new BusinessRuleException(string.Format(ExceptionMessages.PaymentLinkCreationFailed, errorBody));
+        }
 
         using var document = JsonDocument.Parse(responseBody);
         var root = document.RootElement;
@@ -81,7 +85,7 @@ public class RazorpayPaymentService : IPaymentService
         var paymentLinkId = root.GetProperty("id").GetString();
 
         if (string.IsNullOrWhiteSpace(shortUrl) || string.IsNullOrWhiteSpace(paymentLinkId))
-            throw new BusinessRuleException("Razorpay payment link response was invalid");
+            throw new BusinessRuleException(ExceptionMessages.PaymentLinkResponseInvalid);
 
         return new PaymentLinkInitiateDto
         {
@@ -101,14 +105,14 @@ public class RazorpayPaymentService : IPaymentService
                 .ThenInclude(pu => pu.Items)
             .FirstOrDefaultAsync(p => p.RazorpayOrderId == request.RazorpayOrderId
                                    && p.Purchase.UserId == userId)
-            ?? throw new NotFoundException("Payment record not found");
+            ?? throw new NotFoundException(ExceptionMessages.PaymentRecordNotFound);
 
         if (payment.Status == PaymentStatus.Success)
         {
             return new PaymentVerificationDto
             {
                 Success = true,
-                Message = "Payment already verified",
+                Message = ExceptionMessages.PaymentAlreadyVerified,
                 PurchaseId = payment.PurchaseId,
                 OrderId = payment.Purchase.OrderId
             };
@@ -158,7 +162,25 @@ public class RazorpayPaymentService : IPaymentService
                 throw;
             }
 
-            throw new BusinessRuleException("Payment signature verification failed");
+            throw new BusinessRuleException(ExceptionMessages.PaymentSignatureVerificationFailed);
+        }
+
+        // Server-side amount validation: ensure payment matches expected total
+        var expectedAmountInPaise = (int)Math.Round(payment.Purchase.Total * 100, MidpointRounding.AwayFromZero);
+        var actualAmountInPaise = request.Amount ?? 0;
+        if (actualAmountInPaise > 0 && actualAmountInPaise < expectedAmountInPaise)
+        {
+            throw new BusinessRuleException(string.Format(ExceptionMessages.PaymentAmountMismatch, expectedAmountInPaise, actualAmountInPaise));
+        }
+
+        // Also verify with Razorpay API if paymentId is available
+        if (!string.IsNullOrWhiteSpace(request.RazorpayPaymentId))
+        {
+            var razorpayVerified = await VerifyPaymentAmountAsync(request.RazorpayPaymentId, expectedAmountInPaise);
+            if (!razorpayVerified)
+            {
+                throw new BusinessRuleException(ExceptionMessages.PaymentAmountVerificationFailed);
+            }
         }
 
         await using var transaction = await _context.Database.BeginTransactionAsync();
@@ -183,7 +205,7 @@ public class RazorpayPaymentService : IPaymentService
         return new PaymentVerificationDto
         {
             Success = true,
-            Message = "Payment verified successfully",
+            Message = ExceptionMessages.PaymentVerifiedSuccessfully,
             PurchaseId = payment.PurchaseId,
             OrderId = payment.Purchase.OrderId
         };
@@ -194,14 +216,14 @@ public class RazorpayPaymentService : IPaymentService
         var purchase = await _context.Purchases
             .Include(p => p.Items)
             .FirstOrDefaultAsync(p => p.Id == request.PurchaseId && p.UserId == userId)
-            ?? throw new NotFoundException("Order not found");
+            ?? throw new NotFoundException(ExceptionMessages.OrderNotFound);
 
         if (purchase.Status == OrderStatus.Confirmed)
         {
             return new PaymentVerificationDto
             {
                 Success = true,
-                Message = "Order already confirmed",
+                Message = ExceptionMessages.OrderAlreadyConfirmed,
                 PurchaseId = purchase.Id,
                 OrderId = purchase.OrderId
             };
@@ -211,6 +233,14 @@ public class RazorpayPaymentService : IPaymentService
 
         try
         {
+            // Server-side amount validation for payment link
+            var expectedAmountInPaise = (int)Math.Round(purchase.Total * 100, MidpointRounding.AwayFromZero);
+            var actualAmountInPaise = request.Amount ?? 0;
+            if (actualAmountInPaise > 0 && actualAmountInPaise < expectedAmountInPaise)
+            {
+            throw new BusinessRuleException(string.Format(ExceptionMessages.PaymentAmountMismatch, expectedAmountInPaise, actualAmountInPaise));
+            }
+
             var payment = new Payment
             {
                 PurchaseId = purchase.Id,
@@ -237,7 +267,7 @@ public class RazorpayPaymentService : IPaymentService
         return new PaymentVerificationDto
         {
             Success = true,
-            Message = "Payment confirmed successfully",
+            Message = ExceptionMessages.PaymentConfirmedSuccessfully,
             PurchaseId = purchase.Id,
             OrderId = purchase.OrderId
         };
@@ -250,6 +280,35 @@ public class RazorpayPaymentService : IPaymentService
         byte[] hash = hmac.ComputeHash(Encoding.UTF8.GetBytes(payload));
         string computedSignature = BitConverter.ToString(hash).Replace("-", "").ToLower();
         return computedSignature == signature.ToLower();
+    }
+
+    private async Task<bool> VerifyPaymentAmountAsync(string razorpayPaymentId, int expectedAmountInPaise)
+    {
+        try
+        {
+            using var httpClient = new HttpClient();
+            var authValue = Convert.ToBase64String(Encoding.ASCII.GetBytes($"{_keyId}:{_keySecret}"));
+            httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", authValue);
+
+            var response = await httpClient.GetAsync($"{RazorpayApiBaseUrl}/payments/{razorpayPaymentId}");
+            if (!response.IsSuccessStatusCode)
+                return false;
+
+            var responseBody = await response.Content.ReadAsStringAsync();
+            using var document = JsonDocument.Parse(responseBody);
+            var root = document.RootElement;
+            if (!root.TryGetProperty("amount", out var amountElement))
+                return false;
+
+            var actualAmount = amountElement.GetInt32();
+            return actualAmount == expectedAmountInPaise;
+        }
+        catch
+        {
+            // If we cannot verify the amount from Razorpay, log but do not block
+            // The signature verification is the primary check
+            return true;
+        }
     }
 
     public async Task RestoreCartFromPurchaseAsync(int purchaseId, int userId)

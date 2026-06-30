@@ -14,7 +14,7 @@ const Login = () => {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const { login } = useAuth();
+  const { login, logout } = useAuth();
   const navigate = useNavigate();
   
 
@@ -36,16 +36,18 @@ const Login = () => {
 
     if (result.success) {
       const userRole = result.user.role;
-      const userStatus=result.user.status;
-    if(userStatus!=='active'){
-        toast.error("Your account has been blocked. Please contact support for assistance.")
-    }else{
-      if (userRole==='admin'){
-        navigate("/admin")
-      }else{
-        navigate("/")
+      const userStatus = result.user.status;
+      if (userStatus !== 'active') {
+        toast.error("Your account has been blocked. Please contact support for assistance.");
+        await logout();
+        return;
+      } else {
+        if (userRole === 'admin') {
+          navigate("/admin");
+        } else {
+          navigate("/");
+        }
       }
-    }
     } else {
       setError(result.error);
     }

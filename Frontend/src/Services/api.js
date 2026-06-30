@@ -18,6 +18,16 @@ const resolveBaseUrl = () => withApiPrefix(normalizeBaseUrl(import.meta.env.VITE
 export const BaseUrl = resolveBaseUrl();
 
 const gameCache = new Map();
+let cacheInvalidationCounter = 0;
+
+export const invalidateGameCache = (gameId) => {
+  if (gameId) {
+    gameCache.delete(String(gameId));
+  } else {
+    gameCache.clear();
+  }
+  cacheInvalidationCounter++;
+};
 
 export const fetchWithGameCache = async (baseUrl, gameId) => {
   const key = String(gameId);

@@ -15,12 +15,14 @@ public class CurrentUserService : ICurrentUserService
         UserId = int.TryParse(idValue, out var parsedId) ? parsedId : null;
 
         Email = user?.FindFirst(ClaimTypes.Email)?.Value
-            ?? user?.FindFirst(JwtRegisteredClaimNames.Email)?.Value;
+            ?? user?.FindFirst(JwtRegisteredClaimNames.Email)?.Value
+            ?? string.Empty;
 
         Role = user?.FindFirst(ClaimTypes.Role)?.Value
-            ?? user?.FindFirst("role")?.Value;
+            ?? user?.FindFirst("role")?.Value
+            ?? string.Empty;
     }
     public int? UserId { get; }
-    public string Email { get; }
-    public string Role { get; }
+    public string? Email { get; }
+    public string? Role { get; }
 }

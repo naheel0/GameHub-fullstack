@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, useCallback } from "react";
-import { BaseUrl, normalizeGame } from "../../../Services/api";
+import { BaseUrl, normalizeGame, invalidateGameCache } from "../../../Services/api";
 import { useAuth } from "../../../contexts/AuthContext";
 
 const AdminContext = createContext();
@@ -60,12 +60,14 @@ export function AdminProvider({ children }) {
   const { authFetch, user } = useAuth();
 
   const fetchGames = useCallback(async () => {
-    const response = await fetch(`${API_BASE}/games?pageSize=100`);
+    const response = await authFetch(`${API_BASE}/games?pageSize=100`, {
+      headers: { "Content-Type": "application/json" },
+    });
     if (!response.ok) throw new Error(`Failed to fetch products (${response.status})`);
     const payload = await response.json();
     const items = payload?.data?.items || payload?.items || payload || [];
     return items.map(normalizeGame).filter(Boolean);
-  }, [API_BASE]);
+  }, [API_BASE, authFetch]);
 
   const fetchUsers = useCallback(async () => {
     const url = `${API_BASE}/admin/adminusers`;
@@ -206,6 +208,7 @@ export function AdminProvider({ children }) {
       }
 
       const savedProduct = normalizeGame(await response.json());
+      invalidateGameCache(savedProduct.id);
       setProducts((prev) => [...prev, savedProduct]);
       return { success: true, product: savedProduct };
     } catch (error) {
@@ -228,6 +231,7 @@ export function AdminProvider({ children }) {
       }
 
       const savedProduct = normalizeGame(await response.json());
+      invalidateGameCache(savedProduct.id);
       setProducts((prev) => prev.map((p) => (p.id === id ? savedProduct : p)));
       return { success: true, product: savedProduct };
     } catch (error) {
@@ -245,6 +249,7 @@ export function AdminProvider({ children }) {
       if (!response.ok) throw new Error("Failed to delete product");
 
       setProducts((prev) => prev.filter((p) => p.id !== id));
+      invalidateGameCache(id);
       return { success: true };
     } catch (error) {
       console.error("Error deleting product:", error);

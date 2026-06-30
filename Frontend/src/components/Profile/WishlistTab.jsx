@@ -39,7 +39,7 @@ const WishlistTab = ({ wishlist, formatRupees }) => {
               <h3 className="text-lg font-semibold text-white mb-1">
                 {game.name}
               </h3>
-              <p className="text-gray-400 text-sm mb-2">{game.genre}</p>
+              <p className="text-gray-400 text-sm mb-2">{game.genre || game.category || 'Game'}</p>
               <p className="text-red-500 font-bold">
                 {formatRupees(game.price)}
               </p>

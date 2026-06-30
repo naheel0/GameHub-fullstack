@@ -32,9 +32,9 @@ namespace GameHub.Infrastructure.Extensions
             {
                 var term = options.Search.ToLower();
                 query = query.Where(u =>
-                    u.FirstName.ToLower().Contains(term) ||
-                    u.LastName.ToLower().Contains(term) ||
-                    u.Email.ToLower().Contains(term));
+                    (u.FirstName ?? string.Empty).ToLower().Contains(term) ||
+                    (u.LastName ?? string.Empty).ToLower().Contains(term) ||
+                    (u.Email ?? string.Empty).ToLower().Contains(term));
             }
 
             switch (options.SortBy?.ToLower())
@@ -85,9 +85,9 @@ namespace GameHub.Infrastructure.Extensions
                 var term = options.Search.ToLower();
                 query = query.Where(p =>
                     p.OrderId.ToString().ToLower().Contains(term) ||
-                    p.user.FirstName.ToLower().Contains(term) ||
-                    p.user.LastName.ToLower().Contains(term) ||
-                    p.user.Email.ToLower().Contains(term));
+                    (p.user.FirstName ?? string.Empty).ToLower().Contains(term) ||
+                    (p.user.LastName ?? string.Empty).ToLower().Contains(term) ||
+                    (p.user.Email ?? string.Empty).ToLower().Contains(term));
             }
 
             switch (options.SortBy?.ToLower())

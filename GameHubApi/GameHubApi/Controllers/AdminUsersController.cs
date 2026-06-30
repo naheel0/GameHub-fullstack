@@ -41,19 +41,19 @@ namespace GameHubApi.Controllers
         public async Task<IActionResult> BlockUser(int Id)
         {
             await _adminService.BlockUserAsync(Id);
-            return Ok(new { message = "User blocked successFully" });
+            return Ok(new { message = ExceptionMessages.UserBlockedSuccessfully });
         }
         [HttpPut("{id:int}/activate")]
         public async Task<IActionResult> ActivateUser(int Id)
         {
             await _adminService.ActivateUserAsync(Id);
-            return Ok(new { message = "User activated successfully" });
+            return Ok(new { message = ExceptionMessages.UserActivatedSuccessfully });
         }
         [HttpPut("{id:int}/role")]
         public async Task<IActionResult> UpdateRole(int Id, [FromBody] UpdateUserRoleRequest request)
         {
             await _adminService.UpdateUserRoleAsync(Id, request.Role);
-            return Ok(new { message = "Role update successfully" });
+            return Ok(new { message = ExceptionMessages.RoleUpdatedSuccessfully });
         }
         [HttpDelete("{id:int}")]
         public async Task<IActionResult> DeleteUser(int Id)

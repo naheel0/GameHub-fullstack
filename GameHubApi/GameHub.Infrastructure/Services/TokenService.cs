@@ -19,7 +19,7 @@ public class TokenService : ITokenService
     public string GenerateAccessToken(User user)
     {
         var JwtSettings = _config.GetSection("JwtSettings");
-        var secertKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(JwtSettings["SecretKey"]));
+        var secertKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(JwtSettings["SecretKey"]!));
         var credentials = new SigningCredentials(secertKey, SecurityAlgorithms.HmacSha256);
         var claim = new[]
         {
@@ -47,7 +47,7 @@ public class TokenService : ITokenService
     public ClaimsPrincipal? GetClaimsPrincipalFromExpiredToken(string token)
     {
         var jwtSettings = _config.GetSection("JwtSettings");
-        var secretKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings["SecretKey"]));
+        var secretKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings["SecretKey"]!));
         var tokenValidationParameter = new TokenValidationParameters
         {
             ValidateIssuer = true,

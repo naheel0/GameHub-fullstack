@@ -32,10 +32,10 @@ public class ExceptionMiddleware
                 if (status == StatusCodes.Status400BadRequest && context.Items.TryGetValue("ModelStateErrors", out var modelStateObj) && modelStateObj is Microsoft.AspNetCore.Mvc.ModelBinding.ModelStateDictionary modelState)
                 {
                     var errors = modelState
-                        .Where(kv => kv.Value.Errors.Count > 0)
+                        .Where(kv => kv.Value != null && kv.Value.Errors.Count > 0)
                         .ToDictionary(
                             kv => kv.Key,
-                            kv => kv.Value.Errors.Select(e => string.IsNullOrEmpty(e.ErrorMessage) ? e.Exception?.Message ?? "" : e.ErrorMessage).Where(s => !string.IsNullOrEmpty(s)).ToArray()
+                            kv => kv.Value!.Errors.Select(e => string.IsNullOrEmpty(e.ErrorMessage) ? e.Exception?.Message ?? "" : e.ErrorMessage).Where(s => !string.IsNullOrEmpty(s)).ToArray()
                         );
 
                     var detail = GameHub.Application.Resources.ExceptionMessages.BadRequest;

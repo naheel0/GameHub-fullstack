@@ -40,7 +40,7 @@ const ProductInfo = ({
 
       <div className="flex items-baseline space-x-2">
         <span className="text-4xl font-bold text-white">₹{game.price}</span>
-        {game.originalPrice && (
+          {game.originalPrice && game.originalPrice > game.price && (
           <span className="text-xl text-gray-400 line-through">
             ₹{game.originalPrice}
           </span>

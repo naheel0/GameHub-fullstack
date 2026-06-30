@@ -59,10 +59,6 @@ const OrderConfirmation = () => {
       setOrder(processedOrder);
       localStorage.setItem('lastOrder', JSON.stringify(processedOrder));
 
-      if (location.state?.fromCart) {
-        clearCart();
-      }
-
       setLoading(false);
       return;
     }
@@ -113,16 +109,17 @@ const OrderConfirmation = () => {
       const purchaseId = pendingOrder?.purchaseId || pendingPurchaseRaw;
       let confirmed = false;
 
-      if (purchaseId) {
-        const confirmResp = await authFetch(`${BaseUrl}/payments/confirm-link`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            purchaseId,
-            razorpayPaymentLinkId: paymentLinkId || '',
-            razorpayPaymentId: razorpayPaymentId || '',
-          }),
-        });
+        if (purchaseId) {
+            const confirmResp = await authFetch(`${BaseUrl}/payments/confirm-link`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                purchaseId,
+                razorpayPaymentLinkId: paymentLinkId || '',
+                razorpayPaymentId: razorpayPaymentId || '',
+                amount: pendingOrder?.summary?.total ? Math.round(parseFloat(pendingOrder.summary.total) * 100) : 0,
+              }),
+            });
 
         if (confirmResp.ok) {
           const confirmation = await confirmResp.json();
@@ -202,15 +199,16 @@ const OrderConfirmation = () => {
     const hasBuyNowIntent = localStorage.getItem('buyNowIntent');
     try {
       setLoading(true);
-      const resp = await authFetch(`${BaseUrl}/payments/verify`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          RazorpayOrderId: razorpayOrderId,
-          RazorpayPaymentId: razorpayPaymentId,
-          RazorpaySignature: razorpaySignature,
-        }),
-      });
+        const resp = await authFetch(`${BaseUrl}/payments/verify`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            RazorpayOrderId: razorpayOrderId,
+            RazorpayPaymentId: razorpayPaymentId,
+            RazorpaySignature: razorpaySignature,
+            Amount: orderData?.summary?.total ? Math.round(parseFloat(orderData.summary.total) * 100) : 0,
+          }),
+        });
 
       if (!resp.ok) {
         if (!hasBuyNowIntent) await refreshCart();

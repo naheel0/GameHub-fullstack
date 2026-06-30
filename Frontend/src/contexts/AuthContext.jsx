@@ -309,10 +309,15 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const logout = () => {
-    fetch(`${API_BASE}/auth/logout`, { method: 'POST', credentials: 'include' }).catch((error) => console.error('Logout error:', error));
-    setUser(null);
-    setStoredAuth(null);
+  const logout = async () => {
+    try {
+      await fetch(`${API_BASE}/auth/logout`, { method: 'POST', credentials: 'include' });
+    } catch (error) {
+      console.error('Logout error:', error);
+    } finally {
+      setUser(null);
+      setStoredAuth(null);
+    }
   };
 
   const updateUser = async (userUpdates) => {
@@ -321,17 +326,25 @@ export const AuthProvider = ({ children }) => {
         throw new Error('No user logged in');
       }
 
-      const updatedUser = {
-        ...user,
-        ...userUpdates,
-      };
+      const response = await authFetch(`${API_BASE}/auth/profile`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(userUpdates),
+      });
 
-      setUser(updatedUser);
-      setStoredAuth({ user: updatedUser });
+      if (!response.ok) {
+        const text = await response.text().catch(() => '');
+        throw new Error(text || 'Failed to update profile');
+      }
+
+      const payload = await response.json().catch(() => null);
+      const refreshedUser = payload?.data ? normalizeUser(payload.data, payload.data?.accessToken) : { ...user, ...userUpdates };
+      setUser(refreshedUser);
+      setStoredAuth({ user: refreshedUser });
       return { success: true };
     } catch (error) {
       console.error('Update user error:', error);
-      return { success: false, error: 'Failed to update user' };
+      return { success: false, error: error.message || 'Failed to update user' };
     }
   };
 

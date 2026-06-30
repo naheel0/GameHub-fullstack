@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useCart } from '../../contexts/CartContext';
@@ -17,6 +17,13 @@ const Profile = () => {
   const { wishlist, getWishlistCount } = useWishlist();
 
   const [activeTab, setActiveTab] = useState('overview');
+  const refreshCounterRef = useRef(0);
+  const [, forceTick] = useState(0);
+
+  const triggerRefresh = useCallback(() => {
+    refreshCounterRef.current += 1;
+    forceTick((t) => t + 1);
+  }, []);
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState({
     firstName: '',
@@ -90,29 +97,14 @@ const Profile = () => {
         return;
       }
 
-      const gamesResponse = await fetch(`${API_BASE}/games?pageSize=100`);
-      if (!gamesResponse.ok) {
-        throw new Error('Failed to fetch games data');
-      }
-
-      const gamesPayload = await gamesResponse.json();
-      const gameItems = gamesPayload?.data?.items || gamesPayload?.items || gamesPayload || [];
-      const allGames = (gameItems || []).map(normalizeGame).filter(Boolean);
-
       const enhancedOrders = (orders || []).map((order) => {
-        const enhancedItems = (order.items || []).map((item) => {
-          const game = allGames.find((g) => g.id === item.gameId);
-
-          return {
-            ...item,
-            name: item.gameName || item.name || game?.name || 'Unknown Game',
-            price: item.price || game?.price || 0,
-            quantity: item.quantity || 1,
-            image: game?.images?.[0] || '/images/placeholder-game.jpg',
-            genre: game?.genre || '',
-            platform: game?.platform || '',
-          };
-        });
+        const enhancedItems = (order.items || []).map((item) => ({
+          ...item,
+          name: item.gameName || item.name || 'Unknown Game',
+          price: item.price || 0,
+          quantity: item.quantity || 1,
+          image: item.image || '/images/placeholder-game.jpg',
+        }));
 
         return {
           id: order.orderId || order.id,
@@ -234,13 +226,13 @@ const Profile = () => {
     if (activeTab === 'orders' && user) {
       fetchOrderHistory();
     }
-  }, [activeTab, user, fetchOrderHistory]);
+  }, [activeTab, user, fetchOrderHistory, refreshCounterRef.current]);
 
   useEffect(() => {
     if (activeTab === 'addresses' && user) {
       fetchAddresses();
     }
-  }, [activeTab, user, fetchAddresses]);
+  }, [activeTab, user, fetchAddresses, refreshCounterRef.current]);
 
   const cartSummary = getCartSummary();
   const wishlistCount = getWishlistCount();

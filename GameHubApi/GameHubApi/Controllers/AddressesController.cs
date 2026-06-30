@@ -2,12 +2,14 @@
 using GameHub.Application.DTOs.Address;
 using GameHub.Application.Resources;
 using GameHub.Application.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace GameHubApi.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize]
     public class AddressesController : ControllerBase
     {
         private readonly IAddressService _addressService;
@@ -18,7 +20,7 @@ namespace GameHubApi.Controllers
             _currentUserService = currentUserService;
         }
         [HttpGet]
-        public async Task<IActionResult> AddAddress()
+        public async Task<IActionResult> GetAddresses()
         {
             var userId = GetCurrentUserId();
             var addresses = await _addressService.GetAddressesAsync(userId);
@@ -36,21 +38,21 @@ namespace GameHubApi.Controllers
         {
             var userId = GetCurrentUserId();
             await _addressService.UpdateAddressAsync(userId, addressId, request);
-            return Ok(new { message = "Address updated" });
+            return Ok(new { message = ExceptionMessages.AddressUpdated });
         }
         [HttpDelete("{addressId}")]
         public async Task<IActionResult> DeleteAddress(Guid addressId)
         {
             var userId = GetCurrentUserId();
             await _addressService.DeleteAddressAsync(userId, addressId);
-            return Ok(new { message = "Address delete" });
+            return Ok(new { message = ExceptionMessages.AddressDeleted });
         }
         [HttpPut("{addressId}/default")]
         public async Task<IActionResult> SetDefault(Guid addressId)
         {
             var userId = GetCurrentUserId();
             await _addressService.SetDefaultAsync(userId, addressId);
-            return Ok(new { message = "Default address update" });
+            return Ok(new { message = ExceptionMessages.DefaultAddressUpdated });
         }
 
         private int GetCurrentUserId()

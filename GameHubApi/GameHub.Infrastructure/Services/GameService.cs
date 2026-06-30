@@ -77,7 +77,7 @@ namespace GameHub.Infrastructure.Services
         {
             var game = await _context.Games.AsNoTracking().FirstOrDefaultAsync(g => g.Id == id);
             if (game == null)
-                throw new NotFoundException($"Game with id {id} not found.", "GameNotFoundById", id);
+                throw new NotFoundException("GameNotFoundById", id);
 
             return new GameDto
             {

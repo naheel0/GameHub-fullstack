@@ -234,4 +234,88 @@
   <data name="Validation_FieldRequired" xml:space="preserve">
     <value>{0} is required</value>
   </data>
+  <data name="OrderAlreadyConfirmed" xml:space="preserve">
+    <value>Order already confirmed.</value>
+  </data>
+  <data name="PaymentLinkCreationFailed" xml:space="preserve">
+    <value>Failed to create payment link: {0}</value>
+  </data>
+  <data name="PaymentLinkResponseInvalid" xml:space="preserve">
+    <value>Payment link response was invalid.</value>
+  </data>
+  <data name="PaymentRecordNotFound" xml:space="preserve">
+    <value>Payment record not found.</value>
+  </data>
+  <data name="PaymentSignatureVerificationFailed" xml:space="preserve">
+    <value>Payment signature verification failed.</value>
+  </data>
+  <data name="PaymentAmountMismatch" xml:space="preserve">
+    <value>Payment amount mismatch. Expected {0} paise, received {1} paise.</value>
+  </data>
+  <data name="PaymentAmountVerificationFailed" xml:space="preserve">
+    <value>Payment amount verification failed.</value>
+  </data>
+  <data name="ItemAddedToCart" xml:space="preserve">
+    <value>Item added to cart.</value>
+  </data>
+  <data name="QuantityUpdated" xml:space="preserve">
+    <value>Quantity updated.</value>
+  </data>
+  <data name="ItemRemovedFromCart" xml:space="preserve">
+    <value>Item removed from cart.</value>
+  </data>
+  <data name="CartCleared" xml:space="preserve">
+    <value>Cart cleared.</value>
+  </data>
+  <data name="AddressUpdated" xml:space="preserve">
+    <value>Address updated.</value>
+  </data>
+  <data name="AddressDeleted" xml:space="preserve">
+    <value>Address deleted.</value>
+  </data>
+  <data name="DefaultAddressUpdated" xml:space="preserve">
+    <value>Default address updated.</value>
+  </data>
+  <data name="UserBlockedSuccessfully" xml:space="preserve">
+    <value>User blocked successfully.</value>
+  </data>
+  <data name="UserActivatedSuccessfully" xml:space="preserve">
+    <value>User activated successfully.</value>
+  </data>
+  <data name="RoleUpdatedSuccessfully" xml:space="preserve">
+    <value>Role updated successfully.</value>
+  </data>
+  <data name="OrderStatusUpdated" xml:space="preserve">
+    <value>Order status updated.</value>
+  </data>
+  <data name="AddToWishlist" xml:space="preserve">
+    <value>Add to wishlist.</value>
+  </data>
+  <data name="RemovedFromWishlist" xml:space="preserve">
+    <value>Removed from wishlist.</value>
+  </data>
+  <data name="MovedToCart" xml:space="preserve">
+    <value>Moved to cart.</value>
+  </data>
+  <data name="OtpSentToEmail" xml:space="preserve">
+    <value>OTP sent to your email address.</value>
+  </data>
+  <data name="LogoutSuccessful" xml:space="preserve">
+    <value>Logged out successfully.</value>
+  </data>
+  <data name="Success" xml:space="preserve">
+    <value>Success.</value>
+  </data>
+  <data name="UserUpdatedSuccessfully" xml:space="preserve">
+    <value>User updated successfully.</value>
+  </data>
+  <data name="PaymentConfirmedSuccessfully" xml:space="preserve">
+    <value>Payment confirmed successfully.</value>
+  </data>
+  <data name="PaymentAlreadyVerified" xml:space="preserve">
+    <value>Payment already verified.</value>
+  </data>
+  <data name="PaymentVerifiedSuccessfully" xml:space="preserve">
+    <value>Payment verified successfully.</value>
+  </data>
 </root>

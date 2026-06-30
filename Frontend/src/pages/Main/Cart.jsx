@@ -21,7 +21,6 @@ const CartPage = () => {
 
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [isCheckingOut, setIsCheckingOut] = useState(false);
 
   const summary = getCartSummary();
 
@@ -38,7 +37,7 @@ const CartPage = () => {
     await clearCart();
   };
 
-  const handleCheckout = async () => {
+  const handleCheckout = () => {
     if (!user) {
       navigate('/login', { state: { from: '/cart' } });
       return;
@@ -51,20 +50,12 @@ const CartPage = () => {
       return;
     }
 
-    setIsCheckingOut(true);
-    try {
-      navigate('/payment', {
-        state: {
-          cartSummary: getCartSummary(),
-          cartItems: cart,
-        },
-      });
-    } catch (error) {
-      console.error('Navigation error:', error);
-      toast.error('Could not open the payment page. Please try again.');
-    } finally {
-      setIsCheckingOut(false);
-    }
+    navigate('/payment', {
+      state: {
+        cartSummary: getCartSummary(),
+        cartItems: cart,
+      },
+    });
   };
 
   const handleContinueShopping = () => {
@@ -161,8 +152,7 @@ const CartPage = () => {
           <h1 className="text-3xl font-bold text-white">Shopping Cart</h1>
           <button
             onClick={handleClearCart}
-            disabled={isCheckingOut}
-            className="flex items-center gap-2 bg-gray-800 hover:bg-gray-700 text-gray-300 px-4 py-2 rounded-lg text-sm font-medium transition duration-300 border border-gray-700 disabled:opacity-50"
+            className="flex items-center gap-2 bg-gray-800 hover:bg-gray-700 text-gray-300 px-4 py-2 rounded-lg text-sm font-medium transition duration-300 border border-gray-700"
           >
             Clear Cart
           </button>
@@ -176,7 +166,6 @@ const CartPage = () => {
                 item={item}
                 onQuantityChange={handleQuantityChange}
                 onRemove={handleRemoveItem}
-                isCheckingOut={isCheckingOut}
               />
             ))}
           </div>
@@ -186,7 +175,6 @@ const CartPage = () => {
               summary={summary}
               onCheckout={handleCheckout}
               onContinueShopping={handleContinueShopping}
-              isCheckingOut={isCheckingOut}
               hasOutOfStock={cart.some((item) => !item.inStock)}
             />
           </div>

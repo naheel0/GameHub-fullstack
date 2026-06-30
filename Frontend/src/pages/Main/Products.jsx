@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { StarIcon, ShoppingCartIcon } from '@heroicons/react/24/solid';
 import { StarIcon as StarOutline, HeartIcon as HeartOutline } from '@heroicons/react/24/outline';
@@ -22,8 +22,10 @@ const Products = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  const navigate = useNavigate();
   const location = useLocation();
+  const navigate = useNavigate();
+  const locationRef = useRef(location.pathname);
+  locationRef.current = location.pathname;
 
   const { addToCart } = useCart();
   const { addToWishlist, removeFromWishlist, isInWishlist, getWishlistCount } =
@@ -126,7 +128,7 @@ const Products = () => {
   const handleWishlist = useCallback(
     (game) => {
       if (!user) {
-        navigate('/login', { state: { from: location.pathname } });
+        navigate('/login', { state: { from: locationRef.current } });
         return;
       }
 
@@ -136,13 +138,13 @@ const Products = () => {
         addToWishlist(game);
       }
     },
-    [user, navigate, location.pathname, isInWishlist, addToWishlist, removeFromWishlist]
+    [user, navigate, isInWishlist, addToWishlist, removeFromWishlist]
   );
 
   const handleAddToCart = useCallback(
     async (game) => {
       if (!user) {
-        navigate('/login', { state: { from: location.pathname } });
+        navigate('/login', { state: { from: locationRef.current } });
         return;
       }
 
@@ -163,7 +165,7 @@ const Products = () => {
         toast.error('Could not add to cart. Please try again.');
       }
     },
-    [user, navigate, location.pathname, addToCart]
+    [user, navigate, addToCart]
   );
 
   const renderStars = useCallback((rating) => {

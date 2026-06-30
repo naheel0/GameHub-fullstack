@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { toast } from 'react-toastify';
 import { useAuth } from './AuthContext';
-import { BaseUrl, fetchWithGameCache } from '../Services/api';
+import { BaseUrl, fetchWithGameCache, invalidateGameCache } from '../Services/api';
 
 const WishlistContext = createContext();
 
@@ -70,6 +70,8 @@ export const WishlistProvider = ({ children }) => {
       const items = await response.json();
       const mapped = await Promise.all((items || []).map(mapWishlistItem));
       setWishlist(mapped.filter(Boolean));
+      // Invalidate game cache for wishlist items so fresh metadata is fetched
+      (items || []).forEach((item) => invalidateGameCache(item.gameId));
     } catch (error) {
       console.error('Error loading wishlist:', error);
       toast.error('We could not load your wishlist. Please try again.');
@@ -126,7 +128,7 @@ export const WishlistProvider = ({ children }) => {
         throw new Error('Failed to remove from wishlist');
       }
 
-      setWishlist((prev) => prev.filter((item) => item.id !== gameId));
+      await loadWishlist();
     } catch (error) {
       console.error('Error removing from wishlist:', error);
       toast.error('Could not remove that item from your wishlist.');
@@ -144,14 +146,35 @@ export const WishlistProvider = ({ children }) => {
     }
 
     try {
-      await Promise.all(wishlist.map((item) =>
-        authFetch(`${API_BASE}/wishlist/${item.id}`, {
-          method: 'DELETE',
-        })
-      ));
+      const results = await Promise.allSettled(
+        wishlist.map((item) =>
+          authFetch(`${API_BASE}/wishlist/${item.id}`, {
+            method: 'DELETE',
+          })
+        )
+      );
 
-      setWishlist([]);
-      toast.info('Wishlist cleared.');
+      const failedCount = results.filter((r) => r.status === 'rejected').length;
+
+      // Remove successfully deleted items from local state
+      const successfulIds = new Set();
+      results.forEach((result, index) => {
+        if (result.status === 'fulfilled' && result.value.ok) {
+          successfulIds.add(wishlist[index].id);
+        }
+      });
+
+      if (successfulIds.size > 0) {
+        setWishlist((prev) => prev.filter((item) => !successfulIds.has(item.id)));
+      }
+
+      await loadWishlist();
+
+      if (failedCount > 0) {
+        toast.error(`Failed to remove ${failedCount} items. Please try again.`);
+      } else {
+        toast.info('Wishlist cleared.');
+      }
     } catch (error) {
       console.error('Error clearing wishlist:', error);
       toast.error('Could not clear your wishlist. Please try again.');

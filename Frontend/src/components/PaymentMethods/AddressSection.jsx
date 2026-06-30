@@ -39,6 +39,8 @@ const AddressSection = ({
   const inputClass =
     "w-full px-4 py-3 bg-gray-800 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-red-500 focus:border-transparent";
 
+  const getInputClass = (fieldName) => inputClass;
+
   return (
     <div className="bg-gray-900/80 backdrop-blur-sm rounded-xl shadow-2xl p-6 border border-gray-700/50">
       <div className="flex items-center justify-between mb-6">
@@ -66,8 +68,8 @@ const AddressSection = ({
                 type="text"
                 value={addressForm.fullName}
                 onChange={(e) => handleChange("fullName", e.target.value)}
-                placeholder="Enter full name"
-                className={inputClass("fullName")}
+                 placeholder="Enter full name"
+                 className={getInputClass("fullName")}
               />
             </Field>
 
@@ -77,8 +79,8 @@ const AddressSection = ({
                   type="text"
                   value={addressForm.addressLine1}
                   onChange={(e) => handleChange("addressLine1", e.target.value)}
-                  placeholder="Street address, P.O. box, etc."
-                  className={inputClass("addressLine1")}
+                 placeholder="Street address, P.O. box, etc."
+                 className={getInputClass("addressLine1")}
                 />
               </Field>
             </div>
@@ -100,8 +102,8 @@ const AddressSection = ({
                 type="text"
                 value={addressForm.city}
                 onChange={(e) => handleChange("city", e.target.value)}
-                placeholder="City"
-                className={inputClass("city")}
+                 placeholder="City"
+                 className={getInputClass("city")}
               />
             </Field>
 
@@ -110,8 +112,8 @@ const AddressSection = ({
                 type="text"
                 value={addressForm.state}
                 onChange={(e) => handleChange("state", e.target.value)}
-                placeholder="State"
-                className={inputClass("state")}
+                 placeholder="State"
+                 className={getInputClass("state")}
               />
             </Field>
 
@@ -120,8 +122,8 @@ const AddressSection = ({
                 type="text"
                 value={addressForm.zipCode}
                 onChange={(e) => handleChange("zipCode", e.target.value)}
-                placeholder="ZIP / postal code"
-                className={inputClass("zipCode")}
+                 placeholder="ZIP / postal code"
+                 className={getInputClass("zipCode")}
               />
             </Field>
 
@@ -130,8 +132,8 @@ const AddressSection = ({
                 type="text"
                 value={addressForm.country}
                 onChange={(e) => handleChange("country", e.target.value)}
-                placeholder="Country"
-                className={inputClass("country")}
+                 placeholder="Country"
+                 className={getInputClass("country")}
               />
             </Field>
 
@@ -141,8 +143,8 @@ const AddressSection = ({
                   type="tel"
                   value={addressForm.phone}
                   onChange={(e) => handleChange("phone", e.target.value)}
-                  placeholder="+91 98765 43210"
-                  className={inputClass("phone")}
+                 placeholder="+91 98765 43210"
+                 className={getInputClass("phone")}
                 />
               </Field>
             </div>

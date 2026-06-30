@@ -28,6 +28,9 @@ const GamesGrid = ({ games, onWishlist, onAddToCart, isInWishlist, renderStars }
                 src={game.images?.[0] || '/images/placeholder-game.jpg'}
                 alt={game.name}
                 className="w-full h-48 object-cover cursor-pointer"
+                onError={(e) => {
+                  e.target.src = '/images/placeholder-game.jpg';
+                }}
               />
               <button
                 onClick={(e) => {

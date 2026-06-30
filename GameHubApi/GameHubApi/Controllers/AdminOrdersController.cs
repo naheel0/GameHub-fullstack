@@ -36,7 +36,7 @@ namespace GameHubApi.Controllers
         public async Task<IActionResult> UpdateStatus(Guid orderId, [FromBody] UpdateOrderStatusRequest request)
         {
             await _adminService.UpdateOrderStatusAsync(orderId, request.Status);
-            return Ok(new { message = "Order status update" });
+            return Ok(new { message = ExceptionMessages.OrderStatusUpdated });
         }
         [HttpDelete("{orderId:guid}")]
         public async Task<IActionResult> DeleteOrder(Guid orderId)

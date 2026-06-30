@@ -28,7 +28,7 @@ namespace GameHub.Infrastructure.Data
             base.OnModelCreating(modelBuilder);
 
             var stringListComparer = new ValueComparer<List<string>>(
-                (c1, c2) => c1.SequenceEqual(c2),
+                (c1, c2) => (c1 ?? new List<string>()).SequenceEqual(c2 ?? new List<string>()),
                 c => c.Aggregate(0, (a, v) => HashCode.Combine(a, v != null ? v.GetHashCode() : 0)),
                 c => c.ToList());
             //------REFRESH TOKEN-------
@@ -45,7 +45,10 @@ namespace GameHub.Infrastructure.Data
                 entity.Property(u => u.LastName).HasMaxLength(50);
                 entity.Property(u => u.Phone).HasMaxLength(15);
                 entity.Property(u => u.PasswordHash).IsRequired();
-                entity.HasQueryFilter(u => !u.IsDeleted);
+                // Note: No global query filter — related entities (Address, CartItem, Purchase,
+                // RefreshToken, WishlistItem) do not share the same soft-delete filter, which
+                // would cause EF Core relationship warnings. Soft delete is handled explicitly
+                // in services and stored procedures instead.
             });
             //-----------GAMES--------------
             modelBuilder.Entity<Game>(entity =>
@@ -55,6 +58,7 @@ namespace GameHub.Infrastructure.Data
                 entity.Property(g => g.Genre).HasMaxLength(100);
                 entity.Property(g => g.Platform).HasMaxLength(100);
                 entity.Property(g => g.Price).HasColumnType("decimal(10,2)");
+                entity.Property(g => g.Price).HasPrecision(10, 2);
                 entity.Property(g => g.Trailer).HasMaxLength(500);
                 entity.Property(g => g.Image)
                       .HasConversion(
@@ -62,7 +66,7 @@ namespace GameHub.Infrastructure.Data
                           v => System.Text.Json.JsonSerializer.Deserialize<List<string>>(v, (System.Text.Json.JsonSerializerOptions?)null) ?? new())
                       .HasColumnType("nvarchar(max)")
                       .Metadata.SetValueComparer(stringListComparer);
-                entity.Property(g => g.Rating).HasDefaultValue(0);
+                entity.Property(g => g.Rating).HasPrecision(3, 1).HasDefaultValue(0);
                 entity.HasQueryFilter(g => !g.IsDeleted);
             });
             modelBuilder.Entity<Address>(entity =>
@@ -165,7 +169,7 @@ namespace GameHub.Infrastructure.Data
                     eb.ToView(null);
                 });
 
-                //-----------------------Razorpay-----------------------------------//
+            //-----------------------Razorpay-----------------------------------//
                 modelBuilder.Entity<Payment>(entity =>
                 {
                     entity.ToTable("Payments");
@@ -179,7 +183,20 @@ namespace GameHub.Infrastructure.Data
                     entity.HasOne(p => p.Purchase)
                         .WithOne(p => p.Payment)
                         .HasForeignKey<Payment>(p => p.PurchaseId)
-  .OnDelete(DeleteBehavior.Cascade);
+                        .OnDelete(DeleteBehavior.Cascade);
+                });
+
+                modelBuilder.Entity<OrderItem>(entity =>
+                {
+                    entity.Property(o => o.Price).HasColumnType("decimal(10,2)").HasPrecision(10, 2);
+                });
+
+                // Keyless mapping for AdminUserDetailDto used by FromSqlRaw
+                modelBuilder.Entity<AdminUserDetailDto>(eb =>
+                {
+                    eb.HasNoKey();
+                    eb.ToView(null);
+                    eb.Property(a => a.TotalSpent).HasPrecision(18, 2);
                 });
             });
 

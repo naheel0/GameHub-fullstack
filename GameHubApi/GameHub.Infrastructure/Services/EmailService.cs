@@ -12,9 +12,17 @@ public class EmailService : IEmailService
 
     public async Task SendOtpEmailAsync(string toEmail, string otpCode)
     {
+        var username = _config["SmtpSettings:Username"] ?? "GameHub";
+        var password = _config["SmtpSettings:Password"] ?? string.Empty;
+        var host = _config["SmtpSettings:Host"] ?? "localhost";
+        var portStr = _config["SmtpSettings:Port"] ?? "587";
+
+        if (!int.TryParse(portStr, out var port))
+            port = 587;
+
         var message = new MimeMessage();
-        message.From.Add(new MailboxAddress("Gamehub", _config["SmtpSettings:Username"]));
-        message.To.Add(new MailboxAddress("", toEmail));
+        message.From.Add(new MailboxAddress("GameHub", username));
+        message.To.Add(new MailboxAddress(string.Empty, toEmail));
         message.Subject = "Verify your email address";
         message.Body = new TextPart("html")
         {
@@ -26,8 +34,8 @@ public class EmailService : IEmailService
         };
 
         using var client = new SmtpClient();
-        await client.ConnectAsync(_config["SmtpSettings:Host"], int.Parse(_config["SmtpSettings:Port"]), SecureSocketOptions.StartTls);
-        await client.AuthenticateAsync(_config["SmtpSettings:Username"], _config["SmtpSettings:Password"]);
+        await client.ConnectAsync(host, port, SecureSocketOptions.StartTls);
+        await client.AuthenticateAsync(username, password);
         await client.SendAsync(message);
         await client.DisconnectAsync(true);
     }

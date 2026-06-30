@@ -35,6 +35,9 @@ namespace GameHub.Infrastructure.Services
 
         public async Task AddToCartAsync(int userId, int gameId, int quantity)
         {
+            if (quantity > 99)
+                throw new BusinessRuleException(nameof(ExceptionMessages.InvalidQuantity), 99);
+
             var game = await _context.Games.FindAsync(gameId)
                        ?? throw new NotFoundException(nameof(ExceptionMessages.GameNotFound));
 
@@ -61,6 +64,9 @@ namespace GameHub.Infrastructure.Services
         {
             if (quantity <= 0)
                 throw new BusinessRuleException(nameof(ExceptionMessages.InvalidQuantity), 1);
+
+            if (quantity > 99)
+                throw new BusinessRuleException(nameof(ExceptionMessages.InvalidQuantity), 99);
 
             var game = await _context.Games.FindAsync(gameId)
                        ?? throw new NotFoundException(nameof(ExceptionMessages.GameNotFound));
@@ -99,10 +105,11 @@ namespace GameHub.Infrastructure.Services
 
         public async Task ClearCartAsync(int userId)
         {
-
             await _context.CartItems
                 .Where(c => c.UserId == userId)
                 .ExecuteDeleteAsync();
+
+            await _context.SaveChangeAsync();
         }
 
         private void AddNewCartItem(int userId, Game game, int quantity)

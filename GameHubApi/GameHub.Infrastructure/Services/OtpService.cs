@@ -14,7 +14,7 @@ public class OtpService : IOtpService
 
     public Task<bool> VerifyOtpAsync(string email, string otp)
     {
-        if (_cache.TryGetValue(email, out string storedOtp) && storedOtp == otp)
+        if (_cache.TryGetValue(email, out string? storedOtp) && storedOtp == otp)
         {
             _cache.Remove(email);
             return Task.FromResult(true);

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   ShoppingCartIcon,
@@ -14,26 +14,51 @@ import Logo from "../common/Logo";
 
 const Navbar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const menuRef = useRef(null);
 
   const { user, logout } = useAuth();
   const { getCartItemCount, getCartSummary } = useCart();
   const { getWishlistCount } = useWishlist();
   const navigate = useNavigate();
 
-  const handleLogin = () => navigate("/login");
   const handleLogout = () => {
     logout();
     setIsMenuOpen(false);
   };
-  const handleCartClick = () => navigate("/cart");
-  const handleWishlistClick = () => navigate("/wishlist");
+  const handleCartClick = () => {
+    navigate("/cart");
+    setIsMenuOpen(false);
+  };
+  const handleWishlistClick = () => {
+    navigate("/wishlist");
+    setIsMenuOpen(false);
+  };
   const handleProfileClick = () => {
     navigate("/profile");
     setIsMenuOpen(false);
   };
 
   const userRole = user?.role; // 'admin' or 'user'
-  const handleAdminClick = () => navigate("/admin");
+  const handleAdminClick = () => {
+    navigate("/admin");
+    setIsMenuOpen(false);
+  };
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (menuRef.current && !menuRef.current.contains(event.target)) {
+        setIsMenuOpen(false);
+      }
+    };
+
+    if (isMenuOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isMenuOpen]);
   return (
     <nav className="bg-black text-white shadow-lg sticky top-0 z-50 border-b border-gray-800">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -166,7 +191,7 @@ const Navbar = () => {
               </div>
             ) : (
               <button
-                onClick={handleLogin}
+                onClick={() => navigate("/login")}
                 className="flex items-center space-x-1 px-4 py-2 rounded-md bg-red-600 hover:bg-red-700 transition duration-300 border border-red-600"
               >
                 <UserIcon className="h-4 w-4" />
@@ -215,7 +240,7 @@ const Navbar = () => {
 
       {/* Mobile Menu */}
       {isMenuOpen && (
-        <div className="md:hidden bg-gray-900 border-b border-gray-800">
+        <div ref={menuRef} className="md:hidden bg-gray-900 border-b border-gray-800">
           <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3">
             {["/", "/products", "/about", "/contact"].map((path, idx) => {
               const names = ["Home", "Products", "About", "Contact"];
@@ -263,7 +288,7 @@ const Navbar = () => {
               ) : (
                 <button
                   onClick={() => {
-                    handleLogin();
+                    navigate("/login");
                     setIsMenuOpen(false);
                   }}
                   className="flex items-center space-x-2 w-full text-left px-3 py-2 rounded-md text-base font-medium hover:bg-gray-800 transition duration-300 bg-red-600 "
