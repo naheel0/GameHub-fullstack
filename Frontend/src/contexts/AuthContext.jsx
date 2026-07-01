@@ -148,16 +148,24 @@ export const AuthProvider = ({ children }) => {
       const response = await fetch(url, fetchOptions);
       if (response.status !== 401 || __skipRefresh) {
         if (response.status === 401) {
-          setUser(null);
-          setStoredAuth(null);
+          // Only clear session if we have no stored token to fall back on
+          const storedToken = getStoredAuth()?.user?.accessToken;
+          if (!storedToken) {
+            setUser(null);
+            setStoredAuth(null);
+          }
         }
         return response;
       }
 
       const refreshedUser = await performRefresh();
       if (!refreshedUser) {
-        setUser(null);
-        setStoredAuth(null);
+        // Refresh failed (cookie blocked cross-origin) — only clear if no stored token
+        const storedToken = getStoredAuth()?.user?.accessToken;
+        if (!storedToken) {
+          setUser(null);
+          setStoredAuth(null);
+        }
         return response;
       }
 

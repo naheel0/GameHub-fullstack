@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useCallback } from "react";
+import { createContext, useContext, useState, useEffect, useCallback, useRef } from "react";
 import { BaseUrl, normalizeGame, invalidateGameCache } from "../../../Services/api";
 import { useAuth } from "../../../contexts/AuthContext";
 
@@ -59,15 +59,23 @@ export function AdminProvider({ children }) {
   const API_BASE = BaseUrl;
   const { authFetch, user } = useAuth();
 
+  // Keep a ref so refreshAdminData can read the latest user without
+  // being re-created every time user changes (which caused an infinite loop).
+  const userRef = useRef(user);
+  useEffect(() => { userRef.current = user; }, [user]);
+
+  // Guard against concurrent refreshes
+  const refreshingRef = useRef(false);
+
   const fetchGames = useCallback(async () => {
-    const response = await authFetch(`${API_BASE}/games?pageSize=100`, {
-      headers: { "Content-Type": "application/json" },
-    });
+    // Public endpoint — plain fetch, no credentials needed.
+    // Using authFetch here caused status-0 CORS failures on cross-origin deployments.
+    const response = await fetch(`${API_BASE}/games?pageSize=100`);
     if (!response.ok) throw new Error(`Failed to fetch products (${response.status})`);
     const payload = await response.json();
     const items = payload?.data?.items || payload?.items || payload || [];
     return items.map(normalizeGame).filter(Boolean);
-  }, [API_BASE, authFetch]);
+  }, [API_BASE]);
 
   const fetchUsers = useCallback(async () => {
     const url = `${API_BASE}/admin/adminusers`;
@@ -159,12 +167,14 @@ export function AdminProvider({ children }) {
   }, [API_BASE, authFetch]);
 
   const refreshAdminData = useCallback(async () => {
-    if (!user) {
+    if (refreshingRef.current) return; // already in flight
+    if (!userRef.current) {
       setLoading(false);
       setError("Admin authorization required");
       return;
     }
 
+    refreshingRef.current = true;
     try {
       setLoading(true);
       setError(null);
@@ -187,8 +197,9 @@ export function AdminProvider({ children }) {
       setOrders([]);
     } finally {
       setLoading(false);
+      refreshingRef.current = false;
     }
-  }, [fetchGames, fetchOrders, fetchUsers, user]);
+  }, [fetchGames, fetchOrders, fetchUsers]); // no user dep — read via ref
 
   useEffect(() => {
     refreshAdminData();
