@@ -174,7 +174,7 @@ export default function AdminHome() {
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
-          className="bg-white/80 dark:bg-slate-800/80 p-6 rounded-2xl shadow-xs border border-slate-200/60 dark:border-slate-700/50 backdrop-blur-sm"
+          className="bg-white/80 dark:bg-slate-800/80 p-6 rounded-2xl shadow-xs border border-slate-200/60 dark:border-slate-700/50 backdrop-blur-sm min-w-0"
         >
           <div className="flex items-center gap-3 mb-6">
             <div className="p-2 bg-violet-100 dark:bg-violet-900/30 rounded-lg">
@@ -185,8 +185,8 @@ export default function AdminHome() {
             </h3>
           </div>
           {pieChartData.length > 0 ? (
-            <div className="h-80">
-              <ResponsiveContainer width="100%" height="100%">
+            <div className="h-80 w-full min-w-0">
+              <ResponsiveContainer width="100%" height={320}>
                 <PieChart>
                   <Pie
                     data={pieChartData}
@@ -246,7 +246,7 @@ export default function AdminHome() {
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ delay: 0.2 }}
-          className="bg-white/80 dark:bg-slate-800/80 p-6 rounded-2xl shadow-xs border border-slate-200/60 dark:border-slate-700/50 backdrop-blur-sm"
+          className="bg-white/80 dark:bg-slate-800/80 p-6 rounded-2xl shadow-xs border border-slate-200/60 dark:border-slate-700/50 backdrop-blur-sm min-w-0"
         >
           <div className="flex items-center gap-3 mb-6">
             <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
@@ -256,8 +256,8 @@ export default function AdminHome() {
               Recent Sales Trend
             </h3>
           </div>
-          <div className="h-80">
-            <ResponsiveContainer width="100%" height="100%">
+          <div className="h-80 w-full min-w-0">
+            <ResponsiveContainer width="100%" height={320}>
               <BarChart data={salesData}>
                 <CartesianGrid
                   strokeDasharray="3 3"

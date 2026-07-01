@@ -39,16 +39,16 @@ export default defineConfig({
     strictPort: false,
     open: false,
     cors: true,
-    proxy: {
-      // Proxy /api/* → Azure backend during local dev
-      // This avoids CORS issues when running frontend and backend separately
-      '/api': {
-        target: 'https://gamehub-egb0gngwevewfzdr.centralindia-01.azurewebsites.net',
-        changeOrigin: true,
-        secure: true,
-        rewrite: (p) => p, // keep /api prefix as-is
-      },
-    },
+    proxy: process.env.BACKEND_API_URL
+      ? {
+          '/api': {
+            target: process.env.BACKEND_API_URL,
+            changeOrigin: true,
+            secure: true,
+            rewrite: (p) => p,
+          },
+        }
+      : undefined,
   },
 
   build: {

@@ -1,19 +1,4 @@
-const normalizeBaseUrl = (value) => value?.replace(/\/$/, "");
-
-const ensureProtocol = (value) => {
-	if (!value) return null;
-	if (/^https?:\/\//i.test(value)) return value;
-	if (/^(localhost|127\.0\.0\.1)(:\d+)?/i.test(value)) return `http://${value}`;
-	return `https://${value}`;
-};
-
-const withApiPrefix = (value) => {
-	if (!value) return null;
-	const absoluteValue = ensureProtocol(value);
-	return absoluteValue.endsWith("/api") ? absoluteValue : `${absoluteValue}/api`;
-};
-
-const resolveBaseUrl = () => withApiPrefix(normalizeBaseUrl(import.meta.env.VITE_API_BASE_URL || null));
+const resolveBaseUrl = () => "/api";
 
 export const BaseUrl = resolveBaseUrl();
 

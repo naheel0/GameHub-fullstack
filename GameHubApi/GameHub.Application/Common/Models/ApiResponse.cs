@@ -12,7 +12,8 @@
             {
                 Success = true,
                 Message = message,
-                Data = data
+                Data = data,
+                StatusCode = 200
             };
         }
 

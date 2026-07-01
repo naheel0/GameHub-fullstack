@@ -34,9 +34,11 @@ namespace GameHubApi.Controllers
 
             var response = await _getGamesHandler.HandleAsync(qParams);
 
+            var statusCode = response.StatusCode > 0 ? response.StatusCode : StatusCodes.Status200OK;
+
             Response.Headers["X-Total-Count"] = response.Data?.TotalCount.ToString() ?? "0";
 
-            return StatusCode(response.StatusCode, response);
+            return StatusCode(statusCode, response);
         }
         [HttpGet("{id}")]
         public async Task<IActionResult> GetById(int id)
