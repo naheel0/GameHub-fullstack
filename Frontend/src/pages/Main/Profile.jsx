@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useCart } from '../../contexts/CartContext';
 import { useWishlist } from '../../contexts/WishlistContext';
-import { BaseUrl, normalizeGame } from '../../Services/api';
+import { BaseUrl, PLACEHOLDER_IMAGE } from '../../Services/api';
 import ProfileHeader from '../../components/Profile/ProfileHeader';
 import ProfileSidebar from '../../components/Profile/ProfileSidebar';
 import ProfileOverview from '../../components/Profile/ProfileOverview';
@@ -17,13 +17,7 @@ const Profile = () => {
   const { wishlist, getWishlistCount } = useWishlist();
 
   const [activeTab, setActiveTab] = useState('overview');
-  const refreshCounterRef = useRef(0);
-  const [, forceTick] = useState(0);
 
-  const triggerRefresh = useCallback(() => {
-    refreshCounterRef.current += 1;
-    forceTick((t) => t + 1);
-  }, []);
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState({
     firstName: '',
@@ -103,7 +97,7 @@ const Profile = () => {
           name: item.gameName || item.name || 'Unknown Game',
           price: item.price || 0,
           quantity: item.quantity || 1,
-          image: item.image || '/images/placeholder-game.jpg',
+          image: item.image || PLACEHOLDER_IMAGE,
         }));
 
         return {
@@ -226,13 +220,13 @@ const Profile = () => {
     if (activeTab === 'orders' && user) {
       fetchOrderHistory();
     }
-  }, [activeTab, user, fetchOrderHistory, refreshCounterRef.current]);
+  }, [activeTab, user, fetchOrderHistory]);
 
   useEffect(() => {
     if (activeTab === 'addresses' && user) {
       fetchAddresses();
     }
-  }, [activeTab, user, fetchAddresses, refreshCounterRef.current]);
+  }, [activeTab, user, fetchAddresses]);
 
   const cartSummary = getCartSummary();
   const wishlistCount = getWishlistCount();

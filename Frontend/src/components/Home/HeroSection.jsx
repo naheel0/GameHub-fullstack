@@ -7,6 +7,7 @@ import 'swiper/css';
 import 'swiper/css/navigation';
 import 'swiper/css/pagination';
 import 'swiper/css/effect-fade';
+import { getImageUrl, handleImageError } from '../../Services/api';
 
 const HeroSection = ({ featuredGames, renderStars }) => {
   return (
@@ -30,12 +31,12 @@ const HeroSection = ({ featuredGames, renderStars }) => {
             <SwiperSlide key={game.id}>
               <div className="relative w-full h-full flex items-center justify-center text-center text-white">
                 <img
-                  src={game.images?.[0] || '/images/placeholder-game.jpg'}
+                  src={getImageUrl(game.images, 0)}
                   alt={game.name}
                   className="absolute inset-0 w-full h-full object-cover"
-                  onError={(e) => {
-                    e.target.src = '/images/placeholder-game.jpg';
-                  }}
+                  loading="eager"
+                  decoding="async"
+                  onError={handleImageError}
                 />
                 <div className="absolute inset-0 bg-black/60" />
                 <div className="relative z-10 px-6 sm:px-4">
@@ -47,7 +48,7 @@ const HeroSection = ({ featuredGames, renderStars }) => {
                   </p>
                   <div className="flex items-center justify-center space-x-4 mb-8">
                     <div className="flex items-center space-x-1">
-                  {renderStars(game.rating)}
+                      {renderStars(game.rating)}
                     </div>
                     <span className="text-lg">{game.rating}/5.0</span>
                     <span className="text-lg font-semibold text-red-500">
@@ -62,8 +63,9 @@ const HeroSection = ({ featuredGames, renderStars }) => {
                       Buy Now
                     </Link>
                     <button
-                      onClick={() => window.open(game.trailer, '_blank')}
-                      className="bg-white bg-opacity-20 hover:bg-opacity-30 text-red-700 px-8 py-4 rounded-lg font-bold text-lg transition duration-300 transform hover:scale-105"
+                      onClick={() => game.trailer && window.open(game.trailer, '_blank', 'noopener,noreferrer')}
+                      disabled={!game.trailer}
+                      className="bg-white bg-opacity-20 hover:bg-opacity-30 text-red-700 px-8 py-4 rounded-lg font-bold text-lg transition duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       Watch Trailer
                     </button>

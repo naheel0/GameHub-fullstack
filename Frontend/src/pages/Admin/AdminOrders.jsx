@@ -4,7 +4,8 @@ import { useAdmin } from "./contexts/AdminContext";
 import { motion } from "framer-motion";
 import { useState,useEffect } from "react";
 import { ChevronLeftIcon, ChevronRightIcon } from "@heroicons/react/24/outline";
-import SearchBar from "./components/SearchBar"
+import SearchBar from "./components/SearchBar";
+import { getImageUrl, handleImageError } from "../../Services/api";
 
 export default function AdminOrders() {
   const { orders, deleteOrder, updateOrderStatus, users, loading } = useAdmin();
@@ -368,9 +369,14 @@ const totalPages = Math.ceil((filteredOrders?.length || 0) / itemsPerPage);
               <div className="space-y-3">
                 {selectedOrder.items?.map((item, index) => (
                   <div key={index} className="flex items-center gap-4 bg-gray-700/30 p-3 rounded-xl border border-gray-600/50">
-                    {item.image && (
-                      <img src={item.image} alt={item.name} className="w-14 h-14 object-cover rounded-lg shrink-0" onError={(e) => { e.target.style.display = "none"; }} />
-                    )}
+                    <img
+                      src={item.image || getImageUrl([], 0)}
+                      alt={item.name}
+                      className="w-14 h-14 object-cover rounded-lg shrink-0"
+                      loading="lazy"
+                      decoding="async"
+                      onError={handleImageError}
+                    />
                     <div className="flex-1 min-w-0">
                       <p className="text-white font-medium text-sm truncate">{item.name}</p>
                       <p className="text-gray-400 text-xs mt-0.5">Qty: {item.qty || item.quantity || 1} × ₹{item.price.toLocaleString()}</p>

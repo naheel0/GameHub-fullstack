@@ -38,21 +38,41 @@ const Products = () => {
 
   const API_BASE = BaseUrl;
 
-   useEffect(() => {
+       useEffect(() => {
     const fetchGames = async () => {
       try {
         setLoading(true);
         const url = `${API_BASE}/games?pageSize=100`;
-        console.debug('Fetching games from:', url);
-        const response = await authFetch(url);
-        console.debug('Games response status:', response.status);
-        if (!response.ok) {
-          const text = await response.text().catch(() => 'unknown error');
-          console.error('Games fetch failed:', response.status, text);
-          throw new Error(`Failed to fetch games data (status ${response.status})`);
+        const response = await authFetch(url, { cache: 'no-store' });
+
+        // Read body once as text, then parse JSON
+        const rawText = await response.text().catch(() => '');
+        let payload = null;
+        try {
+          payload = JSON.parse(rawText);
+        } catch {
+          payload = null;
         }
-        const payload = await response.json();
-        const items = payload?.data?.items || payload?.items || payload || [];
+
+        // status 0 means the browser served a corrupted cache entry (ERR_CACHE_READ_FAILURE).
+        // The body is still valid JSON in that case — treat it as success when payload.success is true
+        // or when we can extract items from it. A genuine server error returns non-zero status.
+        const isSuccessPayload = payload &&
+          (payload.success === true || payload?.data?.items || Array.isArray(payload?.items) || Array.isArray(payload));
+
+        if (!isSuccessPayload) {
+          if (rawText.trimStart().startsWith('<')) {
+            throw new Error('Make sure the GameHub API is running.');
+          }
+          if (response.status !== 0) {
+            console.error('Games fetch failed:', response.status, rawText.slice(0, 200));
+            throw new Error(`Failed to fetch games data (status ${response.status})`);
+          }
+          // status 0 + no usable payload = network failure
+          throw new Error('Network error — please check your connection and try again.');
+        }
+
+        const items = payload?.data?.items || payload?.items || (Array.isArray(payload) ? payload : []);
         const normalized = items.map(normalizeGame).filter(Boolean);
         setGames(normalized);
         setLoading(false);
@@ -63,8 +83,8 @@ const Products = () => {
       }
     };
 
-    fetchGames();
-  }, [API_BASE]);
+fetchGames();
+   }, [API_BASE, authFetch]);
 
   const filteredGames = useMemo(() => {
     let result = [...games];

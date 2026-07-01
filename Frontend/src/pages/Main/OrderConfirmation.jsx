@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useCart } from '../../contexts/CartContext';
 import { useAuth } from '../../contexts/AuthContext';
-import { BaseUrl } from '../../Services/api';
+import { BaseUrl, getImageUrl, handleImageError } from '../../Services/api';
 import { 
   CheckBadgeIcon,
   ShoppingBagIcon,
@@ -76,7 +76,9 @@ const OrderConfirmation = () => {
   }, [location, navigate, clearCart]);
 
   const handlePaidPaymentLink = async (user, paymentLinkId, razorpayPaymentId) => {
-    // Read pendingPurchase BEFORE removal to get the purchaseId for confirmation
+    // ── Read ALL localStorage values synchronously BEFORE any await ──────────
+    // This prevents race conditions where other effects (loadCart restore)
+    // consume or remove these keys between awaits.
     const pendingPurchaseRaw = (() => {
       try {
         const raw = localStorage.getItem('pendingPurchase');
@@ -88,7 +90,6 @@ const OrderConfirmation = () => {
       }
     })();
 
-    // Read pendingRazorpayOrder BEFORE clearPendingPaymentDraft for fallback
     const pendingOrder = (() => {
       try {
         return JSON.parse(localStorage.getItem('pendingRazorpayOrder') || 'null');
@@ -98,10 +99,19 @@ const OrderConfirmation = () => {
       }
     })();
 
-    // Remove pendingPurchase synchronously BEFORE any await to prevent
-    // loadCart() auto-restore logic from winning the race and restoring cart items
-    try { localStorage.removeItem('pendingPurchase'); } catch (error) { console.debug('Failed to remove pendingPurchase', error); }
-    clearPendingPaymentDraft();
+    // Read buyNowIntent BEFORE any await and BEFORE clearing anything
+    const isBuyNow = Boolean(localStorage.getItem('buyNowIntent'));
+
+    // ── Remove all pending-payment keys synchronously (before any await) ─────
+    // This ensures loadCart()'s restore logic won't fire after we've already
+    // started confirming the payment.
+    try { localStorage.removeItem('pendingPurchase'); } catch { /* ignore */ }
+    try { localStorage.removeItem('pendingRazorpayOrder'); } catch { /* ignore */ }
+    // Remove buyNowIntent now so that if clearCart is called below it correctly
+    // sees isBuyNow=true from the flag we already captured.
+    if (isBuyNow) {
+      try { localStorage.removeItem('buyNowIntent'); } catch { /* ignore */ }
+    }
 
     try {
       setLoading(true);
@@ -109,17 +119,19 @@ const OrderConfirmation = () => {
       const purchaseId = pendingOrder?.purchaseId || pendingPurchaseRaw;
       let confirmed = false;
 
-        if (purchaseId) {
-            const confirmResp = await authFetch(`${BaseUrl}/payments/confirm-link`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                purchaseId,
-                razorpayPaymentLinkId: paymentLinkId || '',
-                razorpayPaymentId: razorpayPaymentId || '',
-                amount: pendingOrder?.summary?.total ? Math.round(parseFloat(pendingOrder.summary.total) * 100) : 0,
-              }),
-            });
+      if (purchaseId) {
+        const confirmResp = await authFetch(`${BaseUrl}/payments/confirm-link`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            purchaseId,
+            razorpayPaymentLinkId: paymentLinkId || '',
+            razorpayPaymentId: razorpayPaymentId || '',
+            amount: pendingOrder?.summary?.total
+              ? Math.round(parseFloat(pendingOrder.summary.total) * 100)
+              : 0,
+          }),
+        });
 
         if (confirmResp.ok) {
           const confirmation = await confirmResp.json();
@@ -142,25 +154,27 @@ const OrderConfirmation = () => {
         localStorage.setItem('lastOrder', JSON.stringify(processed));
       }
 
-      // Only clear cart for non-buy-now purchases (Buy Now doesn't add items to cart)
-      const hasBuyNowIntent = localStorage.getItem('buyNowIntent');
-      if (!hasBuyNowIntent) {
-        await clearCart();
-      }
-      // Clean up buyNowIntent after successful payment
-      if (hasBuyNowIntent) {
-        try { localStorage.removeItem('buyNowIntent'); } catch { /* ignore */ }
+      // Only clear the server-side cart for regular cart purchases.
+      // Buy Now never adds items to the cart, so clearing it would wipe
+      // items the user added separately.
+      if (!isBuyNow) {
+        await clearCart({ silent: true });
       }
     } catch (err) {
       console.error('Finalize paid payment link error:', err);
+      // Always clean up buyNowIntent on any error path too
+      if (isBuyNow) {
+        try { localStorage.removeItem('buyNowIntent'); } catch { /* ignore */ }
+      }
     } finally {
       setLoading(false);
     }
   };
 
   const handleFailedPaymentLink = async (user, referenceId) => {
-    // For Buy Now, there's nothing to restore since items were never in cart
-    const hasBuyNowIntent = localStorage.getItem('buyNowIntent');
+    // Read buyNowIntent synchronously before any await
+    const isBuyNow = Boolean(localStorage.getItem('buyNowIntent'));
+
     try {
       setLoading(true);
       const purchaseFromReference = extractPurchaseIdFromReference(referenceId);
@@ -168,53 +182,59 @@ const OrderConfirmation = () => {
       const pendingParsed = pendingRaw ? Number(pendingRaw) : NaN;
       const purchaseId = purchaseFromReference || (Number.isFinite(pendingParsed) && pendingParsed > 0 ? pendingParsed : null);
 
-      if (purchaseId && !hasBuyNowIntent) {
+      if (purchaseId && !isBuyNow) {
+        // Regular cart flow: restore the server-side cart so items aren't lost
         const resp = await authFetch(`${BaseUrl}/payments/restore/${purchaseId}`, {
           method: 'POST',
         });
         if (resp.ok) {
           await refreshCart();
-          try { localStorage.removeItem('pendingPurchase'); } catch (e) { console.debug('Failed to remove pendingPurchase', e); }
-          clearPendingPaymentDraft();
         }
-      } else if (!hasBuyNowIntent) {
+      } else if (!isBuyNow) {
         await refreshCart();
-        clearPendingPaymentDraft();
-      } else {
-        // Buy Now failure: just clean up and go back to products
-        clearPendingPaymentDraft();
-        try { localStorage.removeItem('pendingPurchase'); } catch { /* ignore */ }
-        try { localStorage.removeItem('buyNowIntent'); } catch { /* ignore */ }
       }
+      // Buy Now failure: nothing to restore — items were never in the cart
     } catch (err) {
       console.error('Restore cart error:', err);
     } finally {
+      // Always clean up all payment-related keys on failure
+      try { localStorage.removeItem('pendingPurchase'); } catch { /* ignore */ }
+      try { localStorage.removeItem('buyNowIntent'); } catch { /* ignore */ }
+      clearPendingPaymentDraft();
       setLoading(false);
-      navigate(hasBuyNowIntent ? '/products' : '/cart');
+      navigate(isBuyNow ? '/products' : '/cart');
     }
   };
 
   const handleRazorpayVerification = async (user, razorpayOrderId, razorpayPaymentId, razorpaySignature) => {
-    // For Buy Now, there's nothing to restore since items were never in cart
-    const hasBuyNowIntent = localStorage.getItem('buyNowIntent');
+    // Read buyNowIntent synchronously before any await
+    const isBuyNow = Boolean(localStorage.getItem('buyNowIntent'));
+    const pendingOrderRaw = (() => {
+      try {
+        return JSON.parse(localStorage.getItem('pendingOrder') || 'null');
+      } catch {
+        return null;
+      }
+    })();
     try {
       setLoading(true);
-        const resp = await authFetch(`${BaseUrl}/payments/verify`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            RazorpayOrderId: razorpayOrderId,
-            RazorpayPaymentId: razorpayPaymentId,
-            RazorpaySignature: razorpaySignature,
-            Amount: orderData?.summary?.total ? Math.round(parseFloat(orderData.summary.total) * 100) : 0,
-          }),
-        });
+      const resp = await authFetch(`${BaseUrl}/payments/verify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          RazorpayOrderId: razorpayOrderId,
+          RazorpayPaymentId: razorpayPaymentId,
+          RazorpaySignature: razorpaySignature,
+          Amount: pendingOrderRaw?.summary?.total ? Math.round(parseFloat(pendingOrderRaw.summary.total) * 100) : 0,
+        }),
+      });
 
       if (!resp.ok) {
-        if (!hasBuyNowIntent) await refreshCart();
+        if (!isBuyNow) await refreshCart();
         clearPendingPaymentDraft();
+        try { localStorage.removeItem('pendingPurchase'); } catch { /* ignore */ }
         try { localStorage.removeItem('buyNowIntent'); } catch { /* ignore */ }
-        navigate(hasBuyNowIntent ? '/products' : '/cart');
+        navigate(isBuyNow ? '/products' : '/cart');
         return;
       }
 
@@ -228,27 +248,26 @@ const OrderConfirmation = () => {
           localStorage.setItem('lastOrder', JSON.stringify(processed));
           try { localStorage.removeItem('pendingPurchase'); } catch (e) { console.debug('Failed to remove pendingPurchase', e); }
           clearPendingPaymentDraft();
-          // Only clear cart for non-buy-now purchases (Buy Now doesn't add items to cart)
-          if (!hasBuyNowIntent) {
-            await clearCart();
-          }
-          // Clean up buyNowIntent after successful payment
-          if (hasBuyNowIntent) {
-            try { localStorage.removeItem('buyNowIntent'); } catch { /* ignore */ }
+          try { localStorage.removeItem('buyNowIntent'); } catch { /* ignore */ }
+          // Only clear the server-side cart for regular cart purchases
+          if (!isBuyNow) {
+            await clearCart({ silent: true });
           }
         }
       } else {
-        if (!hasBuyNowIntent) await refreshCart();
+        if (!isBuyNow) await refreshCart();
         clearPendingPaymentDraft();
+        try { localStorage.removeItem('pendingPurchase'); } catch { /* ignore */ }
         try { localStorage.removeItem('buyNowIntent'); } catch { /* ignore */ }
-        navigate(hasBuyNowIntent ? '/products' : '/cart');
+        navigate(isBuyNow ? '/products' : '/cart');
       }
     } catch (err) {
       console.error('Payment verification error:', err);
-      if (!hasBuyNowIntent) await refreshCart();
+      if (!isBuyNow) await refreshCart();
       clearPendingPaymentDraft();
+      try { localStorage.removeItem('pendingPurchase'); } catch { /* ignore */ }
       try { localStorage.removeItem('buyNowIntent'); } catch { /* ignore */ }
-      navigate(hasBuyNowIntent ? '/products' : '/cart');
+      navigate(isBuyNow ? '/products' : '/cart');
     } finally {
       setLoading(false);
     }
@@ -523,12 +542,12 @@ const OrderConfirmation = () => {
                     >
                       <div className="flex items-center space-x-4">
                         <img
-                          src={item.image || '/images/placeholder-game.jpg'}
+                          src={item.image || getImageUrl([], 0)}
                           alt={item.name}
                           className="w-12 h-12 object-cover rounded-lg"
-                          onError={(e) => {
-                            e.target.src = '/images/placeholder-game.jpg';
-                          }}
+                          loading="lazy"
+                          decoding="async"
+                          onError={handleImageError}
                         />
                         <div>
                           <h4 className="text-white font-semibold">{item.name || 'Unknown Game'}</h4>

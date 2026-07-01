@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { HeartIcon } from '@heroicons/react/24/outline';
+import { getImageUrl, handleImageError } from '../../Services/api';
 
 const WishlistTab = ({ wishlist, formatRupees }) => {
   if (wishlist.length === 0) {
@@ -28,12 +29,12 @@ const WishlistTab = ({ wishlist, formatRupees }) => {
         >
           <div className="flex items-center space-x-4">
             <img
-              src={game.images?.[0] || '/images/placeholder-game.jpg'}
+              src={getImageUrl(game.images, 0)}
               alt={game.name}
               className="w-16 h-16 object-cover rounded"
-              onError={(e) => {
-                e.target.src = '/images/placeholder-game.jpg';
-              }}
+              loading="lazy"
+              decoding="async"
+              onError={handleImageError}
             />
             <div className="flex-1">
               <h3 className="text-lg font-semibold text-white mb-1">

@@ -32,6 +32,8 @@ export const AuthProvider = ({ children }) => {
         });
 
         if (!refreshResponse.ok) {
+          // 401 here is expected — refresh cookie expired or session was revoked.
+          // Clear the stale stored session and continue as a logged-out user.
           setUser(null);
           setStoredAuth(null);
           setLoading(false);
@@ -48,7 +50,8 @@ export const AuthProvider = ({ children }) => {
           setStoredAuth(null);
         }
       } catch (error) {
-        console.error('Auth refresh bootstrap error:', error);
+        // Network error during bootstrap — not critical, app continues as logged-out
+        console.debug('Auth refresh bootstrap error:', error);
         setUser(null);
         setStoredAuth(null);
       } finally {
@@ -326,7 +329,7 @@ export const AuthProvider = ({ children }) => {
         throw new Error('No user logged in');
       }
 
-      const response = await authFetch(`${API_BASE}/auth/profile`, {
+      const response = await authFetchWithLogout(`${API_BASE}/auth/profile`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(userUpdates),

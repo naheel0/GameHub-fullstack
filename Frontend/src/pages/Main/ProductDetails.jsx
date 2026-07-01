@@ -31,7 +31,7 @@ const ProductDetails = () => {
   const [isInWishlistState, setIsInWishlistState] = useState(false);
 
   const { addToCart } = useCart();
-  const { user } = useAuth();
+  const { user, authFetch } = useAuth();
   const { addToWishlist, removeFromWishlist, isInWishlist } = useWishlist();
 
   const API_BASE = BaseUrl;
@@ -47,26 +47,32 @@ const ProductDetails = () => {
     const fetchGame = async () => {
       try {
         setLoading(true);
-        const response = await authFetch(`${API_BASE}/games/${id}`);
-        if (!response.ok) {
-          const responseText = await response.text();
-          if (responseText.trim().startsWith('<')) {
+        const response = await authFetch(`${API_BASE}/games/${id}?_cb=${Date.now()}`);
+
+        // Read body once as text, then parse JSON
+        const rawText = await response.text().catch(() => '');
+        let payload = null;
+        try {
+          payload = JSON.parse(rawText);
+        } catch {
+          payload = null;
+        }
+
+        // status 0 = corrupted browser cache (ERR_CACHE_READ_FAILURE) — body is still valid JSON
+        // Only treat as failure if there is genuinely no usable payload
+        if (!payload) {
+          if (rawText.trimStart().startsWith('<')) {
             throw new Error('Make sure the GameHub API is running.');
           }
           throw new Error('Failed to fetch game data');
         }
-        const contentType = response.headers.get('content-type') || '';
-        if (!contentType.includes('application/json')) {
-          const responseText = await response.text();
-          if (responseText.trim().startsWith('<')) {
-            throw new Error('Make sure the GameHub API is running.');
-          }
-          throw new Error('Unexpected response from the GameHub API.');
+
+        // A real API error returns ok=false with a non-zero status and no game data
+        if (!response.ok && response.status !== 0) {
+          throw new Error('Failed to fetch game data');
         }
 
-        const foundGame = await response.json();
-        const normalized = normalizeGame(foundGame);
-
+        const normalized = normalizeGame(payload);
         if (normalized) {
           setGame(normalized);
         } else {
@@ -80,8 +86,8 @@ const ProductDetails = () => {
       }
     };
 
-    fetchGame();
-  }, [id, API_BASE]);
+fetchGame();
+   }, [id, API_BASE, authFetch]);
 
   useEffect(() => {
     if (game && user) {

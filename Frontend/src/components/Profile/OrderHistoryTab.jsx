@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { ShoppingBagIcon } from '@heroicons/react/24/outline';
+import { getImageUrl, handleImageError } from '../../Services/api';
 
 const OrderHistoryTab = ({ orders, loading, formatDate, formatRupees }) => {
   if (loading) {
@@ -69,13 +70,13 @@ const OrderHistoryTab = ({ orders, loading, formatDate, formatRupees }) => {
               >
                 <div className="flex items-center space-x-4">
                   <img
-                    src={item.image || '/images/placeholder-game.jpg'}
-                    alt={item.name}
-                    className="w-12 h-12 object-cover rounded"
-                    onError={(e) => {
-                      e.target.src = '/images/placeholder-game.jpg';
-                    }}
-                  />
+                      src={item.image ? item.image : getImageUrl([], 0)}
+                      alt={item.name}
+                      className="w-12 h-12 object-cover rounded"
+                      loading="lazy"
+                      decoding="async"
+                      onError={handleImageError}
+                    />
                   <div>
                     <p className="text-white font-medium">{item.name}</p>
                     <p className="text-gray-400 text-sm">{item.genre}</p>

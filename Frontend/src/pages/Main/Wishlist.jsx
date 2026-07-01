@@ -5,6 +5,7 @@ import { useCart } from '../../contexts/CartContext';
 import { HeartIcon, ShoppingCartIcon, TrashIcon } from '@heroicons/react/24/solid';
 import { StarIcon } from '@heroicons/react/24/solid';
 import { StarIcon as StarOutline } from '@heroicons/react/24/outline';
+import { getImageUrl, handleImageError } from '../../Services/api';
 
 const Wishlist = () => {
   const { wishlist, removeFromWishlist, clearWishlist, getWishlistTotal, moveToCart, isWishlistEmpty } = useWishlist();
@@ -64,9 +65,12 @@ const Wishlist = () => {
             <div key={game.id} className="bg-gray-900 rounded-lg shadow-md overflow-hidden border border-gray-800">
               <Link to={`/product/${game.id}`}>
                 <img
-                  src={game.images?.[0] || '/placeholder-game.jpg'}
+                  src={getImageUrl(game.images, 0)}
                   alt={game.name}
                   className="w-full h-48 object-cover cursor-pointer"
+                  loading="lazy"
+                  decoding="async"
+                  onError={handleImageError}
                 />
               </Link>
 

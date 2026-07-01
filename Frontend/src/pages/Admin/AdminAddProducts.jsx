@@ -4,6 +4,7 @@ import { useAdmin } from "./contexts/AdminContext";
 import { motion } from 'framer-motion';
 import { toast } from "react-toastify";
 import { Plus, Trash2, X, Image, Video, GamepadIcon, Edit3, Shield } from "lucide-react";
+import { handleImageError } from "../../Services/api";
 
 export default function AdminAddProducts({ onClose, editingProduct }) {
   const { addProduct, editProduct } = useAdmin();
@@ -374,7 +375,9 @@ export default function AdminAddProducts({ onClose, editingProduct }) {
                       src={image}
                       alt={`Preview ${index + 1}`}
                       className="w-full h-20 object-cover rounded-xl border-2 border-gray-700 group-hover:border-yellow-500 transition-all duration-200"
-                      onError={(e) => { e.target.src = 'https://via.placeholder.com/150?text=Image+Error'; }}
+                      loading="lazy"
+                      decoding="async"
+                      onError={handleImageError}
                     />
                     <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity duration-200 rounded-xl flex items-center justify-center gap-2">
                       <button

@@ -1,31 +1,96 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
+import path from 'path'
 
 export default defineConfig({
   plugins: [
     react(),
     tailwindcss(),
   ],
+
+  // Base path — '/' for dev, adjust to '/subpath/' if deploying under a sub-directory
+  base: '/',
+
+  resolve: {
+    alias: {
+      '@': path.resolve(__dirname, './src'),
+    },
+  },
+
+  // Pre-bundle these deps so Vite doesn't re-discover them on first page load
+  optimizeDeps: {
+    include: [
+      'react',
+      'react-dom',
+      'react-router-dom',
+      'react-toastify',
+      'framer-motion',
+      'swiper',
+      'swiper/react',
+      'lucide-react',
+      '@heroicons/react/24/solid',
+      '@heroicons/react/24/outline',
+    ],
+  },
+
+  server: {
+    port: 5173,
+    strictPort: false,
+    open: false,
+    cors: true,
+    proxy: {
+      // Proxy /api/* → Azure backend during local dev
+      // This avoids CORS issues when running frontend and backend separately
+      '/api': {
+        target: 'https://gamehub-egb0gngwevewfzdr.centralindia-01.azurewebsites.net',
+        changeOrigin: true,
+        secure: true,
+        rewrite: (p) => p, // keep /api prefix as-is
+      },
+    },
+  },
+
   build: {
     rollupOptions: {
       output: {
-        manualChunks: {
+        manualChunks(id) {
           // React core
-          'vendor-react': ['react', 'react-dom', 'react-router-dom'],
+          if (id.includes('node_modules/react/') || id.includes('node_modules/react-dom/')) {
+            return 'vendor-react';
+          }
+          if (id.includes('node_modules/react-router-dom/') || id.includes('node_modules/react-router/')) {
+            return 'vendor-router';
+          }
           // UI libraries
-          'vendor-ui': ['react-toastify'],
-          // Icons
-          'vendor-icons': ['@heroicons/react', 'lucide-react', 'react-icons'],
-          // Rich content / animation
-          'vendor-media': ['framer-motion', 'recharts', 'swiper'],
-          // Styling
-          'vendor-css': ['@emotion/react', '@emotion/styled', '@mui/material'],
+          if (id.includes('node_modules/react-toastify/')) {
+            return 'vendor-ui';
+          }
+          // Icons — split to avoid one giant chunk
+          if (id.includes('node_modules/@heroicons/') || id.includes('node_modules/lucide-react/') || id.includes('node_modules/react-icons/')) {
+            return 'vendor-icons';
+          }
+          // Animation / charts / slider
+          if (id.includes('node_modules/framer-motion/')) {
+            return 'vendor-motion';
+          }
+          if (id.includes('node_modules/recharts/')) {
+            return 'vendor-charts';
+          }
+          if (id.includes('node_modules/swiper/')) {
+            return 'vendor-swiper';
+          }
+          // MUI / Emotion — only chunk if actually installed
+          if (id.includes('node_modules/@mui/') || id.includes('node_modules/@emotion/')) {
+            return 'vendor-mui';
+          }
         },
       },
     },
     chunkSizeWarningLimit: 600,
     sourcemap: false,
     minify: 'esbuild',
+    // Ensure assets are correctly hashed and placed
+    assetsInlineLimit: 4096,
   },
 })

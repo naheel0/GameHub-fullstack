@@ -4,33 +4,36 @@ import {
   PlusIcon,
   MinusIcon,
 } from '@heroicons/react/24/outline';
+import { getImageUrl, handleImageError } from '../../Services/api';
 
 const CartItem = ({ item, onQuantityChange, onRemove }) => {
   return (
-    <div
-      className="bg-gray-900 border border-gray-800 rounded-lg p-6"
-    >
+    <div className="bg-gray-900 border border-gray-800 rounded-lg p-6">
       <div className="flex flex-col sm:flex-row gap-4">
         <div className="shrink-0">
           <img
-            src={item.images?.[0] || '/images/placeholder-game.jpg'}
+            src={getImageUrl(item.images, 0)}
             alt={item.name}
             className="w-24 h-32 object-cover rounded-lg"
-            onError={(e) => {
-              e.target.src = '/images/placeholder-game.jpg';
-            }}
+            loading="lazy"
+            decoding="async"
+            onError={handleImageError}
           />
         </div>
 
         <div className="grow">
           <h3 className="text-lg font-semibold text-white mb-2">{item.name}</h3>
           <div className="flex flex-wrap gap-2 mb-3">
-            <span className="bg-gray-800 text-gray-300 px-2 py-1 rounded text-xs">
-              {item.genre}
-            </span>
-            <span className="bg-gray-800 text-gray-300 px-2 py-1 rounded text-xs">
-              {item.platform}
-            </span>
+            {item.genre && (
+              <span className="bg-gray-800 text-gray-300 px-2 py-1 rounded text-xs">
+                {item.genre}
+              </span>
+            )}
+            {item.platform && (
+              <span className="bg-gray-800 text-gray-300 px-2 py-1 rounded text-xs">
+                {item.platform}
+              </span>
+            )}
           </div>
           {!item.inStock && (
             <span className="text-red-400 text-sm font-medium">Out of Stock</span>
@@ -45,6 +48,7 @@ const CartItem = ({ item, onQuantityChange, onRemove }) => {
                 onClick={() => onQuantityChange(item.id, item.quantity - 1)}
                 disabled={item.quantity <= 1}
                 className="w-8 h-8 flex items-center justify-center bg-gray-800 hover:bg-gray-700 text-gray-300 rounded border border-gray-700 disabled:opacity-50 transition duration-300"
+                aria-label="Decrease quantity"
               >
                 <MinusIcon className="h-4 w-4" />
               </button>
@@ -53,7 +57,8 @@ const CartItem = ({ item, onQuantityChange, onRemove }) => {
               </span>
               <button
                 onClick={() => onQuantityChange(item.id, item.quantity + 1)}
-                className="w-8 h-8 flex items-center justify-center bg-gray-800 hover:bg-gray-700 text-gray-300 rounded border border-gray-700 disabled:opacity-50 transition duration-300"
+                className="w-8 h-8 flex items-center justify-center bg-gray-800 hover:bg-gray-700 text-gray-300 rounded border border-gray-700 transition duration-300"
+                aria-label="Increase quantity"
               >
                 <PlusIcon className="h-4 w-4" />
               </button>
@@ -73,6 +78,7 @@ const CartItem = ({ item, onQuantityChange, onRemove }) => {
               onClick={() => onRemove(item.id)}
               className="text-gray-400 hover:text-red-400 transition duration-300"
               title="Remove item"
+              aria-label={`Remove ${item.name} from cart`}
             >
               <TrashIcon className="h-5 w-5" />
             </button>

@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { FaHeart, FaStar } from 'react-icons/fa';
+import { getImageUrl, handleImageError } from '../../Services/api';
 
 const FeaturedGamesSection = ({ featuredGames, renderStars, onWishlistToggle, isInWishlist }) => {
   return (
@@ -21,12 +22,12 @@ const FeaturedGamesSection = ({ featuredGames, renderStars, onWishlistToggle, is
               <Link to={`/product/${game.id}`}>
                 <div className="relative">
                   <img
-                    src={game.images?.[0] || '/images/placeholder-game.jpg'}
+                    src={getImageUrl(game.images, 0)}
                     alt={game.name}
                     className="w-full h-48 object-cover"
-                    onError={(e) => {
-                      e.target.src = '/images/placeholder-game.jpg';
-                    }}
+                  loading="eager"
+                    decoding="async"
+                    onError={handleImageError}
                   />
                   <div className="absolute top-2 right-2 bg-red-600 text-white px-2 py-1 rounded text-sm font-semibold">
                     ₹{game.price}
@@ -63,6 +64,7 @@ const FeaturedGamesSection = ({ featuredGames, renderStars, onWishlistToggle, is
                         ? 'bg-red-600 border-red-600 text-white'
                         : 'bg-gray-800 border-gray-700 text-white hover:bg-gray-700'
                     }`}
+                    aria-label={isInWishlist(game.id) ? 'Remove from wishlist' : 'Add to wishlist'}
                   >
                     <FaHeart className="h-5 w-5" />
                   </button>

@@ -1,4 +1,9 @@
+/* Tailwind v4 CSS-first configuration */
 @import "tailwindcss";
+
+/* Explicitly tell Tailwind v4 where to scan for class names */
+@source "../";
+
 html, body {
   margin: 0;
   padding: 0;

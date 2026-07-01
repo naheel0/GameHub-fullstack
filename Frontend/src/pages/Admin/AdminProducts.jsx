@@ -4,6 +4,7 @@ import { Edit3, Plus, Trash2, X, Filter } from "lucide-react";
 import AdminAddProducts from "./AdminAddProducts";
 import { ChevronLeftIcon, ChevronRightIcon } from "@heroicons/react/24/outline";
 import SearchBar from "./components/SearchBar";
+import { getImageUrl, handleImageError } from "../../Services/api";
 
 export default function AdminProducts() {
   const { products, deleteProduct } = useAdmin();
@@ -272,9 +273,12 @@ export default function AdminProducts() {
                   >
                     <td className="p-4">
                       <img
-                        src={p.images?.[0] || "/placeholder-game.jpg"}
+                        src={getImageUrl(p.images, 0)}
                         alt={p.name}
                         className="w-16 h-16 object-cover rounded-lg"
+                        loading="lazy"
+                        decoding="async"
+                        onError={handleImageError}
                       />
                     </td>
                     <td className="p-4 font-medium">{p.name}</td>

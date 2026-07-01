@@ -28,12 +28,26 @@ const Home = () => {
 
     const fetchGames = async () => {
       try {
-        const response = await authFetch(`${API_BASE}/games?pageSize=100`);
-        if (!response.ok) {
+        const response = await authFetch(`${API_BASE}/games?pageSize=100`, { cache: 'no-store' });
+
+        // Read body once as text, then parse JSON
+        const rawText = await response.text().catch(() => '');
+        let payload = null;
+        try {
+          payload = JSON.parse(rawText);
+        } catch {
+          payload = null;
+        }
+
+        // status 0 = corrupted browser cache (ERR_CACHE_READ_FAILURE) — body is still valid
+        const isSuccessPayload = payload &&
+          (payload.success === true || payload?.data?.items || Array.isArray(payload?.items) || Array.isArray(payload));
+
+        if (!isSuccessPayload) {
           throw new Error('Failed to fetch games data');
         }
-        const payload = await response.json();
-        const items = payload?.data?.items || payload?.items || payload || [];
+
+        const items = payload?.data?.items || payload?.items || (Array.isArray(payload) ? payload : []);
         const normalized = items.map(normalizeGame).filter(Boolean);
         setFeaturedGames(normalized.slice(0, 6));
         setLoading(false);
@@ -43,8 +57,8 @@ const Home = () => {
       }
     };
 
-    fetchGames();
-  }, [API_BASE]);
+fetchGames();
+   }, [API_BASE, authFetch]);
 
   const { addToWishlist, removeFromWishlist, isInWishlist } = useWishlist();
 

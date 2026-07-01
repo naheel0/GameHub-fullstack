@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { StarIcon, ShoppingCartIcon } from '@heroicons/react/24/solid';
 import { StarIcon as StarOutline } from '@heroicons/react/24/outline';
 import { FaHeart } from 'react-icons/fa';
+import { getImageUrl, handleImageError } from '../../Services/api';
 
 const GamesGrid = ({ games, onWishlist, onAddToCart, isInWishlist, renderStars }) => {
   if (games.length === 0) {
@@ -25,12 +26,12 @@ const GamesGrid = ({ games, onWishlist, onAddToCart, isInWishlist, renderStars }
           <Link to={`/product/${game.id}`}>
             <div className="relative">
               <img
-                src={game.images?.[0] || '/images/placeholder-game.jpg'}
+                src={getImageUrl(game.images, 0)}
                 alt={game.name}
                 className="w-full h-48 object-cover cursor-pointer"
-                onError={(e) => {
-                  e.target.src = '/images/placeholder-game.jpg';
-                }}
+                loading="lazy"
+                decoding="async"
+                onError={handleImageError}
               />
               <button
                 onClick={(e) => {
@@ -39,17 +40,10 @@ const GamesGrid = ({ games, onWishlist, onAddToCart, isInWishlist, renderStars }
                   onWishlist(game);
                 }}
                 className="absolute top-2 right-2 p-2 bg-gray-800 rounded-full shadow-md hover:bg-gray-700 transition duration-300 border border-gray-700"
-                title={
-                  isInWishlist(game.id)
-                    ? 'Remove from wishlist'
-                    : 'Add to wishlist'
-                }
+                title={isInWishlist(game.id) ? 'Remove from wishlist' : 'Add to wishlist'}
+                aria-label={isInWishlist(game.id) ? 'Remove from wishlist' : 'Add to wishlist'}
               >
-                  {isInWishlist(game.id) ? (
-                    <FaHeart className="h-5 w-5 text-red-500" />
-                  ) : (
-                    <FaHeart className="h-5 w-5 text-gray-400" />
-                  )}
+                <FaHeart className={`h-5 w-5 ${isInWishlist(game.id) ? 'text-red-500' : 'text-gray-400'}`} />
               </button>
               {!game.inStock && (
                 <div className="absolute top-2 left-2 bg-red-600 text-white px-2 py-1 rounded text-xs font-semibold">
@@ -84,7 +78,7 @@ const GamesGrid = ({ games, onWishlist, onAddToCart, isInWishlist, renderStars }
                 disabled={!game.inStock}
                 className={`flex items-center space-x-1 px-4 py-2 rounded-lg transition duration-300 ${
                   game.inStock
-                    ? 'bg-red-600 hover:bg-red-700 hover:transform hover:scale-105 transition duration-300 text-white border border-red-600'
+                    ? 'bg-red-600 hover:bg-red-700 hover:transform hover:scale-105 text-white border border-red-600'
                     : 'bg-gray-700 text-gray-400 cursor-not-allowed border border-gray-600'
                 }`}
               >

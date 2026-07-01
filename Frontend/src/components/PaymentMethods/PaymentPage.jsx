@@ -166,7 +166,7 @@ const navigate = useNavigate();
       return;
     }
 
-    if (!order && cart.length === 0 && !buyNowIntent) {
+    if (!order && cart.length === 0 && !getBuyNowIntent()) {
       navigate("/cart", { replace: true });
     }
 
@@ -383,7 +383,7 @@ const handleSetDefaultAddress = async (addressId) => {
   };
 
   const handleBuyNowCheckout = async (buyNowIntent, addressId) => {
-    const gameResponse = await authFetch(`${API_BASE}/games/${buyNowIntent.gameId}`);
+    const gameResponse = await authFetch(`${API_BASE}/games/${buyNowIntent.gameId}`, { cache: 'no-store' });
     if (!gameResponse.ok) {
       throw new Error('Game is no longer available.');
     }

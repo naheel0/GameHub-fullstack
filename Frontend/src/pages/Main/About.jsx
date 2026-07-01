@@ -20,7 +20,7 @@ import {
   FaHeart,
   FaCrown
 } from 'react-icons/fa';
-import { BaseUrl, normalizeGame } from '../../Services/api';
+import { BaseUrl, normalizeGame, getImageUrl, handleImageError } from '../../Services/api';
 import { useAuth } from '../../contexts/AuthContext';
 
 const containerVariants = {
@@ -76,7 +76,7 @@ const About = () => {
 
     const fetchGames = async () => {
       try {
-        const response = await authFetch(`${API_BASE}/games?pageSize=6`);
+        const response = await authFetch(`${API_BASE}/games?pageSize=6`, { cache: 'no-store' });
         if (response.ok) {
           const payload = await response.json();
           const items = payload?.data?.items || payload?.items || payload || [];
@@ -89,7 +89,7 @@ const About = () => {
     };
 
     fetchGames();
-  }, []);
+  }, [API_BASE, authFetch]);
 
   const stats = [
     { number: "50K+", label: "Happy Gamers", icon: <FaUsers className="text-2xl" /> },
@@ -228,10 +228,12 @@ const About = () => {
                     className="aspect-square rounded-3xl overflow-hidden border border-gray-800 shadow-xl group"
                   >
                     <img
-                      src={game.images?.[0] || "/images/placeholder-game.jpg"}
-                      alt={game.name}
-                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
-                      onError={(e) => { e.target.src = "/images/placeholder-game.jpg" }}
+src={getImageUrl(game.images, 0)}
+                       alt={game.name}
+                       className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
+                       loading="lazy"
+                       decoding="async"
+                       onError={handleImageError}
                     />
                     <motion.div 
                       className="absolute inset-0 bg-linear-to-t from-black/60 via-transparent to-transparent"
@@ -271,14 +273,16 @@ const About = () => {
                 className="lg:col-span-6 relative"
               >
                 <div className="relative rounded-3xl overflow-hidden shadow-2xl shadow-red-900/20 border border-gray-800">
-                  {featuredGames[0]?.images?.[0] ? (
-                    <img
-                      src={featuredGames[0].images[0]}
-                      alt={featuredGames[0].name}
-                      className="w-full h-80 md:h-96 object-cover"
-                      onError={(e) => { e.target.src = "/images/placeholder-game.jpg" }}
-                    />
-                  ) : (
+{featuredGames[0]?.images?.[0] ? (
+                     <img
+                       src={getImageUrl(featuredGames[0].images, 0)}
+                       alt={featuredGames[0].name}
+                       className="w-full h-80 md:h-96 object-cover"
+                       loading="lazy"
+                       decoding="async"
+                       onError={handleImageError}
+                     />
+                   ) : (
                     <img
                       src="https://images.unsplash.com/photo-1542751371-adc38448a05e?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1000&q=80"
                       alt="Gaming Setup"
@@ -307,12 +311,14 @@ const About = () => {
                     transition={{ delay: 0.4 + i * 0.2 }}
                     className="absolute -bottom-10 right-0 lg:-right-16 w-32 h-40 rounded-2xl overflow-hidden border-2 border-red-600 shadow-lg"
                   >
-                    <img
-                      src={game.images?.[0] || "/images/placeholder-game.jpg"}
-                      alt={game.name}
-                      className="w-full h-full object-cover"
-                      onError={(e) => { e.target.src = "/images/placeholder-game.jpg" }}
-                    />
+<img
+                       src={getImageUrl(game.images, 0)}
+                       alt={game.name}
+                       className="w-full h-full object-cover"
+                       loading="lazy"
+                       decoding="async"
+                       onError={handleImageError}
+                     />
                     <div className="absolute inset-0 bg-linear-to-t from-black/80 to-transparent" />
                   </motion.div>
                 ))}

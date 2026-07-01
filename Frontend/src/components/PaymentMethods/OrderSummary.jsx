@@ -1,6 +1,8 @@
 import React from "react";
 import { FaShieldAlt, FaLock } from "react-icons/fa";
 import { SiStripe } from "react-icons/si";
+import { getImageUrl, handleImageError } from "../../Services/api";
+
 const OrderSummary = ({ summary, orderItems, selectedAddress }) => {
   return (
     <div className="bg-gray-900/80 backdrop-blur-sm rounded-xl shadow-2xl p-6 sticky top-6 border border-gray-700/50">
@@ -15,13 +17,12 @@ const OrderSummary = ({ summary, orderItems, selectedAddress }) => {
           >
             <div className="flex items-center space-x-3">
               <img
-                src={item.image || "/api/placeholder/40/40"}
+                src={item.image || getImageUrl([], 0)}
                 alt={item.name}
                 className="w-10 h-10 object-cover rounded-lg"
-                onError={(e) => {
-                  e.target.src = "/api/placeholder/40/40";
-                  e.target.onerror = null;
-                }}
+                loading="lazy"
+                decoding="async"
+                onError={handleImageError}
               />
               <div>
                 <p className="text-sm font-medium text-white">{item.name}</p>

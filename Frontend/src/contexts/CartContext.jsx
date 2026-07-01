@@ -75,7 +75,11 @@ export const CartProvider = ({ children }) => {
       const items = await response.json();
       // Only attempt to restore cart for non-buy-now purchases (Buy Now items were never in cart)
       const hasBuyNowIntent = typeof window !== 'undefined' && localStorage.getItem('buyNowIntent');
-      if ((!items || items.length === 0) && !hasBuyNowIntent && typeof window !== 'undefined') {
+      // Also skip restore if we're mid-payment-confirmation (pendingRazorpayOrder present).
+      // In that case OrderConfirmation will handle cleanup — triggering a restore here would
+      // repopulate the server cart with items that are about to be confirmed/cleared.
+      const isConfirmingPayment = typeof window !== 'undefined' && localStorage.getItem('pendingRazorpayOrder');
+      if ((!items || items.length === 0) && !hasBuyNowIntent && !isConfirmingPayment && typeof window !== 'undefined') {
         try {
           const pending = localStorage.getItem('pendingPurchase');
           if (pending) {
@@ -203,7 +207,7 @@ export const CartProvider = ({ children }) => {
     }
   };
 
-  const clearCart = async () => {
+  const clearCart = async (options = {}) => {
     if (!user) {
       toast.warning('Sign in to manage your cart.');
       return false;
@@ -219,7 +223,10 @@ export const CartProvider = ({ children }) => {
       }
 
       setCart([]);
-      toast.info('Cart cleared.');
+      // Don't toast on silent clears (e.g. after successful order confirmation)
+      if (!options.silent) {
+        toast.info('Cart cleared.');
+      }
       return true;
     } catch (error) {
       console.error('Error clearing cart:', error);

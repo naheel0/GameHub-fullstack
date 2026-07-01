@@ -35,12 +35,18 @@ export const fetchWithGameCache = async (baseUrl, gameId) => {
     return gameCache.get(key);
   }
   try {
-    const response = await fetch(`${baseUrl}/games/${gameId}`);
-    if (!response.ok) {
+    const response = await fetch(`${baseUrl}/games/${gameId}`, { cache: 'no-store' });
+
+    // Read once as text then parse — handles status 0 (ERR_CACHE_READ_FAILURE)
+    const rawText = await response.text().catch(() => '');
+    let data = null;
+    try { data = JSON.parse(rawText); } catch { data = null; }
+
+    // status 0 with valid JSON body = corrupted browser cache — still usable
+    if (!data || (!response.ok && response.status !== 0)) {
       gameCache.set(key, null);
       return null;
     }
-    const data = await response.json();
     const normalized = normalizeGame(data);
     gameCache.set(key, normalized);
     return normalized;
@@ -113,6 +119,42 @@ export const normalizeGame = (game) => {
     description: game.description || "",
   };
 };
+
+// ---------------------------------------------------------------------------
+// Image utilities
+// ---------------------------------------------------------------------------
+
+/** Placeholder used whenever an image is missing or fails to load */
+export const PLACEHOLDER_IMAGE = 'https://placehold.co/400x300/1f2937/9ca3af?text=No+Image';
+
+/**
+ * Resolve a safe image URL from a game's images array.
+ * Falls back to the placeholder if the array is empty or the index is out of bounds.
+ *
+ * @param {string[]|undefined} images  - Array of image URL strings
+ * @param {number}             index   - Which image to pick (default 0)
+ * @returns {string} A valid image URL or the placeholder
+ */
+export const getImageUrl = (images, index = 0) => {
+  if (!Array.isArray(images) || images.length === 0) return PLACEHOLDER_IMAGE;
+  const url = images[index];
+  if (!url || typeof url !== 'string' || url.trim() === '') return PLACEHOLDER_IMAGE;
+  return url.trim();
+};
+
+/**
+ * onError handler for <img> elements.
+ * Swaps the broken src for the placeholder and removes the handler
+ * so it does not fire again if the placeholder itself fails.
+ *
+ * Usage:  <img src={...} onError={handleImageError} />
+ */
+export const handleImageError = (e) => {
+  e.currentTarget.onerror = null;           // prevent infinite loop
+  e.currentTarget.src = PLACEHOLDER_IMAGE;
+};
+
+// ---------------------------------------------------------------------------
 
 export const normalizeUser = (data, accessToken) => {
 	if (!data) return null;
