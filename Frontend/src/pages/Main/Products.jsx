@@ -28,6 +28,7 @@ const Products = () => {
   locationRef.current = location.pathname;
 
   const { addToCart } = useCart();
+  const { authFetch } = useAuth();
   const { addToWishlist, removeFromWishlist, isInWishlist, getWishlistCount } =
     useWishlist();
   const { user } = useAuth();
@@ -37,13 +38,18 @@ const Products = () => {
 
   const API_BASE = BaseUrl;
 
-  useEffect(() => {
+   useEffect(() => {
     const fetchGames = async () => {
       try {
         setLoading(true);
-        const response = await fetch(`${API_BASE}/games?pageSize=100`);
+        const url = `${API_BASE}/games?pageSize=100`;
+        console.debug('Fetching games from:', url);
+        const response = await authFetch(url);
+        console.debug('Games response status:', response.status);
         if (!response.ok) {
-          throw new Error('Failed to fetch games data');
+          const text = await response.text().catch(() => 'unknown error');
+          console.error('Games fetch failed:', response.status, text);
+          throw new Error(`Failed to fetch games data (status ${response.status})`);
         }
         const payload = await response.json();
         const items = payload?.data?.items || payload?.items || payload || [];
@@ -51,9 +57,9 @@ const Products = () => {
         setGames(normalized);
         setLoading(false);
       } catch (err) {
-        setError(err.message);
-        setLoading(false);
         console.error('Error fetching games:', err);
+        setError(err.message || 'Could not load games. Please try again.');
+        setLoading(false);
       }
     };
 

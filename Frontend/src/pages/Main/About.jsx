@@ -21,6 +21,7 @@ import {
   FaCrown
 } from 'react-icons/fa';
 import { BaseUrl, normalizeGame } from '../../Services/api';
+import { useAuth } from '../../contexts/AuthContext';
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -63,6 +64,10 @@ const About = () => {
   const [featuredGames, setFeaturedGames] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  const { authFetch } = useAuth();
+
+  const API_BASE = BaseUrl;
+
   useEffect(() => {
     if (!BaseUrl) {
       setLoading(false);
@@ -71,7 +76,7 @@ const About = () => {
 
     const fetchGames = async () => {
       try {
-        const response = await fetch(`${BaseUrl}/games?pageSize=6`);
+        const response = await authFetch(`${API_BASE}/games?pageSize=6`);
         if (response.ok) {
           const payload = await response.json();
           const items = payload?.data?.items || payload?.items || payload || [];

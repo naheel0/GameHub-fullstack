@@ -47,7 +47,7 @@ const ProductDetails = () => {
     const fetchGame = async () => {
       try {
         setLoading(true);
-        const response = await fetch(`${API_BASE}/games/${id}`);
+        const response = await authFetch(`${API_BASE}/games/${id}`);
         if (!response.ok) {
           const responseText = await response.text();
           if (responseText.trim().startsWith('<')) {

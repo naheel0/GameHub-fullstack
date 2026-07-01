@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { FaStar } from 'react-icons/fa';
 import { useWishlist } from '../../contexts/WishlistContext';
+import { useAuth } from '../../contexts/AuthContext';
 import { BaseUrl, normalizeGame } from '../../Services/api';
 import { GameCardSkeleton, HeroSkeleton, FeatureSkeleton } from '../../components/common/Skeleton';
 import HeroSection from '../../components/Home/HeroSection';
@@ -16,6 +17,8 @@ const Home = () => {
 
   const API_BASE = BaseUrl;
 
+  const { authFetch } = useAuth();
+
   useEffect(() => {
     if (!API_BASE) {
       setApiUnavailable(true);
@@ -25,7 +28,7 @@ const Home = () => {
 
     const fetchGames = async () => {
       try {
-        const response = await fetch(`${API_BASE}/games?pageSize=100`);
+        const response = await authFetch(`${API_BASE}/games?pageSize=100`);
         if (!response.ok) {
           throw new Error('Failed to fetch games data');
         }

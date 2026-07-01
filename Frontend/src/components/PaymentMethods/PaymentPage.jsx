@@ -383,7 +383,7 @@ const handleSetDefaultAddress = async (addressId) => {
   };
 
   const handleBuyNowCheckout = async (buyNowIntent, addressId) => {
-    const gameResponse = await fetch(`${API_BASE}/games/${buyNowIntent.gameId}`);
+    const gameResponse = await authFetch(`${API_BASE}/games/${buyNowIntent.gameId}`);
     if (!gameResponse.ok) {
       throw new Error('Game is no longer available.');
     }
