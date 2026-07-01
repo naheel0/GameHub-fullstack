@@ -1,4 +1,4 @@
-import React, { createContext, useState, useContext, useEffect } from 'react';
+import React, { createContext, useState, useContext, useEffect, useCallback, useRef } from 'react';
 import { BaseUrl, getStoredAuth, normalizeUser, setStoredAuth } from '../Services/api';
 const AuthContext = createContext();
 // eslint-disable-next-line react-refresh/only-export-components
@@ -26,16 +26,27 @@ export const AuthProvider = ({ children }) => {
           return;
         }
 
+        // If we have a stored access token, restore the user immediately so
+        // the admin panel can render while we attempt a background refresh.
+        if (persistedAuth.user.accessToken) {
+          setUser(persistedAuth.user);
+        }
+
         const refreshResponse = await fetch(`${API_BASE}/auth/refresh`, {
           method: 'POST',
           credentials: 'include',
         });
 
         if (!refreshResponse.ok) {
-          // 401 here is expected — refresh cookie expired or session was revoked.
-          // Clear the stale stored session and continue as a logged-out user.
-          setUser(null);
-          setStoredAuth(null);
+          // Refresh cookie may be blocked cross-origin (Vercel → Azure).
+          // If we have a stored token, keep the user logged in and let
+          // the 401-retry logic in authFetch handle silent re-auth.
+          if (persistedAuth.user.accessToken) {
+            setUser(persistedAuth.user);
+          } else {
+            setUser(null);
+            setStoredAuth(null);
+          }
           setLoading(false);
           return;
         }
@@ -45,15 +56,23 @@ export const AuthProvider = ({ children }) => {
         if (refreshedUser?.accessToken) {
           setUser(refreshedUser);
           setStoredAuth({ user: refreshedUser });
+        } else if (persistedAuth.user.accessToken) {
+          // Refresh succeeded but returned no token — keep stored user
+          setUser(persistedAuth.user);
         } else {
           setUser(null);
           setStoredAuth(null);
         }
       } catch (error) {
-        // Network error during bootstrap — not critical, app continues as logged-out
+        // Network error during bootstrap — keep stored user if token exists
         console.debug('Auth refresh bootstrap error:', error);
-        setUser(null);
-        setStoredAuth(null);
+        const persistedAuth = getStoredAuth();
+        if (persistedAuth?.user?.accessToken) {
+          setUser(persistedAuth.user);
+        } else {
+          setUser(null);
+          setStoredAuth(null);
+        }
       } finally {
         setLoading(false);
       }
@@ -62,7 +81,12 @@ export const AuthProvider = ({ children }) => {
     bootstrapAuth();
   }, [API_BASE]);
 
-  const authFetchWithLogout = async (url, options = {}) => {
+  // useRef to always access the latest user without putting user in the
+  // useCallback dependency array (which would recreate authFetch on every login).
+  const userRef = useRef(user);
+  useEffect(() => { userRef.current = user; }, [user]);
+
+  const authFetchWithLogout = useCallback(async (url, options = {}) => {
     const { __skipRefresh, ...requestOptions } = options;
 
     const buildHeaders = (headersInput = {}) => {
@@ -78,7 +102,7 @@ export const AuthProvider = ({ children }) => {
 
     const performRefresh = async () => {
       const persistedAuth = getStoredAuth();
-      if (!persistedAuth?.user && !user?.accessToken) {
+      if (!persistedAuth?.user && !userRef.current?.accessToken) {
         return null;
       }
 
@@ -109,7 +133,7 @@ export const AuthProvider = ({ children }) => {
 
     try {
       const headers = buildHeaders(requestOptions.headers);
-      const currentToken = user?.accessToken || getStoredAuth()?.user?.accessToken || '';
+      const currentToken = userRef.current?.accessToken || getStoredAuth()?.user?.accessToken || '';
 
       if (!headers.Authorization && currentToken) {
         headers.Authorization = `Bearer ${currentToken}`;
@@ -138,10 +162,11 @@ export const AuthProvider = ({ children }) => {
       }
 
       const retryHeaders = buildHeaders(requestOptions.headers);
+      const currentTokenForRetry = userRef.current?.accessToken || getStoredAuth()?.user?.accessToken || '';
       if (refreshedUser.accessToken) {
         retryHeaders.Authorization = `Bearer ${refreshedUser.accessToken}`;
-      } else if (currentToken) {
-        retryHeaders.Authorization = `Bearer ${currentToken}`;
+      } else if (currentTokenForRetry) {
+        retryHeaders.Authorization = `Bearer ${currentTokenForRetry}`;
       }
 
       const { __skipRefresh: _skipRetry, ...retryRequestOptions } = requestOptions;
@@ -149,13 +174,13 @@ export const AuthProvider = ({ children }) => {
         ...retryRequestOptions,
         headers: retryHeaders,
         credentials: requestOptions.credentials || 'include',
-        __skipRefresh: true,
       });
     } catch (err) {
       console.error('authFetch error:', err);
       throw err;
     }
-  };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [API_BASE]); // stable — user is accessed via ref
 
   const login = async (email, password) => {
     try {
@@ -175,7 +200,6 @@ export const AuthProvider = ({ children }) => {
 
       const userData = normalizeUser(payload.data, payload.data?.accessToken);
       setUser(userData);
-      // Do not persist access tokens in localStorage — prefer httpOnly cookies set by server
       setStoredAuth({ user: userData });
       return { success: true, user: userData };
     } catch (error) {
@@ -302,7 +326,6 @@ export const AuthProvider = ({ children }) => {
 
       const createdUser = normalizeUser(payload.data, payload.data?.accessToken);
       setUser(createdUser);
-      // Do not persist access tokens in localStorage — prefer httpOnly cookies set by server
       setStoredAuth({ user: createdUser });
 
       return { success: true, user: createdUser };

@@ -85,7 +85,8 @@ export const setStoredAuth = (auth) => {
 			? {
 				user: {
 					...auth.user,
-					accessToken: undefined,
+					// Keep accessToken so it is available after page refresh
+					// when the refresh-cookie flow is blocked (cross-origin / third-party cookies).
 				},
 			}
 			: auth;
