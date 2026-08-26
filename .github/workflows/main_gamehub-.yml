@@ -24,27 +24,16 @@ jobs:
         run: dotnet build GameHubApi/GameHubApi/GameHubApi.csproj --configuration Release
 
       - name: dotnet publish
-        run: dotnet publish GameHubApi/GameHubApi/GameHubApi.csproj -c Release -o "${{env.DOTNET_ROOT}}/myapp" -p:GenerateWebConfigOnPublish=true
+        run: dotnet publish GameHubApi/GameHubApi/GameHubApi.csproj -c Release -o publish -p:GenerateWebConfigOnPublish=true
 
-      - name: List published files
-        run: |
-          Write-Host "=== PUBLISHED FILES ==="
-          Get-ChildItem -Path "${{env.DOTNET_ROOT}}/myapp" -Recurse | ForEach-Object {
-            Write-Host $_.FullName
-          }
-          Write-Host "=== WEB.CONFIG CHECK ==="
-          if (Test-Path "${{env.DOTNET_ROOT}}/myapp/web.config") {
-            Write-Host "✓ web.config found"
-            Get-Content "${{env.DOTNET_ROOT}}/myapp/web.config" | Select-Object -First 20
-          } else {
-            Write-Host "✗ web.config NOT found"
-          }
+      - name: Archive publish output
+        run: Compress-Archive -Path publish\* -DestinationPath publish.zip
 
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v4
         with:
           name: .net-app
-          path: ${{env.DOTNET_ROOT}}/myapp
+          path: publish.zip
 
   deploy:
     runs-on: windows-latest
@@ -58,17 +47,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: .net-app
-          path: ./publish
-      
-      - name: List downloaded files
-        run: |
-          Write-Host "=== ARTIFACT CONTENTS ==="
-          Get-ChildItem -Path "./publish" -Recurse | ForEach-Object {
-            Write-Host $_.FullName
-          }
-          Write-Host "=== DEPLOYMENT PACKAGE CHECK ==="
-          Write-Host "Total files: $((Get-ChildItem -Path './publish' -Recurse -File).Count)"
-          Write-Host "Directory size: $('{0:N2}' -f ((Get-ChildItem -Path './publish' -Recurse -File | Measure-Object -Property Length -Sum).Sum / 1MB)) MB"
+          path: .
 
       - name: Login to Azure
         uses: azure/login@v2
@@ -83,4 +62,4 @@ jobs:
         with:
           app-name: 'gamehub-'
           slot-name: 'Production'
-          package: ./publish
+          package: ./publish.zip
