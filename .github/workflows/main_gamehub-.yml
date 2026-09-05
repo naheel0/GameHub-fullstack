@@ -59,5 +59,7 @@ jobs:
       - name: Deploy to Azure Web App
         shell: pwsh
         run: |
-          $rg = az webapp show --name gamehub- --query resourceGroup -o tsv
+          $rg = az webapp list --query "[?name=='gamehub-'].resourceGroup | [0]" -o tsv
+          if (-not $rg) { throw "Web app 'gamehub-' not found in subscription" }
+          Write-Host "Deploying to resource group: $rg"
           az webapp deployment source config-zip --resource-group $rg --name gamehub- --src ./publish.zip
