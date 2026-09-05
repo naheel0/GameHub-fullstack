@@ -24,7 +24,7 @@ jobs:
         run: dotnet build GameHubApi/GameHubApi/GameHubApi.csproj --configuration Release
 
       - name: dotnet publish
-        run: dotnet publish GameHubApi/GameHubApi/GameHubApi.csproj -c Release -o publish -p:GenerateWebConfigOnPublish=true
+        run: dotnet publish GameHubApi/GameHubApi/GameHubApi.csproj -c Release -o publish
 
       - name: Archive publish output
         run: Compress-Archive -Path publish\* -DestinationPath publish.zip
@@ -63,3 +63,4 @@ jobs:
           app-name: 'gamehub-'
           slot-name: 'Production'
           package: ./publish.zip
+          deployment-method: zipDeploy
