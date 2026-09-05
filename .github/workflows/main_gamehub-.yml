@@ -57,10 +57,7 @@ jobs:
           subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_E24DC786AD744E248D8085A98D2992DF }}
 
       - name: Deploy to Azure Web App
-        id: deploy-to-webapp
-        uses: azure/webapps-deploy@v3
-        with:
-          app-name: 'gamehub-'
-          slot-name: 'Production'
-          package: ./publish.zip
-          deployment-method: zipDeploy
+        shell: pwsh
+        run: |
+          $rg = az webapp show --name gamehub- --query resourceGroup -o tsv
+          az webapp deployment source config-zip --resource-group $rg --name gamehub- --src ./publish.zip
