@@ -26,14 +26,11 @@ jobs:
       - name: dotnet publish
         run: dotnet publish GameHubApi/GameHubApi/GameHubApi.csproj -c Release -o publish
 
-      - name: Archive publish output
-        run: Compress-Archive -Path publish\* -DestinationPath publish.zip
-
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v4
         with:
           name: .net-app
-          path: publish.zip
+          path: publish
 
   deploy:
     runs-on: windows-latest
@@ -57,12 +54,9 @@ jobs:
           subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_E24DC786AD744E248D8085A98D2992DF }}
 
       - name: Deploy to Azure Web App
-        shell: pwsh
-        run: |
-          $rg = az webapp list --query "[?name=='gamehub-'].resourceGroup | [0]" -o tsv
-          if (-not $rg) { throw "Web app 'gamehub-' not found in subscription" }
-          Write-Host "Deploying to resource group: $rg"
-          az webapp show --resource-group $rg --name gamehub- --query "{state: state, usageState: usageState}" -o json
-          az webapp restart --resource-group $rg --name gamehub-
-          Start-Sleep -Seconds 30
-          az webapp deployment source config-zip --resource-group $rg --name gamehub- --src ./publish.zip --timeout 600
+        id: deploy-to-webapp
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: 'gamehub-'
+          slot-name: 'Production'
+          package: .
