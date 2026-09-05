@@ -62,4 +62,7 @@ jobs:
           $rg = az webapp list --query "[?name=='gamehub-'].resourceGroup | [0]" -o tsv
           if (-not $rg) { throw "Web app 'gamehub-' not found in subscription" }
           Write-Host "Deploying to resource group: $rg"
-          az webapp deployment source config-zip --resource-group $rg --name gamehub- --src ./publish.zip
+          az webapp show --resource-group $rg --name gamehub- --query "{state: state, usageState: usageState}" -o json
+          az webapp restart --resource-group $rg --name gamehub-
+          Start-Sleep -Seconds 30
+          az webapp deployment source config-zip --resource-group $rg --name gamehub- --src ./publish.zip --timeout 600
