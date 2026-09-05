@@ -1,4 +1,4 @@
-const resolveBaseUrl = () => "/api";
+const resolveBaseUrl = () => import.meta.env.API_BASE_URL || "/api";
 
 export const BaseUrl = resolveBaseUrl();
 

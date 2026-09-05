@@ -248,16 +248,22 @@ dotnet run --project GameHubApi/GameHubApi/GameHubApi.csproj
 | `Frontend__BaseUrl` | `http://localhost:5173` | Used for payment callbacks and redirects. |
 | `Razorpay__KeyId` | `rzp_test_XXXXXXXXXXXXXX` | Razorpay public key ID. |
 | `Razorpay__KeySecret` | `your-razorpay-key-secret` | Razorpay secret key for payment-link creation. |
-| `AllowedOrigins` | `http://localhost:5173,https://game-hub-fullstack.vercel.app` | CORS allow-list. |
+| `AllowedOrigins` | `https://gamehub.naheel.me,https://game-hub-fullstack.vercel.app` | CORS allow-list. Set as `AllowedOrigins__0`, `AllowedOrigins__1`, … (array) or a comma-separated string. |
 | `ASPNETCORE_ENVIRONMENT` | `Development` | Controls local developer behavior. |
 
 ### Frontend
 
 | Variable | Example | Purpose |
 |---|---|---|
-| `VITE_API_BASE_URL` | `https://localhost:7023` | Points the React app to the backend API. |
+| `API_BASE_URL` | `https://your-backend.azurewebsites.net` | Vercel env var. Read at build time by `vercel.ts` (API proxy) and exposed to the client via `define` in `vite.config.js`. No `VITE_` prefix — avoids Vercel's public-env warning. |
+| `BACKEND_API_URL` | `https://localhost:7023` | Local dev only (`.env.local`). Target for the Vite dev-server proxy. |
 
-> If `VITE_API_BASE_URL` is missing or points to the wrong origin in production, API requests may hit the SPA shell instead of the backend.
+> The frontend uses relative `/api` paths with a fallback when `API_BASE_URL` is unset. All API routing in production is server-side (Vercel rewrites) — no backend URLs are hardcoded in source.
+
+### Local setup
+
+1. Copy `Frontend/.env.example` to `Frontend/.env.local` and set `BACKEND_API_URL`.
+2. Production: set `API_BASE_URL` in Vercel Project Settings → Environment Variables (Production + Preview).
 
 ## API Documentation
 
@@ -322,7 +328,7 @@ Recommended options for this project:
 
 ### Vercel (frontend)
 
-Use Vercel for the frontend and point `VITE_API_BASE_URL` to the deployed API.
+Use Vercel for the frontend and set the `API_BASE_URL` environment variable (Project Settings → Environment Variables) to the deployed API origin — `vercel.ts` picks it up at build time.
 
 ```bash
 vercel deploy

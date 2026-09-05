@@ -57,23 +57,15 @@ builder.Services.Configure<Microsoft.AspNetCore.Mvc.ApiBehaviorOptions>(options 
     };
 });
 
-// 4. CORS
-var defaultOrigins = new[]
-{
-    "http://localhost:5173",
-    "http://localhost:4173",
-    "http://127.0.0.1:5173",
-    "http://127.0.0.1:4173",
-    "https://game-hub-fullstack.vercel.app"
-};
+// 4. CORS — single source of truth: configuration (Azure app settings in production,
+// appsettings.Development.json locally). Supports both array format
+// (AllowedOrigins__0, AllowedOrigins__1, …) and a comma-separated string.
+var configuredOrigins = builder.Configuration.GetSection("AllowedOrigins").Get<string[]>()
+    ?? builder.Configuration.GetValue<string>("AllowedOrigins")
+        ?.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+        ?? Array.Empty<string>();
 
-var configuredOrigins = builder.Configuration.GetValue<string>("AllowedOrigins")
-    ?.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-    ?? Array.Empty<string>();
-
-// Keep local development origins even when Azure app settings provide a production-only origin list.
-var allowedOrigins = defaultOrigins
-    .Concat(configuredOrigins)
+var allowedOrigins = configuredOrigins
     .Where(origin => !string.IsNullOrWhiteSpace(origin))
     .Distinct(StringComparer.OrdinalIgnoreCase)
     .ToArray();
@@ -82,11 +74,7 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("DefaultCors", policy =>
     {
-        policy.SetIsOriginAllowed(origin =>
-                allowedOrigins.Contains(origin, StringComparer.OrdinalIgnoreCase)
-                || (Uri.TryCreate(origin, UriKind.Absolute, out var uri)
-                    && uri.Scheme == Uri.UriSchemeHttps
-                    && uri.Host.EndsWith(".vercel.app", StringComparison.OrdinalIgnoreCase)))
+        policy.WithOrigins(allowedOrigins)
             .AllowAnyHeader()
             .AllowAnyMethod()
             .WithExposedHeaders("X-Total-Count")
