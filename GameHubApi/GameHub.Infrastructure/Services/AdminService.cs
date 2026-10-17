@@ -5,6 +5,7 @@ using GameHub.Application.DTOs.Admin;
 using GameHub.Application.DTOs.Orders;
 using GameHub.Application.Resources;
 using GameHub.Application.Services;
+using GameHub.Domain.Enums;
 using GameHub.Infrastructure.Data;
 using GameHub.Infrastructure.Extensions;
 using Microsoft.Data.SqlClient;
@@ -23,9 +24,12 @@ namespace GameHub.Infrastructure.Services
         public async Task<DashboardStatsDto> GetDashboardStatsAsync()
         {
             var totalProducts = await _context.Games.CountAsync();
-            var totalUsers = await _context.Users.CountAsync();
+            // Deleted accounts and cancelled money aren't business reality.
+            var totalUsers = await _context.Users.CountAsync(u => !u.IsDeleted);
             var totalOrders = await _context.Purchases.CountAsync();
-            var totalRevenue = await _context.Purchases.SumAsync(p => p.Total);
+            var totalRevenue = await _context.Purchases
+                .Where(p => p.Status != OrderStatus.Cancelled)
+                .SumAsync(p => p.Total);
 
             var statusCountsRaw = await _context.Purchases
                 .GroupBy(p => p.Status)
@@ -43,7 +47,7 @@ namespace GameHub.Infrastructure.Services
                 .ToList();
             var sevenDaysAgo = DateTime.UtcNow.AddDays(-7);
             var dailySales = await _context.Purchases
-                .Where(p => p.OrderDate >= sevenDaysAgo)
+                .Where(p => p.OrderDate >= sevenDaysAgo && p.Status != OrderStatus.Cancelled)
                 .GroupBy(p => p.OrderDate.Date)
                 .Select(g => new DailySales
                 {
@@ -102,13 +106,21 @@ namespace GameHub.Infrastructure.Services
         {
             var user = await _context.Users.FindAsync(userId)
                  ?? throw new NotFoundException(nameof(ExceptionMessages.UserNotFound));
-            await _context.Database.ExecuteSqlAsync(
-                $"EXEC BlockUser @UserId={userId}");
+            if (user.IsDeleted)
+                throw new NotFoundException(nameof(ExceptionMessages.UserNotFound));
+            if (user.Role == Domain.Enums.Role.Admin)
+                throw new BusinessRuleException(
+                    ExceptionMessages.AdminAccountProtected,
+                    nameof(ExceptionMessages.AdminAccountProtected));
+            user.AccountStatus = Domain.Enums.AccountStatus.Blocked;
+            await _context.SaveChangeAsync();
         }
         public async Task ActivateUserAsync(int userId)
         {
             var user = await _context.Users.FindAsync(userId)
                 ?? throw new NotFoundException(ExceptionMessages.UserNotFound);
+            if (user.IsDeleted)
+                throw new NotFoundException(ExceptionMessages.UserNotFound);
             user.AccountStatus = Domain.Enums.AccountStatus.Active;
             await _context.SaveChangeAsync();
         }
@@ -116,8 +128,17 @@ namespace GameHub.Infrastructure.Services
         {
             var user = await _context.Users.FindAsync(userId)
                 ?? throw new NotFoundException(nameof(ExceptionMessages.UserNotFound));
-            if (!Enum.TryParse<Domain.Enums.Role>(role, true, out var parsedRole))
-                throw new BusinessRuleException(nameof(ExceptionMessages.InvalidRole));
+            if (user.IsDeleted)
+                throw new NotFoundException(nameof(ExceptionMessages.UserNotFound));
+            if (!Enum.TryParse<Domain.Enums.Role>(role, true, out var parsedRole)
+                || !Enum.IsDefined(typeof(Domain.Enums.Role), parsedRole))
+                throw new BusinessRuleException(
+                    ExceptionMessages.InvalidRole,
+                    nameof(ExceptionMessages.InvalidRole));
+            if (user.Role == Domain.Enums.Role.Admin && parsedRole != Domain.Enums.Role.Admin)
+                throw new BusinessRuleException(
+                    ExceptionMessages.AdminAccountProtected,
+                    nameof(ExceptionMessages.AdminAccountProtected));
             user.Role = parsedRole;
             await _context.SaveChangeAsync();
         }
@@ -125,6 +146,12 @@ namespace GameHub.Infrastructure.Services
         {
             var user = await _context.Users.FindAsync(userId)
                 ?? throw new NotFoundException(nameof(ExceptionMessages.UserNotFound));
+            if (user.IsDeleted)
+                throw new NotFoundException(nameof(ExceptionMessages.UserNotFound));
+            if (user.Role == Domain.Enums.Role.Admin)
+                throw new BusinessRuleException(
+                    ExceptionMessages.AdminAccountProtected,
+                    nameof(ExceptionMessages.AdminAccountProtected));
             user.IsDeleted = true;
             user.DeletedAt = DateTime.UtcNow;
             await _context.SaveChangeAsync();
@@ -209,7 +236,8 @@ namespace GameHub.Infrastructure.Services
             var purchase = await _context.Purchases.FirstOrDefaultAsync(p => p.OrderId == orderId)
                 ?? throw new NotFoundException(nameof(ExceptionMessages.OrderNotFound));
 
-            if (!Enum.TryParse<Domain.Enums.OrderStatus>(newStatus, true, out var parsedStatus))
+            if (!Enum.TryParse<Domain.Enums.OrderStatus>(newStatus, true, out var parsedStatus)
+                || !Enum.IsDefined(typeof(Domain.Enums.OrderStatus), parsedStatus))
                 throw new BusinessRuleException(nameof(ExceptionMessages.InvalidOrderStatus));
 
             purchase.Status = parsedStatus;

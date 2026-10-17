@@ -9,6 +9,9 @@ namespace GameHub.Infrastructure.Extensions
         {
             if (options == null) return query;
 
+            // soft-deleted accounts match the detail 404: never listed, never addressable
+            query = query.Where(u => !u.IsDeleted);
+
             if (!string.IsNullOrWhiteSpace(options.Status))
             {
                 if (Enum.TryParse<Domain.Enums.AccountStatus>(options.Status, true, out var parsedStatus))
@@ -40,24 +43,24 @@ namespace GameHub.Infrastructure.Extensions
             switch (options.SortBy?.ToLower())
             {
                 case "name":
-                    query = options.Ascending ? query.OrderBy(u => u.FirstName).ThenBy(u => u.LastName) : query.OrderByDescending(u => u.FirstName).ThenByDescending(u => u.LastName);
+                    query = options.Ascending ? query.OrderBy(u => u.FirstName).ThenBy(u => u.LastName).ThenBy(u => u.Id) : query.OrderByDescending(u => u.FirstName).ThenByDescending(u => u.LastName).ThenBy(u => u.Id);
                     break;
                 case "email":
                     query = options.Ascending ? query.OrderBy(u => u.Email) : query.OrderByDescending(u => u.Email);
                     break;
                 case "role":
-                    query = options.Ascending ? query.OrderBy(u => u.Role) : query.OrderByDescending(u => u.Role);
+                    query = options.Ascending ? query.OrderBy(u => u.Role).ThenBy(u => u.Id) : query.OrderByDescending(u => u.Role).ThenBy(u => u.Id);
                     break;
                 case "status":
-                    query = options.Ascending ? query.OrderBy(u => u.AccountStatus) : query.OrderByDescending(u => u.AccountStatus);
+                    query = options.Ascending ? query.OrderBy(u => u.AccountStatus).ThenBy(u => u.Id) : query.OrderByDescending(u => u.AccountStatus).ThenBy(u => u.Id);
                     break;
                 case "createdat":
                 case "created_at":
                 case "created":
-                    query = options.Ascending ? query.OrderBy(u => u.CreatedAt) : query.OrderByDescending(u => u.CreatedAt);
+                    query = options.Ascending ? query.OrderBy(u => u.CreatedAt).ThenBy(u => u.Id) : query.OrderByDescending(u => u.CreatedAt).ThenBy(u => u.Id);
                     break;
                 default:
-                    query = query.OrderByDescending(u => u.CreatedAt);
+                    query = query.OrderByDescending(u => u.CreatedAt).ThenBy(u => u.Id);
                     break;
             }
 
@@ -95,13 +98,13 @@ namespace GameHub.Infrastructure.Extensions
                 case "orderdate":
                 case "order_date":
                 case "date":
-                    query = options.Ascending ? query.OrderBy(p => p.OrderDate) : query.OrderByDescending(p => p.OrderDate);
+                    query = options.Ascending ? query.OrderBy(p => p.OrderDate).ThenBy(p => p.Id) : query.OrderByDescending(p => p.OrderDate).ThenBy(p => p.Id);
                     break;
                 case "total":
-                    query = options.Ascending ? query.OrderBy(p => p.Total) : query.OrderByDescending(p => p.Total);
+                    query = options.Ascending ? query.OrderBy(p => p.Total).ThenBy(p => p.Id) : query.OrderByDescending(p => p.Total).ThenBy(p => p.Id);
                     break;
                 case "status":
-                    query = options.Ascending ? query.OrderBy(p => p.Status) : query.OrderByDescending(p => p.Status);
+                    query = options.Ascending ? query.OrderBy(p => p.Status).ThenBy(p => p.Id) : query.OrderByDescending(p => p.Status).ThenBy(p => p.Id);
                     break;
                 case "orderid":
                 case "order_id":
@@ -110,10 +113,10 @@ namespace GameHub.Infrastructure.Extensions
                 case "customer":
                 case "customername":
                 case "customer_name":
-                    query = options.Ascending ? query.OrderBy(p => p.user.FirstName).ThenBy(p => p.user.LastName) : query.OrderByDescending(p => p.user.FirstName).ThenByDescending(p => p.user.LastName);
+                    query = options.Ascending ? query.OrderBy(p => p.user.FirstName).ThenBy(p => p.user.LastName).ThenBy(p => p.Id) : query.OrderByDescending(p => p.user.FirstName).ThenByDescending(p => p.user.LastName).ThenBy(p => p.Id);
                     break;
                 default:
-                    query = query.OrderByDescending(p => p.OrderDate);
+                    query = query.OrderByDescending(p => p.OrderDate).ThenBy(p => p.Id);
                     break;
             }
 

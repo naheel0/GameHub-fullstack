@@ -413,7 +413,52 @@ namespace GameHub.Application.Resources {
                 return ResourceManager.GetString("UserNotFound", resourceCulture);
             }
         }
-
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Administrator accounts can't be changed here..
+        /// </summary>
+        public static string AdminAccountProtected {
+            get {
+                return ResourceManager.GetString("AdminAccountProtected", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to We couldn't confirm this payment with Razorpay, so nothing was marked as paid..
+        /// </summary>
+        public static string PaymentNotVerified {
+            get {
+                return ResourceManager.GetString("PaymentNotVerified", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to That item isn't in your cart anymore..
+        /// </summary>
+        public static string CartItemNotFound {
+            get {
+                return ResourceManager.GetString("CartItemNotFound", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to That code is wrong or has expired. Request a new one..
+        /// </summary>
+        public static string OtpInvalid {
+            get {
+                return ResourceManager.GetString("OtpInvalid", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to You just requested a code — wait a minute and try again..
+        /// </summary>
+        public static string OtpSendThrottled {
+            get {
+                return ResourceManager.GetString("OtpSendThrottled", resourceCulture);
+            }
+        }
+        
         /// <summary>
         ///   Looks up a localized string similar to Add to wishlist..
         /// </summary>

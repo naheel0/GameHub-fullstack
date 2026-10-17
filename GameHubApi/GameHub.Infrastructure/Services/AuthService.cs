@@ -23,7 +23,8 @@ namespace GameHub.Infrastructure.Services
         }
         public async Task<ApiResponse<AuthResponse>> RegisterAsync(RegisterRequest request)
         {
-            if (await _context.Users.AnyAsync(u => u.Email == request.Email))
+            // soft-deleted addresses never block re-registration (match login's view)
+            if (await _context.Users.AnyAsync(u => u.Email == request.Email && !u.IsDeleted))
                 return ApiResponse<AuthResponse>.Fail(ExceptionMessages.EmailAlreadyRegistered, 400);
             if (request.Password != request.ConfirmPassword)
                 return ApiResponse<AuthResponse>.Fail(ExceptionMessages.PasswordsDoNotMatch, 400);
@@ -54,19 +55,15 @@ namespace GameHub.Infrastructure.Services
             var authResponse = MapToAuthResponse(user, accessToken, refreshToken);
             return ApiResponse<AuthResponse>.Ok(authResponse, "Registration successful");
         }
-        public async Task<ApiResponse<AuthResponse>> LoginAsync(LoginRequest request, object? newRefreshToken)
+        public async Task<ApiResponse<AuthResponse>> LoginAsync(LoginRequest request)
         {
-            var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == request.Email);
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == request.Email && !u.IsDeleted);
             if (user == null || !PasswordHasher.Verify(request.Password, user.PasswordHash))
                 return ApiResponse<AuthResponse>.Fail(ExceptionMessages.InvalidEmailOrPassword, 401);
             if (user.AccountStatus == Domain.Enums.AccountStatus.Blocked)
                 return ApiResponse<AuthResponse>.Fail(ExceptionMessages.AccountBlocked, 403);
             var accessToken = _tokenService.GenerateAccessToken(user);
-            string refreshTokenString = newRefreshToken as string ?? string.Empty;
-            if (string.IsNullOrEmpty(refreshTokenString))
-            {
-                refreshTokenString = _tokenService.GenerateRefreshToken();
-            }
+            var refreshTokenString = _tokenService.GenerateRefreshToken();
             var refreshTokenEntity = new RefreshToken
             {
                 Token = refreshTokenString,
@@ -106,12 +103,12 @@ namespace GameHub.Infrastructure.Services
         }
         public async Task<ApiResponse<AuthResponse>> UpdateProfileAsync(int userId, UpdateProfileRequest request)
         {
-            var user = await _context.Users.FindAsync(userId)
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.Id == userId && !u.IsDeleted)
                 ?? throw new NotFoundException(ExceptionMessages.UserNotFound, userId);
 
             if (user.Email != request.Email)
             {
-                var exists = await _context.Users.AnyAsync(u => u.Email == request.Email && u.Id != userId);
+                var exists = await _context.Users.AnyAsync(u => u.Email == request.Email && u.Id != userId && !u.IsDeleted);
                 if (exists)
                     return ApiResponse<AuthResponse>.Fail(ExceptionMessages.EmailAlreadyRegistered, 400);
             }
@@ -128,7 +125,7 @@ namespace GameHub.Infrastructure.Services
 
         public async Task<ApiResponse<AuthResponse>> GetProfileAsync(int userId)
         {
-            var user = await _context.Users.FindAsync(userId);
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.Id == userId && !u.IsDeleted);
             if (user == null)
                 return ApiResponse<AuthResponse>.Fail(ExceptionMessages.UserNotFound, 404);
             var authResponse = MapToAuthResponse(user, null, null);
@@ -160,8 +157,8 @@ namespace GameHub.Infrastructure.Services
                 return ApiResponse<AuthResponse>.Fail(ExceptionMessages.InvalidOrExpiredRefreshToken, 401);
 
             var user = await _context.Users.FindAsync(existing.UserId);
-            if (user == null)
-                return ApiResponse<AuthResponse>.Fail(ExceptionMessages.UserNotFound, 404);
+            if (user == null || user.IsDeleted || user.AccountStatus == Domain.Enums.AccountStatus.Blocked)
+                return ApiResponse<AuthResponse>.Fail(ExceptionMessages.InvalidOrExpiredRefreshToken, 401);
 
             // Revoke the old refresh token
             existing.Revoked = true;

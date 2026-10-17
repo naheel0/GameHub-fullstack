@@ -167,9 +167,8 @@ namespace GameHub.Infrastructure.Data
                 {
                     eb.HasNoKey();
                     eb.ToView(null);
+                    eb.Property(a => a.TotalSpent).HasPrecision(18, 2);
                 });
-
-            //-----------------------Razorpay-----------------------------------//
                 modelBuilder.Entity<Payment>(entity =>
                 {
                     entity.ToTable("Payments");
@@ -189,14 +188,6 @@ namespace GameHub.Infrastructure.Data
                 modelBuilder.Entity<OrderItem>(entity =>
                 {
                     entity.Property(o => o.Price).HasColumnType("decimal(10,2)").HasPrecision(10, 2);
-                });
-
-                // Keyless mapping for AdminUserDetailDto used by FromSqlRaw
-                modelBuilder.Entity<AdminUserDetailDto>(eb =>
-                {
-                    eb.HasNoKey();
-                    eb.ToView(null);
-                    eb.Property(a => a.TotalSpent).HasPrecision(18, 2);
                 });
             });
 

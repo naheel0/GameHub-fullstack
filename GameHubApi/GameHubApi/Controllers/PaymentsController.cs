@@ -8,6 +8,9 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace GameHubApi.Controllers
 {
+    // No try/catch here: ExceptionMiddleware maps NotFoundException→404,
+    // BusinessRuleException→400, UnauthorizedAccessException→401, else 500.
+    // Baking ex.Message into a 400 was leaking internals.
     [Route("api/[controller]")]
     [ApiController]
     [Authorize]
@@ -25,28 +28,9 @@ namespace GameHubApi.Controllers
         [HttpPost("create-link/{purchaseId:int}")]
         public async Task<IActionResult> CreatePaymentLink(int purchaseId)
         {
-            try
-            {
-                var userId = GetCurrentUserId();
-                var result = await _paymentService.CreatePaymentLinkAsync(purchaseId, userId);
-                return Ok(result);
-            }
-            catch (UnauthorizedAccessException ua)
-            {
-                return Unauthorized(new { message = ua.Message, error = nameof(UnauthorizedAccessException) });
-            }
-            catch (NotFoundException nf)
-            {
-                return NotFound(new { message = nf.Message, error = nameof(NotFoundException) });
-            }
-            catch (BusinessRuleException br)
-            {
-                return BadRequest(new { message = br.Message, error = nameof(BusinessRuleException) });
-            }
-            catch (Exception ex)
-            {
-                return BadRequest(new { message = string.Format(ExceptionMessages.PaymentLinkCreationFailed, ex.Message), error = ex.Message });
-            }
+            var userId = GetCurrentUserId();
+            var result = await _paymentService.CreatePaymentLinkAsync(purchaseId, userId);
+            return Ok(result);
         }
 
         [HttpPost("restore/{purchaseId:int}")]
@@ -68,24 +52,9 @@ namespace GameHubApi.Controllers
         [HttpPost("confirm-link")]
         public async Task<IActionResult> ConfirmPaymentLink([FromBody] PaymentLinkConfirmRequest request)
         {
-            try
-            {
-                var userId = GetCurrentUserId();
-                var result = await _paymentService.ConfirmPaymentLinkAsync(request, userId);
-                return Ok(result);
-            }
-            catch (UnauthorizedAccessException ua)
-            {
-                return Unauthorized(new { message = ua.Message, error = nameof(UnauthorizedAccessException) });
-            }
-            catch (NotFoundException nf)
-            {
-                return NotFound(new { message = nf.Message, error = nameof(NotFoundException) });
-            }
-            catch (Exception ex)
-            {
-                return BadRequest(new { message = string.Format(ExceptionMessages.PaymentLinkCreationFailed, ex.Message), error = ex.Message });
-            }
+            var userId = GetCurrentUserId();
+            var result = await _paymentService.ConfirmPaymentLinkAsync(request, userId);
+            return Ok(result);
         }
 
         private int GetCurrentUserId()

@@ -7,7 +7,9 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.OpenApi.Models;
+using System.Threading.RateLimiting;
 using System.Security.Claims;
 using System.Text;
 using System.Text.Json;
@@ -131,6 +133,34 @@ builder.Services.AddAuthentication(options =>
 // 6. Authorization
 builder.Services.AddAuthorization();
 
+// 6.1 Outbound HttpClient for Razorpay calls (one pooled client instead of a
+// new HttpClient + Basic-auth header per call).
+builder.Services.AddHttpClient("Razorpay", client =>
+{
+    client.BaseAddress = new Uri("https://api.razorpay.com/v1/");
+    client.Timeout = TimeSpan.FromSeconds(30);
+    var keyId = builder.Configuration["Razorpay:KeyId"];
+    var keySecret = builder.Configuration["Razorpay:KeySecret"];
+    if (!string.IsNullOrEmpty(keyId) && !string.IsNullOrEmpty(keySecret))
+        client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue(
+            "Basic", Convert.ToBase64String(Encoding.ASCII.GetBytes($"{keyId}:{keySecret}")));
+});
+
+// 6.2 Rate limiting for credential endpoints (fixed window per client IP).
+// Delete-account/blocked-IP escalation lives in hosting web.config/WAF if ever needed.
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.AddPolicy("login", httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            _ => new FixedWindowRateLimiterOptions { PermitLimit = 5, Window = TimeSpan.FromMinutes(1) }));
+    options.AddPolicy("otp-send", httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            _ => new FixedWindowRateLimiterOptions { PermitLimit = 3, Window = TimeSpan.FromMinutes(10) }));
+});
+
 // 7. Swagger with JWT support (lock icon)
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
@@ -176,8 +206,16 @@ app.UseMiddleware<ExceptionMiddleware>();
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<GameHub.Infrastructure.Data.AppDbContext>();
-    db.Database.Migrate();
-    
+    try
+    {
+        db.Database.Migrate();
+    }
+    catch (Exception ex)
+    {
+        // Migrate failure no longer kills the app: it starts and every request
+        // fails loudly with a 500 instead of serving nothing at all.
+        app.Logger.LogError(ex, "Database migration failed at startup — API will serve requests but datastore calls will fail until the database is reachable.");
+    }
 }
 
 if (app.Environment.IsDevelopment())
@@ -188,6 +226,7 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 app.UseCors("DefaultCors");
+app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();

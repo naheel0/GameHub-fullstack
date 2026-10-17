@@ -6,7 +6,7 @@ namespace GameHub.Application.Services
     {
         Task<OrderDto> PlaceOrderAsync(int userId, PlaceOrderRequest request);
         Task<OrderDto> BuyNowAsync(int userId, BuyNowRequest request);
-        Task<List<OrderDto>> GetOrderHistoryAsync(int userId);
+        Task<(List<OrderDto> Items, int TotalCount)> GetOrderHistoryAsync(int userId, int page, int pageSize);
         Task<OrderDto?> GetOrderByIdAsync(int userId, Guid orderId);
     }
 }

@@ -37,11 +37,13 @@ namespace GameHubApi.Controllers
         }
         
         [HttpGet]
-        public async Task<IActionResult> GetOrderHistory()
+        public async Task<IActionResult> GetOrderHistory([FromQuery] int page = 1, [FromQuery] int pageSize = 50)
         {
             var userId = GetCurrentUserId();
-            var order = await _orderService.GetOrderHistoryAsync(userId);
-            return Ok(order);
+            page = Math.Max(1, page);
+            var (items, totalCount) = await _orderService.GetOrderHistoryAsync(userId, page, Math.Clamp(pageSize, 1, 100));
+            Response.Headers["X-Total-Count"] = totalCount.ToString();
+            return Ok(items);
         }
         [HttpGet("{orderId}")]
         public async Task<IActionResult> GetOrdersById(Guid orderId)

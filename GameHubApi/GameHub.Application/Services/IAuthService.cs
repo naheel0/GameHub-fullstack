@@ -6,7 +6,7 @@ namespace GameHub.Application.Services;
 public interface IAuthService
 {
     Task<ApiResponse<AuthResponse>> RegisterAsync(RegisterRequest request);
-    Task<ApiResponse<AuthResponse>> LoginAsync(LoginRequest request, object newRefreshToken);
+    Task<ApiResponse<AuthResponse>> LoginAsync(LoginRequest request);
     Task<ApiResponse<AuthResponse>> RefreshTokenAsync(string refreshToken);
     Task Logout(int UserId, string? jti = null);
     Task<ApiResponse<AuthResponse>> GetProfileAsync(int userId);

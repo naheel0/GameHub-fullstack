@@ -84,8 +84,9 @@ namespace GameHub.Infrastructure.Services
             }
             else
             {
-
-                AddNewCartItem(userId, game, quantity);
+                // PUT updates an existing line; anything else is a stale
+                // client — 404 instead of silently creating a row.
+                throw new NotFoundException(nameof(ExceptionMessages.CartItemNotFound));
             }
 
             await _context.SaveChangeAsync();
@@ -105,11 +106,11 @@ namespace GameHub.Infrastructure.Services
 
         public async Task ClearCartAsync(int userId)
         {
+            // ExecuteDeleteAsync fires immediately; the old SaveChangeAsync after
+            // it was a no-op.
             await _context.CartItems
                 .Where(c => c.UserId == userId)
                 .ExecuteDeleteAsync();
-
-            await _context.SaveChangeAsync();
         }
 
         private void AddNewCartItem(int userId, Game game, int quantity)

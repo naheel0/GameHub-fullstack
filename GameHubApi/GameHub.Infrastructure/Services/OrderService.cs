@@ -177,17 +177,26 @@ public class OrderService : IOrderService
         });
     }
 
-    public async Task<List<OrderDto>> GetOrderHistoryAsync(int userId)
+    public async Task<(List<OrderDto> Items, int TotalCount)> GetOrderHistoryAsync(int userId, int page, int pageSize)
     {
-        var orders = await _context.Purchases
+        // ponytail: capped server paging (default 50, max 100) instead of unbounded
+        // order loads; UI pagination comes later if order volume ever demands it.
+        var query = _context.Purchases
             .Where(p => p.UserId == userId)
             .Include(p => p.Items)
             .Include(p => p.ShippingAddress)
-            .AsNoTracking()
+            .AsNoTracking();
+
+        var totalCount = await query.CountAsync();
+
+        var orders = await query
             .OrderByDescending(p => p.OrderDate)
+            .ThenBy(p => p.Id) // tiebreaker: OrderDate is datetime with second-level precision
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
             .ToListAsync();
 
-        return orders.Select(MapOrderToDto).ToList();
+        return (orders.Select(MapOrderToDto).ToList(), totalCount);
     }
 
     public async Task<OrderDto?> GetOrderByIdAsync(int userId, Guid orderId)

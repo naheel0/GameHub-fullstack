@@ -3,6 +3,7 @@ using GameHub.Application.Resources;
 using GameHub.Application.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace GameHubApi.Controllers
 {
@@ -24,6 +25,7 @@ namespace GameHubApi.Controllers
         }
 
         // ========== NEW: Send OTP for registration ==========
+        [EnableRateLimiting("otp-send")]
         [HttpPost("send-otp")]
         public async Task<IActionResult> SendOtp([FromBody] SendOtpRequest request)
         {
@@ -44,7 +46,7 @@ namespace GameHubApi.Controllers
             // 1. Verify OTP
             var isValid = await _otpService.VerifyOtpAsync(request.Email, request.Otp);
             if (!isValid)
-                return BadRequest(new { message = ExceptionMessages.InvalidOrExpiredRefreshToken });
+                return BadRequest(new { message = ExceptionMessages.OtpInvalid });
 
             // 2. OTP is correct – now register the user
             var registerRequest = new RegisterRequest
@@ -76,10 +78,11 @@ namespace GameHubApi.Controllers
 
         // ... rest of your existing methods (Login, Refresh, Logout, GetProfile, etc.) ...
 
+        [EnableRateLimiting("login")]
         [HttpPost("login")]
         public async Task<IActionResult> Login(LoginRequest request)
         {
-            var result = await _authService.LoginAsync(request, string.Empty);
+            var result = await _authService.LoginAsync(request);
             if (!result.Success)
                 return StatusCode(result.StatusCode != 0 ? result.StatusCode : 401, result);
             var refreshToken = result.Data?.RefreshToken ?? string.Empty;

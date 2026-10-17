@@ -13,7 +13,8 @@ namespace GameHub.Application.Validators.Admin
 
         private bool BeAValidRole(string role)
         {
-            return Enum.TryParse<Role>(role, true, out _);
+            // IsDefined rejects numeric out-of-range strings ("9") that TryParse alone accepts.
+            return Enum.TryParse<Role>(role, true, out var parsed) && Enum.IsDefined(typeof(Role), parsed);
         }
     }
 }
